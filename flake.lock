@@ -1,0 +1,81 @@
+{
+  "nodes": {
+    "alpaka-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1766138764,
+        "narHash": "sha256-xMdAfva5qJtRYWJoeUC0ozKqpAjFJKR0En2sjzqOKfg=",
+        "owner": "alpaka-group",
+        "repo": "alpaka",
+        "rev": "425876ddffd566df76dc2e51eb9246efcbc64d5b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "alpaka-group",
+        "ref": "2.1.1",
+        "repo": "alpaka",
+        "type": "github"
+      }
+    },
+    "cms-md5-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1467365529,
+        "narHash": "sha256-PJjiUoqTUTZJkUsOdwkT9RAbbPr4+j2jCrljqt89OcQ=",
+        "owner": "cms-externals",
+        "repo": "md5",
+        "rev": "d97a571864a119cd5408d2670d095b4410e926cc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-externals",
+        "ref": "cms/1.0.0",
+        "repo": "md5",
+        "type": "github"
+      }
+    },
+    "cmssw-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786446142,
+        "narHash": "sha256-0xir8MP5Dn7wAG4BREsQ90KL2ECXkHhQ6ODwe9feDT0=",
+        "owner": "cms-sw",
+        "repo": "cmssw",
+        "rev": "ca68b2fa55450e074c0dcc4d07f3fcbab9b8e866",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-sw",
+        "ref": "CMSSW_20_1_0_pre2",
+        "repo": "cmssw",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1786384358,
+        "narHash": "sha256-RzPPiWeUtuvymnpuEWsdtzli5w4kjZs49FqEs3/1u+I=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "2fcb964de67fcf60b43471c55d5d99e61a9ccb5a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "alpaka-src": "alpaka-src",
+        "cms-md5-src": "cms-md5-src",
+        "cmssw-src": "cmssw-src",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

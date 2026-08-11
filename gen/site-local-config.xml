@@ -1,0 +1,10 @@
+<!-- Minimal site configuration for running cmsRun outside of a CMS site.
+     PoolSource requires a SiteLocalConfig with at least one data catalog,
+     even when all input files are given as physical file names (file:...). -->
+<site-local-config>
+  <site name="T3_NIX_Local">
+    <data-access>
+      <catalog volume="LocalDisk" protocol="file"/>
+    </data-access>
+  </site>
+</site-local-config>

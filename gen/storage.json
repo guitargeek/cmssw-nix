@@ -1,0 +1,12 @@
+[
+  {
+    "site": "T3_NIX_Local",
+    "volume": "LocalDisk",
+    "protocols": [
+      {
+        "protocol": "file",
+        "prefix": "file:"
+      }
+    ]
+  }
+]

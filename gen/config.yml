@@ -1,0 +1,101 @@
+# Packages to build: the transitive closure needed for cmsRun + ROOT-file
+# input/output (PoolSource / PoolOutputModule) + the electron data formats used
+# by the MyAnalyzer example.
+bins:
+  - FWCore/Framework
+  - FWCore/PluginManager
+subsystems:
+    DataFormats:
+        # The plugins/ dirs of DataFormats packages contain alpaka accelerator
+        # modules for the SoA formats; we don't need them on a laptop.
+        no_plugins: true
+        whitelist:
+          - AlpakaCommon
+          - BeamSpot
+          - CLHEP
+          - CaloRecHit
+          - CaloTowers
+          - Candidate
+          - Common
+          - DetId
+          - EcalDetId
+          - EcalDigi
+          - EcalRecHit
+          - EgammaCandidates
+          - EgammaReco
+          - FTLRecHit
+          - ForwardDetId
+          - GeometryCommonDetAlgo
+          - GeometrySurface
+          - GeometryVector
+          - GsfTrackReco
+          - HcalDetId
+          - Math
+          - MuonDetId
+          - Phase2TrackerCluster
+          - Phase2TrackerDigi
+          - Portable
+          - Provenance
+          - RecoCandidate
+          - Scouting
+          - SiPixelCluster
+          - SiPixelDetId
+          - SiStripCluster
+          - SiStripDetId
+          - SiStripDigi
+          - SoATemplate
+          - StdDictionaries
+          - TrackCandidate
+          - TrackReco
+          - TrackerCommon
+          - TrackerRecHit2D
+          - TrackingRecHit
+          - TrajectorySeed
+          - TrajectoryState
+          - TrivialSerialisation
+          - VertexReco
+          - WrappedStdDictionaries
+    FWCore:
+        whitelist:
+          - AbstractServices
+          - Common
+          - Concurrency
+          - Framework
+          - MessageLogger
+          - MessageService
+          - Modules
+          - ParameterSet
+          - ParameterSetReader
+          - PluginManager
+          - PrescaleService
+          - PythonParameterSet
+          - PythonUtilities
+          - Reflection
+          - ServiceRegistry
+          - Services
+          - Sources
+          - Utilities
+          - Version
+    FWStorage:
+        whitelist:
+          - Catalog
+          - Services
+          - StorageFactory
+          - TFileAdaptor
+    Geometry:
+        whitelist:
+          - CommonTopologies
+    HeterogeneousCore:
+        no_plugins: true
+        whitelist:
+          - AlpakaInterface
+          - TrivialSerialisation
+    IOPool:
+        whitelist:
+          - Common
+          - Input
+          - Output
+          - Provenance
+    SimDataFormats:
+        whitelist:
+          - RandomEngine
