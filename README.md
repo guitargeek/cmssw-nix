@@ -64,7 +64,9 @@ nix develop .#cmssw_10_6_30
 ```
 
 See [examples/MyAnalyzer](examples/MyAnalyzer) for building and running an
-analyzer plugin against this CMSSW installation.
+analyzer plugin against this CMSSW installation (self-contained, works with
+both releases), and [examples/MiniAODReader](examples/MiniAODReader) for
+reading a real CMS Open Data miniAOD file with the 10_6_30 package.
 
 ## Layout
 

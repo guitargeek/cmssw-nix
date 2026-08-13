@@ -2,5 +2,7 @@ result
 result-*
 examples/MyAnalyzer/build/
 examples/MyAnalyzer/myelectrons.root
+examples/MiniAODReader/build/
+examples/MiniAODReader/miniaod.root
 *.pyc
 __pycache__/
