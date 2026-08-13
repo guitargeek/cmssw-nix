@@ -1,0 +1,90 @@
+# Packages to build for CMSSW_10_6_X: the transitive closure needed for cmsRun
+# + ROOT-file input/output (PoolSource / PoolOutputModule) + the electron data
+# formats used by the MyAnalyzer example. Same scope as config.yml, with the
+# 10_6-era package layout: no FWStorage (that code lives in
+# Utilities/StorageFactory, IOPool/TFileAdaptor and FWCore/Catalog), no
+# alpaka/SoA data formats, xerces-c based site-config parsing.
+bins:
+  - FWCore/Framework
+  - FWCore/PluginManager
+subsystems:
+    DataFormats:
+        no_plugins: true
+        whitelist:
+          - BeamSpot
+          - CLHEP
+          - CaloRecHit
+          - CaloTowers
+          - Candidate
+          - Common
+          - DetId
+          - EgammaCandidates
+          - EgammaReco
+          - FTLRecHit
+          - ForwardDetId
+          - GeometryCommonDetAlgo
+          - GeometrySurface
+          - GeometryVector
+          - GsfTrackReco
+          - HcalDetId
+          - Math
+          - MuonDetId
+          - Phase2TrackerCluster
+          - Phase2TrackerDigi
+          - Provenance
+          - RecoCandidate
+          # not in the strict BuildFile closure, but the TrackerRecHit2D
+          # dictionary references SiPixelCluster (cling autoload warning
+          # otherwise)
+          - SiPixelCluster
+          - SiPixelDetId
+          - SiStripCluster
+          - SiStripDetId
+          - StdDictionaries
+          - Streamer
+          - TrackCandidate
+          - TrackReco
+          - TrackerCommon
+          - TrackerRecHit2D
+          - TrackingRecHit
+          - TrajectorySeed
+          - TrajectoryState
+          - VertexReco
+          - WrappedStdDictionaries
+    FWCore:
+        whitelist:
+          - Catalog
+          - Common
+          - Concurrency
+          - Framework
+          - MessageLogger
+          - MessageService
+          - Modules
+          - ParameterSet
+          - ParameterSetReader
+          - PluginManager
+          - PrescaleService
+          - PythonParameterSet
+          - PythonUtilities
+          - ServiceRegistry
+          - Services
+          - Sources
+          - Utilities
+          - Version
+    Geometry:
+        whitelist:
+          - CommonDetUnit
+    IOPool:
+        whitelist:
+          - Common
+          - Input
+          - Output
+          - Provenance
+          - TFileAdaptor
+    SimDataFormats:
+        whitelist:
+          - RandomEngine
+    Utilities:
+        whitelist:
+          - StorageFactory
+          - Xerces

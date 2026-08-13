@@ -7,23 +7,33 @@
 , python3
 , root
 , boost
-, onetbb
+, tbb
 , clhep
 , eigen
 , tinyxml-2
 , fmt
-, cpu_features
 , libuuid
 , openssl
 , zlib
 , jemalloc
 , pybind11
-, alpaka-src
 , cms-md5
+# version-dependent bits: 20_1-era releases use alpaka and cpu_features,
+# 10_6-era ones parse the site config with xerces-c and use the pre-2021
+# CMS_PATH/SITECONF site config layout.
+, configFile ? ../gen/config.yml
+, cxxStandard ? "20"
+, alpaka-src ? null
+, cpu_features ? null
+, xercesc ? null
+, legacySiteConf ? false
+# extra python packages for the runtime environment (e.g. six for 10_6-era
+# python config code)
+, extraPythonPackages ? (ps: [ ])
 }:
 
 let
-  pythonEnv = python3.withPackages (ps: [ ps.pyyaml ]);
+  pythonEnv = python3.withPackages (ps: [ ps.pyyaml ] ++ extraPythonPackages ps);
 in
 stdenv.mkDerivation {
   pname = "cmssw";
@@ -36,12 +46,11 @@ stdenv.mkDerivation {
   buildInputs = [
     root
     boost
-    onetbb
+    tbb
     clhep
     eigen
     tinyxml-2
     fmt
-    cpu_features
     libuuid
     openssl
     zlib
@@ -49,7 +58,8 @@ stdenv.mkDerivation {
     pybind11
     python3
     cms-md5
-  ];
+  ] ++ lib.optional (cpu_features != null) cpu_features
+    ++ lib.optional (xercesc != null) xercesc;
 
   # We drive cmake manually because of the custom source layout (top-level
   # CMakeLists.txt above the cmssw source tree).
@@ -68,10 +78,11 @@ stdenv.mkDerivation {
   postPatch = ''
     cp ${../gen/CMakeLists.txt} CMakeLists.txt
     cp ${../gen/cmssw_cmake.py} cmssw_cmake.py
-    cp ${../gen/config.yml} config.yml
+    cp ${configFile} config.yml
 
-    # Trim to the plain cmsRun binary and drop the XrdAdaptor dependency.
-    python3 ${../gen/prepare_sources.py}
+    # Trim to the plain cmsRun binary, drop the XrdAdaptor dependency and
+    # apply version-specific fixups.
+    python3 ${../gen/prepare_sources.py} ${version}
   '';
 
   configurePhase = ''
@@ -86,7 +97,11 @@ stdenv.mkDerivation {
       -DCMAKE_INSTALL_BINDIR=bin \
       -DCMAKE_INSTALL_RPATH=$out/lib \
       -DCMAKE_INSTALL_RPATH_USE_LINK_PATH=ON \
-      -Dalpaka_INCLUDE_DIRECTORIES=${alpaka-src}/include \
+      -DCMSSW_CXX_STANDARD=${cxxStandard} \
+      ${lib.optionalString (alpaka-src != null)
+        "-DCMSSW_WITH_ALPAKA=ON -Dalpaka_INCLUDE_DIRECTORIES=${alpaka-src}/include"} \
+      ${lib.optionalString (cpu_features != null) "-DCMSSW_WITH_CPU_FEATURES=ON"} \
+      ${lib.optionalString (xercesc != null) "-DCMSSW_WITH_XERCESC=ON"} \
       -DCMSSW_VERSION=${version} \
       -DCMSSW_BUILD_BIN=ON \
       -DCMSSW_BUILD_PLUGINS=ON \
@@ -152,9 +167,17 @@ stdenv.mkDerivation {
     $out/bin/edmPluginRefresh $out/lib
 
     # Minimal site configuration so that PoolSource works without a real CMS
-    # site setup (SITECONFIG_PATH points here, see the setup hook).
-    install -Dm644 ${../gen/site-local-config.xml} $out/siteconf/JobConfig/site-local-config.xml
-    install -Dm644 ${../gen/storage.json} $out/siteconf/storage.json
+    # site setup (the setup hook points SITECONFIG_PATH / CMS_PATH here).
+    ${if legacySiteConf then ''
+      install -Dm644 ${../gen/site-local-config-10_6.xml} \
+        $out/SITECONF/local/JobConfig/site-local-config.xml
+      install -Dm644 ${../gen/storage-10_6.xml} $out/SITECONF/local/PhEDEx/storage.xml
+      substituteInPlace $out/SITECONF/local/JobConfig/site-local-config.xml \
+        --subst-var out
+    '' else ''
+      install -Dm644 ${../gen/site-local-config.xml} $out/siteconf/JobConfig/site-local-config.xml
+      install -Dm644 ${../gen/storage.json} $out/siteconf/storage.json
+    ''}
 
     # Environment needed to use this CMSSW install, applied automatically when
     # the package is used in a nix shell.

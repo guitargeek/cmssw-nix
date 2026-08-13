@@ -1,0 +1,5 @@
+<!-- Trivial file catalog: map LFNs 1:1 to local filesystem paths. -->
+<storage-mapping>
+  <lfn-to-pfn protocol="direct" path-match="/+(.*)" result="/$1"/>
+  <pfn-to-lfn protocol="direct" path-match="/+(.*)" result="/$1"/>
+</storage-mapping>

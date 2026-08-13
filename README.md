@@ -1,8 +1,15 @@
 # CMSSW on nix
 
-A nix flake that packages a subset of [CMSSW](https://github.com/cms-sw/cmssw)
-(`CMSSW_20_1_0_pre2`), built with cmake instead of scram. It is the successor
-of the [Arch Linux PKGBUILD experiment](../PKGBUILDs/cmssw): the
+A nix flake that packages a subset of [CMSSW](https://github.com/cms-sw/cmssw),
+built with cmake instead of scram. Two release eras are provided:
+
+* `CMSSW_20_1_0_pre2` (default) — against nixos-unstable
+* `CMSSW_10_6_30` (the Run-2 ultra-legacy release) — against nixos-22.05,
+  whose toolchain matches the release era (gcc 11 / C++17, ROOT 6.24, classic
+  TBB 2020.3 with the `tbb::task` API, python 3.9)
+
+It is the successor of the
+[Arch Linux PKGBUILD experiment](../PKGBUILDs/cmssw): the
 `BuildFile.xml` → `CMakeLists.txt` conversion script from there lives on in
 [gen/cmssw_cmake.py](gen/cmssw_cmake.py), now driven by a nix derivation.
 
@@ -16,10 +23,15 @@ work with electron collections, i.e. the transitive closure of:
 * `DataFormats` up to `EgammaCandidates` (`reco::GsfElectron` & friends),
   including the ROOT/reflex dictionaries needed to read and write them
 
-The package list is defined in [gen/config.yml](gen/config.yml); the exact
+The package list is defined in [gen/config.yml](gen/config.yml)
+([gen/config-10_6.yml](gen/config-10_6.yml) for the 10_6-era package layout,
+where the storage code lives in `Utilities/StorageFactory`,
+`IOPool/TFileAdaptor` and `FWCore/Catalog` instead of `FWStorage`); the exact
 set of external dependencies is resolved in [gen/CMakeLists.txt](gen/CMakeLists.txt).
 Everything comes from nixpkgs except two tiny CMS externals packaged here
-(`cms-md5`, alpaka headers). ROOT is rebuilt with C++20 to match CMSSW.
+(`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
+C++20 to match CMSSW; the ROOT 6.24 of nixos-22.05 is already C++17 and is
+used as-is for `CMSSW_10_6_30`.
 
 ## Usage
 
@@ -29,6 +41,10 @@ nix develop        # shell with cmsRun, CMSSW libs and headers, cmake, ROOT
 
 # inside the shell, CMSSW_BASE etc. are set up:
 echo $CMSSW_BASE   # -> /nix/store/...-cmssw-CMSSW_20_1_0_pre2
+
+# the same for the 10_6 era:
+nix build .#cmssw_10_6_30
+nix develop .#cmssw_10_6_30
 ```
 
 See [examples/MyAnalyzer](examples/MyAnalyzer) for building and running an
@@ -47,8 +63,13 @@ analyzer plugin against this CMSSW installation.
 
 ## Notes
 
-* `devShells.build` is for hacking on the CMSSW build itself (all deps, no
-  cmssw): run the generator + cmake by hand against a local checkout.
+* `devShells.build` (and `devShells.build_10_6_30`) is for hacking on the
+  CMSSW build itself (all deps, no cmssw): run the generator + cmake by hand
+  against a local checkout.
+* The `CMSSW_10_6_30` build is the python3 variant of that release (upstream
+  shipped it as `cmsRunPython3`): the pybind11-based config parsing is simply
+  built against python 3 instead of python 2, which no longer exists in
+  nixpkgs.
 * The Geometry/HLT/Sim/RecoLocal... subsystems of the old Arch config are not
   included, but extending `gen/config.yml` (and the dependency list in
   `pkgs/cmssw.nix` + `gen/CMakeLists.txt`) is all it should take.

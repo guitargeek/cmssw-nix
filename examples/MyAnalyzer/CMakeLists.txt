@@ -1,9 +1,5 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.22)
 project(MyAnalyzer LANGUAGES CXX)
-
-# CMSSW is built with C++20
-set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 
@@ -14,12 +10,27 @@ if(NOT DEFINED ENV{CMSSW_BASE})
 endif()
 set(CMSSW_BASE $ENV{CMSSW_BASE})
 
+# Match the C++ standard CMSSW was built with (C++20 for modern releases,
+# C++17 for the 10_6 era).
+if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
+  set(CMAKE_CXX_STANDARD 17)
+else()
+  set(CMAKE_CXX_STANDARD 20)
+endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 include_directories(${CMSSW_BASE}/src)
 link_directories(${CMSSW_BASE}/lib)
 
 find_package(ROOT REQUIRED)
 find_package(Boost REQUIRED)
-find_package(TBB REQUIRED)
+# oneTBB ships a cmake config; classic TBB 2020 (10_6 era) does not.
+find_package(TBB QUIET)
+if(TBB_FOUND)
+  set(TBB_LIBS TBB::tbb)
+else()
+  find_library(TBB_LIBS NAMES tbb REQUIRED)
+endif()
 
 # Add the plugin library as a target and make sure the name of the .so file
 # starts with "plugin", as it would with scram.
@@ -34,5 +45,5 @@ target_link_libraries(MyAnalyzerPlugins
   DataFormatsCommon
   DataFormatsEgammaCandidates
   ROOT::Core ROOT::GenVector
-  TBB::tbb
+  ${TBB_LIBS}
 )

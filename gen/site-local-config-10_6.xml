@@ -1,0 +1,17 @@
+<!-- Minimal site configuration for the 10_6-era SiteLocalConfigService
+     (FWCore/Services), which looks it up at
+     $CMS_PATH/SITECONF/local/JobConfig/site-local-config.xml.
+     The catalog points to a trivial file catalog that maps LFNs 1:1 to local
+     paths; @out@ is substituted with the nix store path at install time. -->
+<site-local-config>
+  <site name="T3_NIX_Local">
+    <event-data>
+      <catalog url="trivialcatalog_file:@out@/SITECONF/local/PhEDEx/storage.xml?protocol=direct"/>
+    </event-data>
+    <local-stage-out>
+      <catalog url="trivialcatalog_file:@out@/SITECONF/local/PhEDEx/storage.xml?protocol=direct"/>
+      <se-name value="localhost"/>
+      <phedex-node value="T3_NIX_Local"/>
+    </local-stage-out>
+  </site>
+</site-local-config>

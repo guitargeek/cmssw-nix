@@ -1,7 +1,12 @@
-cmake_minimum_required(VERSION 3.25)
+# 3.22 is what nixos-22.05 (used for the 10_6-era builds) ships
+cmake_minimum_required(VERSION 3.22)
 project(CMSSW LANGUAGES C CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+# C++ standard of the release era (20 for >= 13_X, 17 for the 10_6 era).
+if(NOT DEFINED CMSSW_CXX_STANDARD)
+  set(CMSSW_CXX_STANDARD 20)
+endif()
+set(CMAKE_CXX_STANDARD ${CMSSW_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -19,7 +24,6 @@ endif()
 find_package(ROOT REQUIRED)
 find_package(Boost REQUIRED COMPONENTS
   filesystem thread regex serialization program_options iostreams date_time)
-find_package(TBB REQUIRED)
 find_package(CLHEP REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -27,15 +31,29 @@ find_package(pybind11 REQUIRED)
 find_package(tinyxml2 REQUIRED)
 find_package(fmt REQUIRED)
 
+# oneTBB ships a cmake config; classic TBB 2020 (10_6 era) does not.
+find_package(TBB QUIET)
+if(NOT TBB_FOUND)
+  find_library(TBB_PLAIN_LIBRARY NAMES tbb REQUIRED)
+endif()
+
 find_library(md5_LIBRARIES NAMES cms-md5 REQUIRED)
 find_path(md5_INCLUDE_DIRECTORIES NAMES md5.h REQUIRED)
 find_library(libuuid_LIBRARIES NAMES uuid REQUIRED)
 find_library(openssl_LIBRARIES NAMES crypto REQUIRED)
 find_library(zlib_LIBRARIES NAMES z REQUIRED)
 find_library(jemalloc_LIBRARIES NAMES jemalloc REQUIRED)
-find_library(cpu_features_LIBRARIES NAMES cpu_features REQUIRED)
-find_path(cpu_features_INCLUDE_DIRECTORIES NAMES cpu_features/cpu_features_macros.h REQUIRED)
-find_path(alpaka_INCLUDE_DIRECTORIES NAMES alpaka/alpaka.hpp REQUIRED)
+if(CMSSW_WITH_CPU_FEATURES)
+  find_library(cpu_features_LIBRARIES NAMES cpu_features REQUIRED)
+  find_path(cpu_features_INCLUDE_DIRECTORIES NAMES cpu_features/cpu_features_macros.h REQUIRED)
+endif()
+if(CMSSW_WITH_ALPAKA)
+  find_path(alpaka_INCLUDE_DIRECTORIES NAMES alpaka/alpaka.hpp REQUIRED)
+endif()
+if(CMSSW_WITH_XERCESC)
+  find_library(xerces-c_LIBRARIES NAMES xerces-c REQUIRED)
+  find_path(xerces-c_INCLUDE_DIRECTORIES NAMES xercesc/parsers/XercesDOMParser.hpp REQUIRED)
+endif()
 
 # ROOT: the scram tool names are fine-grained, but linking the common set of
 # ROOT libraries everywhere is fine for our purposes.
@@ -58,8 +76,12 @@ set(boost_program_options_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIRS})
 set(boost_regex_LIBRARIES Boost::regex)
 set(boost_serialization_LIBRARIES Boost::serialization)
 
-set(tbb_LIBRARIES TBB::tbb)
-find_path(tbb_INCLUDE_DIRECTORIES NAMES oneapi/tbb.h REQUIRED)
+if(TBB_FOUND)
+  set(tbb_LIBRARIES TBB::tbb)
+else()
+  set(tbb_LIBRARIES ${TBB_PLAIN_LIBRARY})
+endif()
+find_path(tbb_INCLUDE_DIRECTORIES NAMES oneapi/tbb.h tbb/tbb.h REQUIRED)
 
 set(clhep_LIBRARIES CLHEP::CLHEP)
 set(clhep_INCLUDE_DIRECTORIES ${CLHEP_INCLUDE_DIRS})
@@ -72,8 +94,19 @@ set(python3_LIBRARIES Python3::Python)
 set(python3_INCLUDE_DIRECTORIES ${Python3_INCLUDE_DIRS})
 set(py3-pybind11_LIBRARIES pybind11::headers Python3::Python)
 set(py3-pybind11_INCLUDE_DIRECTORIES ${pybind11_INCLUDE_DIRS} ${Python3_INCLUDE_DIRS})
+# The 10_6-era tool names ("python" was python2 back then; we build the
+# python3 variant of the release, which existed as cmsRunPython3).
+set(python_LIBRARIES Python3::Python)
+set(python_INCLUDE_DIRECTORIES ${Python3_INCLUDE_DIRS})
+set(py2-pybind11_LIBRARIES pybind11::headers Python3::Python)
+set(py2-pybind11_INCLUDE_DIRECTORIES ${pybind11_INCLUDE_DIRS} ${Python3_INCLUDE_DIRS})
 
-set(tinyxml2_LIBRARIES tinyxml2::tinyxml2)
+# tinyxml2 < 7 (10_6 era) exports the target without namespace
+if(TARGET tinyxml2::tinyxml2)
+  set(tinyxml2_LIBRARIES tinyxml2::tinyxml2)
+else()
+  set(tinyxml2_LIBRARIES tinyxml2)
+endif()
 find_path(tinyxml2_INCLUDE_DIRECTORIES NAMES tinyxml2.h REQUIRED)
 
 set(fmt_LIBRARIES fmt::fmt)
@@ -93,9 +126,6 @@ add_compile_definitions(
   TBB_SUPPRESS_DEPRECATED_MESSAGES
   TBB_PREVIEW_RESUMABLE_TASKS=1
   TBB_PREVIEW_TASK_GROUP_EXTENSIONS=1
-  ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
-  ALPAKA_DISABLE_VENDOR_RNG
-  ALPAKA_HAS_STD_ATOMIC_REF
   PROJECT_NAME=CMSSW
   PROJECT_VERSION=${CMSSW_VERSION}
   CMS_MICRO_ARCH="x86-64"
@@ -103,8 +133,15 @@ add_compile_definitions(
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -msse3 -Wno-deprecated-declarations -Wno-attributes -Wno-unused-result -Wno-psabi")
 
-# alpaka headers are needed nearly everywhere the SoA data formats appear
-include_directories(${alpaka_INCLUDE_DIRECTORIES})
+if(CMSSW_WITH_ALPAKA)
+  add_compile_definitions(
+    ALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
+    ALPAKA_DISABLE_VENDOR_RNG
+    ALPAKA_HAS_STD_ATOMIC_REF
+  )
+  # alpaka headers are needed nearly everywhere the SoA data formats appear
+  include_directories(${alpaka_INCLUDE_DIRECTORIES})
+endif()
 
 # ---------------------------------------------------------------------------
 # Macros for LCG/reflex dictionary generation
