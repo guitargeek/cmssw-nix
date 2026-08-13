@@ -72,6 +72,7 @@
         configFile = ./gen/config-10_6.yml;
         cxxStandard = "17";
         xercesc = pkgs2205.xercesc;
+        hepmc = pkgs2205.hepmc2;
         legacySiteConf = true;
         # the 10_6-era python config code still imports six and past (future)
         extraPythonPackages = ps: [ ps.six ps.future ];

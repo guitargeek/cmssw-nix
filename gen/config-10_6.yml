@@ -1,38 +1,91 @@
 # Packages to build for CMSSW_10_6_X: the transitive closure needed for cmsRun
 # + ROOT-file input/output (PoolSource / PoolOutputModule) + the electron data
-# formats used by the MyAnalyzer example. Same scope as config.yml, with the
-# 10_6-era package layout: no FWStorage (that code lives in
-# Utilities/StorageFactory, IOPool/TFileAdaptor and FWCore/Catalog), no
-# alpaka/SoA data formats, xerces-c based site-config parsing.
+# formats used by the MyAnalyzer example, extended by the remaining reco
+# physics-object data formats (muons, jets, MET, taus, b-tagging, particle
+# flow, calorimeter and muon-chamber local reco, L1/HLT trigger objects).
+# Same scope as config.yml otherwise, with the 10_6-era package layout: no
+# FWStorage (that code lives in Utilities/StorageFactory, IOPool/TFileAdaptor
+# and FWCore/Catalog), no alpaka/SoA data formats, xerces-c based site-config
+# parsing.
+#
+# Also included: DataFormats/PatCandidates and its closure (CondFormats
+# L1TObjects/Serialization, SimDataFormats GeneratorProducts/JetMatching —
+# these bring in the HepMC external — plus Luminosity and PileupSummaryInfo),
+# so the pat:: content of miniAOD files can be read. Producing miniAOD or
+# nanoAOD would need much more (PhysicsTools, CondCore + CORAL, TensorFlow).
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
 subsystems:
+    CondFormats:
+        whitelist:
+          - L1TObjects
+          - Serialization
     DataFormats:
         no_plugins: true
         whitelist:
+          - BTauReco
           - BeamSpot
           - CLHEP
+          - CSCRecHit
+          # CTPPS + forward protons + L1 stage-2 trigger blocks: present in
+          # every UL2016 miniAOD event record
+          - CTPPSDetId
+          - CTPPSDigi
+          - CTPPSReco
           - CaloRecHit
           - CaloTowers
           - Candidate
           - Common
+          - DTDigi
+          - DTRecHit
           - DetId
+          - EcalDetId
+          # EcalRecHit's collection headers reach the EcalDigi data frames
+          - EcalDigi
+          - EcalRecHit
           - EgammaCandidates
           - EgammaReco
+          - EgammaTrackReco
+          - FEDRawData
           - FTLRecHit
           - ForwardDetId
+          - GEMRecHit
           - GeometryCommonDetAlgo
           - GeometrySurface
           - GeometryVector
           - GsfTrackReco
+          - HLTReco
           - HcalDetId
+          - HcalDigi
+          # referenced by HLTReco's TriggerRefsCollections dictionary
+          - HcalIsolatedTrack
+          - HcalRecHit
+          - HepMCCandidate
+          - JetReco
+          - L1CaloTrigger
+          - L1GlobalCaloTrigger
+          - L1GlobalMuonTrigger
+          - L1GlobalTrigger
+          - L1TGlobal
+          - L1Trigger
+          - Luminosity
+          - METReco
           - Math
+          # header-only (MuonDigiCollection, referenced by the digi dictionaries)
+          - MuonData
           - MuonDetId
+          - MuonReco
+          - MuonSeed
+          - ParticleFlowCandidate
+          - ParticleFlowReco
+          - PatCandidates
           - Phase2TrackerCluster
           - Phase2TrackerDigi
+          - ProtonReco
           - Provenance
           - RecoCandidate
+          - Scalers
           # not in the strict BuildFile closure, but the TrackerRecHit2D
           # dictionary references SiPixelCluster (cling autoload warning
           # otherwise)
@@ -40,8 +93,11 @@ subsystems:
           - SiPixelDetId
           - SiStripCluster
           - SiStripDetId
+          # SiStripCluster's header reaches the strip digi headers
+          - SiStripDigi
           - StdDictionaries
           - Streamer
+          - TauReco
           - TrackCandidate
           - TrackReco
           - TrackerCommon
@@ -73,6 +129,7 @@ subsystems:
           - Version
     Geometry:
         whitelist:
+          - CaloGeometry
           - CommonDetUnit
     IOPool:
         whitelist:
@@ -83,6 +140,9 @@ subsystems:
           - TFileAdaptor
     SimDataFormats:
         whitelist:
+          - GeneratorProducts
+          - JetMatching
+          - PileupSummaryInfo
           - RandomEngine
     Utilities:
         whitelist:

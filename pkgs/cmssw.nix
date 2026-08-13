@@ -26,6 +26,10 @@
 , alpaka-src ? null
 , cpu_features ? null
 , xercesc ? null
+# HepMC 2 + liblzma, needed by SimDataFormats/GeneratorProducts (part of the
+# miniAOD-reading closure of the 10_6 config)
+, hepmc ? null
+, xz
 , legacySiteConf ? false
 # extra python packages for the runtime environment (e.g. six for 10_6-era
 # python config code)
@@ -59,7 +63,8 @@ stdenv.mkDerivation {
     python3
     cms-md5
   ] ++ lib.optional (cpu_features != null) cpu_features
-    ++ lib.optional (xercesc != null) xercesc;
+    ++ lib.optional (xercesc != null) xercesc
+    ++ lib.optionals (hepmc != null) [ hepmc xz ];
 
   # We drive cmake manually because of the custom source layout (top-level
   # CMakeLists.txt above the cmssw source tree).
@@ -102,6 +107,7 @@ stdenv.mkDerivation {
         "-DCMSSW_WITH_ALPAKA=ON -Dalpaka_INCLUDE_DIRECTORIES=${alpaka-src}/include"} \
       ${lib.optionalString (cpu_features != null) "-DCMSSW_WITH_CPU_FEATURES=ON"} \
       ${lib.optionalString (xercesc != null) "-DCMSSW_WITH_XERCESC=ON"} \
+      ${lib.optionalString (hepmc != null) "-DCMSSW_WITH_HEPMC=ON"} \
       -DCMSSW_VERSION=${version} \
       -DCMSSW_BUILD_BIN=ON \
       -DCMSSW_BUILD_PLUGINS=ON \

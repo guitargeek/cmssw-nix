@@ -142,3 +142,125 @@ if release_cycle < (11, 0):
         "cmssw/IOPool/Input/src/RootTree.cc",
         insert_after('#include "TTree.h"', '#include "TLeaf.h"'),
     )
+
+    # TauReco's dictionary header includes two pat:: headers, but none of its
+    # classes_def entries use pat types; drop them instead of pulling the
+    # whole PatCandidates package (and its CondFormats chain) into the build.
+    edit(
+        "cmssw/DataFormats/TauReco/src/classes_3.h",
+        lambda src: src.replace('#include "DataFormats/PatCandidates/interface/Jet.h"\n', "").replace(
+            '#include "DataFormats/PatCandidates/interface/PackedCandidate.h"\n', ""),
+    )
+
+    # CondFormats/Serialization's bundled eos portable archive selects boost
+    # spirit's private endian/fpclassify headers for boost >= 1.48, but those
+    # were removed in boost 1.69. Map the usage onto the modern boost.endian /
+    # boost.math equivalents. The files are CRLF + latin-1 encoded, so they
+    # get their own editor.
+    endian_shim = "\r\n".join([
+        "#ifndef EOS_ENDIAN_COMPAT_SHIM",
+        "#define EOS_ENDIAN_COMPAT_SHIM",
+        "namespace eos_endian_compat {",
+        "  template <typename T, std::size_t N>",
+        "  inline T load_little_endian(const void* bytes) {",
+        "    T t;",
+        "    std::memcpy(&t, bytes, sizeof(T));",
+        "    return boost::endian::little_to_native(t);",
+        "  }",
+        "  template <typename T, std::size_t N>",
+        "  inline void store_little_endian(void* bytes, T t) {",
+        "    t = boost::endian::native_to_little(t);",
+        "    std::memcpy(bytes, &t, sizeof(T));",
+        "  }",
+        "}",
+        "#endif",
+        "",
+        "",
+    ])
+
+    # the subset of Johan Rade's fp_utilities (the spirit copy of which the
+    # archives used) that they actually need: the IEEE754 bit masks and
+    # raw-bit access, plus isfinite/fpclassify
+    fp_shim = "\r\n".join([
+        "#ifndef EOS_FP_COMPAT_SHIM",
+        "#define EOS_FP_COMPAT_SHIM",
+        "namespace eos_fp_compat {",
+        "  template <typename T> inline bool isfinite(T t) { return std::isfinite(t); }",
+        "  template <typename T> inline int fpclassify(T t) { return std::fpclassify(t); }",
+        "  namespace detail {",
+        "    template <typename T> struct fp_traits_compat;",
+        "    template <> struct fp_traits_compat<float> {",
+        "      typedef std::uint32_t bits;",
+        "      static constexpr bits sign     = 0x80000000u;",
+        "      static constexpr bits exponent = 0x7f800000u;",
+        "      static constexpr bits mantissa = 0x007fffffu;",
+        "      static void get_bits(float x, bits& b) { std::memcpy(&b, &x, sizeof(b)); }",
+        "      static void set_bits(float& x, bits b) { std::memcpy(&x, &b, sizeof(b)); }",
+        "    };",
+        "    template <> struct fp_traits_compat<double> {",
+        "      typedef std::uint64_t bits;",
+        "      static constexpr bits sign     = 0x8000000000000000ull;",
+        "      static constexpr bits exponent = 0x7ff0000000000000ull;",
+        "      static constexpr bits mantissa = 0x000fffffffffffffull;",
+        "      static void get_bits(double x, bits& b) { std::memcpy(&b, &x, sizeof(b)); }",
+        "      static void set_bits(double& x, bits b) { std::memcpy(&x, &b, sizeof(b)); }",
+        "    };",
+        "    template <typename T> struct fp_traits { typedef fp_traits_compat<T> type; };",
+        "  }",
+        "}",
+        "#endif",
+        "",
+        "",
+    ])
+
+    def fix_eos_portable_archive(path):
+        with open(path, encoding="latin-1", newline="") as f:
+            src = f.read()
+        if "boost/spirit/home/support/detail/endian" not in src:  # rerun
+            return
+        src = src.replace(
+            "#include <boost/spirit/home/support/detail/endian/endian.hpp>",
+            "#include <boost/endian/conversion.hpp>\r\n#include <cstring>",
+        )
+        # both branches of the version ladder; only the >= 1.48 one is active
+        src = src.replace(
+            "#include <boost/spirit/home/support/detail/math/fpclassify.hpp>",
+            "#include <cmath>\r\n#include <cstdint>",
+        )
+        src = src.replace(
+            "namespace fp = boost::spirit::math;",
+            fp_shim + "namespace fp = eos_fp_compat;",
+        )
+        src = src.replace(
+            "namespace endian = boost::spirit::detail;",
+            endian_shim + "namespace endian = eos_endian_compat;",
+        )
+        with open(path, "w", encoding="latin-1", newline="") as f:
+            f.write(src)
+
+    fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_iarchive.hpp")
+    fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_oarchive.hpp")
+
+    # FeaturesTagInfo only uses edm::RefToBase<reco::Jet>; its pat::Jet
+    # include is unused (later CMSSW versions dropped it too) and would pull
+    # PatCandidates headers into the dictionary parse at runtime.
+    edit(
+        "cmssw/DataFormats/BTauReco/interface/FeaturesTagInfo.h",
+        lambda src: src.replace(
+            '#include "DataFormats/PatCandidates/interface/Jet.h"',
+            '#include "DataFormats/JetReco/interface/Jet.h"',
+        ),
+    )
+
+    # PFCluster.cc is the only user of the vdt fast-math headers, which
+    # nixos-22.05 does not package; std::log computes the same thing (only
+    # slower and more accurately).
+    def drop_vdt(src):
+        src = src.replace('#include "vdt/vdtMath.h"\n', "")
+        return src.replace("vdt::fast_log(", "std::log(")
+
+    edit("cmssw/DataFormats/ParticleFlowReco/src/PFCluster.cc", drop_vdt)
+    edit(
+        "cmssw/DataFormats/ParticleFlowReco/BuildFile.xml",
+        lambda xml: xml.replace('<use   name="vdt_headers"/>\n', ""),
+    )

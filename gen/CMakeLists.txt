@@ -54,6 +54,14 @@ if(CMSSW_WITH_XERCESC)
   find_library(xerces-c_LIBRARIES NAMES xerces-c REQUIRED)
   find_path(xerces-c_INCLUDE_DIRECTORIES NAMES xercesc/parsers/XercesDOMParser.hpp REQUIRED)
 endif()
+if(CMSSW_WITH_HEPMC)
+  find_library(hepmc_LIBRARIES NAMES HepMC REQUIRED)
+  find_path(hepmc_INCLUDE_DIRECTORIES NAMES HepMC/GenEvent.h REQUIRED)
+  # the same package (SimDataFormats/GeneratorProducts) also uses liblzma
+  # through the scram tool name "xz"
+  find_library(xz_LIBRARIES NAMES lzma REQUIRED)
+  find_path(xz_INCLUDE_DIRECTORIES NAMES lzma.h REQUIRED)
+endif()
 
 # ROOT: the scram tool names are fine-grained, but linking the common set of
 # ROOT libraries everywhere is fine for our purposes.

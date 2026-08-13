@@ -28,6 +28,22 @@ The package list is defined in [gen/config.yml](gen/config.yml)
 where the storage code lives in `Utilities/StorageFactory`,
 `IOPool/TFileAdaptor` and `FWCore/Catalog` instead of `FWStorage`); the exact
 set of external dependencies is resolved in [gen/CMakeLists.txt](gen/CMakeLists.txt).
+The 10_6 build additionally covers the remaining reco physics-object data
+formats: muons, jets, MET, taus, b-tagging, particle flow, Ecal/Hcal rec hits
+and digis, muon-chamber local reco (CSC/DT/GEM), L1/HLT trigger objects and
+`reco::GenParticle` — everything needed to read the high-level content of a
+Run-2 AOD event — plus `DataFormats/PatCandidates` and its closure (two
+`CondFormats` packages, the `SimDataFormats` generator products with the
+HepMC external, pileup summary, luminosity) and the CTPPS / forward-proton /
+L1-stage-2 formats, so complete miniAOD event records can be read. This is
+validated against a real file: a `RunIISummer20UL16MiniAODv2` MINIAODSIM
+file from [CMS Open Data](https://opendata.cern.ch) (produced with
+CMSSW_10_6_30 itself) reads cleanly — every branch, no dictionary warnings.
+Files on `eospublic` can be fetched without xrootd through the portal's
+HTTP proxy: `https://opendata.cern.ch/eos/opendata/<path>`. *Producing*
+miniAOD/nanoAOD is out of scope: that would need the
+`PhysicsTools`/`RecoXyz` plugin packages, and conditions access (`CondCore`
++ the CORAL and frontier externals) plus TensorFlow C++.
 Everything comes from nixpkgs except two tiny CMS externals packaged here
 (`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
 C++20 to match CMSSW; the ROOT 6.24 of nixos-22.05 is already C++17 and is
