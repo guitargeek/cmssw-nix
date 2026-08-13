@@ -164,7 +164,7 @@ def complete_build_file(build_file, default_lib_name=None, in_plugin_dir=False):
         xml = '<flags EDM_PLUGIN="1"/>\n' + xml
         default_lib_name = default_lib_name + "Plugins"
     if auto:
-        xml = '<library   file="*.cc" name="' + default_lib_name + '">\n' + xml + "\n</library>"
+        xml = '<library   file="*.cc *.cxx *.cpp" name="' + default_lib_name + '">\n' + xml + "\n</library>"
 
     return xml
 
@@ -305,9 +305,13 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, 
 def build_xml_to_cmake(root, root_node, config):
     cmake = CMakeLists()
 
-    n_globbed_files = len(glob.glob(os.path.join(root, "src/*.cc")))
+    # scram's default source glob also picks up .cxx and .cpp (e.g. the
+    # GBRForest*.cxx files in CondFormats/EgammaObjects)
+    n_globbed_files = sum(
+        len(glob.glob(os.path.join(root, "src/*" + ext))) for ext in [".cc", ".cxx", ".cpp"]
+    )
 
-    cmake += ['file(GLOB_RECURSE SOURCE_FILES "src/*.cc")']
+    cmake += ['file(GLOB_RECURSE SOURCE_FILES "src/*.cc" "src/*.cxx" "src/*.cpp")']
     # src/alpaka/ sources belong to per-accelerator-backend libraries that
     # scram would build separately with backend-specific defines; they are not
     # part of the base (host) library.

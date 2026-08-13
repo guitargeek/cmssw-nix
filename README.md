@@ -40,10 +40,17 @@ validated against a real file: a `RunIISummer20UL16MiniAODv2` MINIAODSIM
 file from [CMS Open Data](https://opendata.cern.ch) (produced with
 CMSSW_10_6_30 itself) reads cleanly — every branch, no dictionary warnings.
 Files on `eospublic` can be fetched without xrootd through the portal's
-HTTP proxy: `https://opendata.cern.ch/eos/opendata/<path>`. *Producing*
-miniAOD/nanoAOD is out of scope: that would need the
-`PhysicsTools`/`RecoXyz` plugin packages, and conditions access (`CondCore`
-+ the CORAL and frontier externals) plus TensorFlow C++.
+HTTP proxy: `https://opendata.cern.ch/eos/opendata/<path>`.
+
+On top of the data formats, the 10_6 build carries a first slice of the
+reco-path toolchain (towards AOD → miniAOD → nanoAOD processing): the
+`TrackingTools`/`MagneticField`/`RecoVertex` transient-track machinery, the
+`CommonTools` utilities, the CORAL-free `CondFormats` payload classes with
+their EventSetup records, FWLite (`edmDumpEventContent`, `edmFileUtil` and
+`edmProvDump` work against real files), and the `DataFormats/NanoAOD` flat
+tables. Actually *producing* miniAOD/nanoAOD is still out of scope: that
+would need the `PhysicsTools`/`RecoXyz` plugin packages, real conditions
+access (`CondCore` + the CORAL and frontier externals) and TensorFlow C++.
 Everything comes from nixpkgs except two tiny CMS externals packaged here
 (`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
 C++20 to match CMSSW; the ROOT 6.24 of nixos-22.05 is already C++17 and is

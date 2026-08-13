@@ -62,6 +62,10 @@ if(CMSSW_WITH_HEPMC)
   find_library(xz_LIBRARIES NAMES lzma REQUIRED)
   find_path(xz_INCLUDE_DIRECTORIES NAMES lzma.h REQUIRED)
 endif()
+if(CMSSW_WITH_VDT)
+  # inline fast-math headers only (scram tool vdt_headers)
+  find_path(vdt_headers_INCLUDE_DIRECTORIES NAMES vdt/vdtMath.h REQUIRED)
+endif()
 
 # ROOT: the scram tool names are fine-grained, but linking the common set of
 # ROOT libraries everywhere is fine for our purposes.
@@ -74,6 +78,9 @@ foreach(_t root rootcore rootcling rootrflx rootmath rootmathcore
   set(${_t}_LIBRARIES ${_root_common_libs})
   set(${_t}_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 endforeach()
+# TMVA on top of the common set (CommonTools/MVAUtils)
+set(roottmva_LIBRARIES ${_root_common_libs} ROOT::TMVA)
+set(roottmva_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 
 set(boost_LIBRARIES Boost::filesystem Boost::thread Boost::regex
     Boost::serialization Boost::iostreams Boost::date_time)
@@ -83,6 +90,7 @@ set(boost_program_options_LIBRARIES Boost::program_options)
 set(boost_program_options_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIRS})
 set(boost_regex_LIBRARIES Boost::regex)
 set(boost_serialization_LIBRARIES Boost::serialization)
+set(boost_iostreams_LIBRARIES Boost::iostreams)
 
 if(TBB_FOUND)
   set(tbb_LIBRARIES TBB::tbb)

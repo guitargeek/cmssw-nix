@@ -28,9 +28,14 @@
       url = "github:cms-externals/md5?ref=cms/1.0.0";
       flake = false;
     };
+
+    vdt-src = {
+      url = "github:dpiparo/vdt/v0.4.3";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -49,6 +54,10 @@
 
       cms-md5_10_6 = pkgs2205.callPackage ./pkgs/cms-md5.nix {
         src = cms-md5-src;
+      };
+
+      vdt = pkgs2205.callPackage ./pkgs/vdt.nix {
+        src = vdt-src;
       };
 
       cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
@@ -73,6 +82,7 @@
         cxxStandard = "17";
         xercesc = pkgs2205.xercesc;
         hepmc = pkgs2205.hepmc2;
+        inherit vdt;
         legacySiteConf = true;
         # the 10_6-era python config code still imports six and past (future)
         extraPythonPackages = ps: [ ps.six ps.future ];

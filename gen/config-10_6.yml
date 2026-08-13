@@ -13,13 +13,43 @@
 # these bring in the HepMC external — plus Luminosity and PileupSummaryInfo),
 # so the pat:: content of miniAOD files can be read. Producing miniAOD or
 # nanoAOD would need much more (PhysicsTools, CondCore + CORAL, TensorFlow).
+#
+# On top of that, a first slice of the reco-path toolchain (towards
+# AOD -> miniAOD -> nanoAOD processing): the TrackingTools/MagneticField/
+# RecoVertex transient-track machinery, the CommonTools utilities, the
+# CORAL-free CondFormats payload classes with their EventSetup records,
+# FWLite, and the DataFormats/NanoAOD flat tables. CondCore itself (real
+# conditions access) is still out: it needs the CORAL external.
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
+  # edmFileUtil (needed by edmDumpEventContent), edmProvDump, edmCopyUtil
+  - IOPool/Common
 subsystems:
+    CalibTracker:
+        whitelist:
+          - Records
+    CommonTools:
+        # no_plugins: MVAUtils' only plugin is a conditions-DB writer that
+        # would pull in CondCore and the CORAL externals
+        no_plugins: true
+        whitelist:
+          - CandUtils
+          - MVAUtils
+          - Statistics
+          - Utils
     CondFormats:
         whitelist:
+          - Alignment
+          - AlignmentRecord
+          - BTauObjects
+          - Common
+          - DataRecord
+          - EcalObjects
+          - EgammaObjects
+          - External
           - L1TObjects
+          - PhysicsToolsObjects
           - Serialization
     DataFormats:
         no_plugins: true
@@ -48,6 +78,7 @@ subsystems:
           - EgammaReco
           - EgammaTrackReco
           - FEDRawData
+          - FWLite
           - FTLRecHit
           - ForwardDetId
           - GEMRecHit
@@ -77,6 +108,7 @@ subsystems:
           - MuonDetId
           - MuonReco
           - MuonSeed
+          - NanoAOD
           - ParticleFlowCandidate
           - ParticleFlowReco
           - PatCandidates
@@ -112,6 +144,7 @@ subsystems:
           - Catalog
           - Common
           - Concurrency
+          - FWLite
           - Framework
           - MessageLogger
           - MessageService
@@ -131,6 +164,8 @@ subsystems:
         whitelist:
           - CaloGeometry
           - CommonDetUnit
+          - EcalMapping
+          - Records
     IOPool:
         whitelist:
           - Common
@@ -138,12 +173,38 @@ subsystems:
           - Output
           - Provenance
           - TFileAdaptor
+    MagneticField:
+        whitelist:
+          - Engine
+          - Records
+    PhysicsTools:
+        whitelist:
+          # python-only package: cmstools & friends, imported by
+          # edmDumpEventContent
+          - PythonAnalysis
+    RecoLocalTracker:
+        whitelist:
+          - Records
+    RecoVertex:
+        whitelist:
+          - VertexPrimitives
+          - VertexTools
     SimDataFormats:
         whitelist:
           - GeneratorProducts
           - JetMatching
           - PileupSummaryInfo
           - RandomEngine
+    TrackingTools:
+        whitelist:
+          - AnalyticalJacobians
+          - GeomPropagators
+          - GsfTools
+          - PatternTools
+          - Records
+          - TrajectoryParametrization
+          - TrajectoryState
+          - TransientTrack
     Utilities:
         whitelist:
           - StorageFactory

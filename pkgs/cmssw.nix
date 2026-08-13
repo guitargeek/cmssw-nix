@@ -30,6 +30,9 @@
 # miniAOD-reading closure of the 10_6 config)
 , hepmc ? null
 , xz
+# vdt fast-math headers (scram tool vdt_headers), used by TrackingTools and
+# DataFormats/ParticleFlowReco
+, vdt ? null
 , legacySiteConf ? false
 # extra python packages for the runtime environment (e.g. six for 10_6-era
 # python config code)
@@ -64,7 +67,8 @@ stdenv.mkDerivation {
     cms-md5
   ] ++ lib.optional (cpu_features != null) cpu_features
     ++ lib.optional (xercesc != null) xercesc
-    ++ lib.optionals (hepmc != null) [ hepmc xz ];
+    ++ lib.optionals (hepmc != null) [ hepmc xz ]
+    ++ lib.optional (vdt != null) vdt;
 
   # We drive cmake manually because of the custom source layout (top-level
   # CMakeLists.txt above the cmssw source tree).
@@ -108,6 +112,7 @@ stdenv.mkDerivation {
       ${lib.optionalString (cpu_features != null) "-DCMSSW_WITH_CPU_FEATURES=ON"} \
       ${lib.optionalString (xercesc != null) "-DCMSSW_WITH_XERCESC=ON"} \
       ${lib.optionalString (hepmc != null) "-DCMSSW_WITH_HEPMC=ON"} \
+      ${lib.optionalString (vdt != null) "-DCMSSW_WITH_VDT=ON"} \
       -DCMSSW_VERSION=${version} \
       -DCMSSW_BUILD_BIN=ON \
       -DCMSSW_BUILD_PLUGINS=ON \
@@ -191,6 +196,19 @@ stdenv.mkDerivation {
     substituteAll ${../gen/setup-hook.sh} $out/nix-support/setup-hook
 
     runHook postInstall
+  '';
+
+  # The automatic shebang patching resolves "#!/usr/bin/env python" to the
+  # bare python3 interpreter; the scripts (edmDumpEventContent & friends)
+  # need the environment with six/future on the path instead.
+  postFixup = ''
+    if [ -d $out/src/FWCore/PythonUtilities/scripts ]; then
+      for f in $out/src/FWCore/PythonUtilities/scripts/*; do
+        if [ -f "$f" ] && head -1 "$f" | grep -q python; then
+          sed -i "1s|.*|#!${pythonEnv}/bin/python|" "$f"
+        fi
+      done
+    fi
   '';
 
   passthru = { inherit pythonEnv; };

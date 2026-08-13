@@ -107,7 +107,25 @@
         "cmssw-10_6-src": "cmssw-10_6-src",
         "cmssw-src": "cmssw-src",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-2205": "nixpkgs-2205"
+        "nixpkgs-2205": "nixpkgs-2205",
+        "vdt-src": "vdt-src"
+      }
+    },
+    "vdt-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1549362028,
+        "narHash": "sha256-gVbBHqO9qvViIvf5vTk+DZvCV2TF+8Ls6hbiGbJDjGs=",
+        "owner": "dpiparo",
+        "repo": "vdt",
+        "rev": "c57ca420d0d642b577313885bbaaedf4d63e01d5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "dpiparo",
+        "ref": "v0.4.3",
+        "repo": "vdt",
+        "type": "github"
       }
     }
   },

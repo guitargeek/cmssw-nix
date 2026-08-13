@@ -241,6 +241,40 @@ if release_cycle < (11, 0):
     fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_iarchive.hpp")
     fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_oarchive.hpp")
 
+    # The FWCore/PythonUtilities scripts (edmDumpEventContent & friends) are
+    # still python 2 in this release; upstream only ported them for 11_X.
+    # lib2to3 does the same port here. The scripts have no .py extension, so
+    # they must be listed explicitly (a directory argument would skip them).
+    import lib2to3.main
+
+    scripts_dir = "cmssw/FWCore/PythonUtilities/scripts"
+    scripts = [os.path.join(scripts_dir, f) for f in sorted(os.listdir(scripts_dir))]
+    lib2to3.main.main("lib2to3.fixes", ["--write", "--nobackups", "--no-diffs"] + scripts)
+
+    # ... plus two py2 leftovers that 2to3 does not rewrite
+    edit(
+        "cmssw/FWCore/PythonUtilities/scripts/edmDumpEventContent",
+        lambda src: src.replace("newStderr = file ( '/dev/null', 'w')",
+                                "newStderr = open('/dev/null', 'w')"),
+    )
+    edit(
+        "cmssw/PhysicsTools/PythonAnalysis/python/cmstools.py",
+        lambda src: src.replace("import exceptions\n", "").replace(
+            "exceptions.Exception", "Exception"),
+    )
+
+    # GBRForestTools uses tinyxml2's QueryStringAttribute, which only exists
+    # from tinyxml2 7 on (nixos-22.05 ships 6.0). The return value is ignored
+    # anyway, so plain Attribute() is a drop-in.
+    edit(
+        "cmssw/CommonTools/MVAUtils/src/GBRForestTools.cc",
+        lambda src: re.sub(
+            r'(\w+)->QueryStringAttribute\("([^"]+)", &(\w+)\);',
+            r'\3 = \1->Attribute("\2");',
+            src,
+        ),
+    )
+
     # FeaturesTagInfo only uses edm::RefToBase<reco::Jet>; its pat::Jet
     # include is unused (later CMSSW versions dropped it too) and would pull
     # PatCandidates headers into the dictionary parse at runtime.
@@ -252,15 +286,3 @@ if release_cycle < (11, 0):
         ),
     )
 
-    # PFCluster.cc is the only user of the vdt fast-math headers, which
-    # nixos-22.05 does not package; std::log computes the same thing (only
-    # slower and more accurately).
-    def drop_vdt(src):
-        src = src.replace('#include "vdt/vdtMath.h"\n', "")
-        return src.replace("vdt::fast_log(", "std::log(")
-
-    edit("cmssw/DataFormats/ParticleFlowReco/src/PFCluster.cc", drop_vdt)
-    edit(
-        "cmssw/DataFormats/ParticleFlowReco/BuildFile.xml",
-        lambda xml: xml.replace('<use   name="vdt_headers"/>\n', ""),
-    )
