@@ -1,0 +1,69 @@
+# Build the subset of CORAL that CMSSW's CondCore needs: the core libraries
+# plus the dynamically loaded services (SQLite backend, connection/lookup/
+# authentication/monitoring services). Oracle, MySQL, Frontier and the CORAL
+# server are left out.
+#
+# All libraries are installed as liblcg_<Package>.so: CoralKernel's
+# PluginManager dlopens the service libraries under exactly that name.
+cmake_minimum_required(VERSION 3.22)
+project(coral LANGUAGES CXX)
+
+if(NOT DEFINED CORAL_CXX_STANDARD)
+  set(CORAL_CXX_STANDARD 17)
+endif()
+set(CMAKE_CXX_STANDARD ${CORAL_CXX_STANDARD})
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# pre-C++17 sources: 'register' storage class specifiers are still around
+add_compile_options(-Wno-register -Wno-deprecated-declarations)
+
+find_package(Boost REQUIRED COMPONENTS filesystem thread date_time)
+find_library(XERCESC_LIBRARY NAMES xerces-c REQUIRED)
+find_path(XERCESC_INCLUDE_DIR NAMES xercesc/parsers/XercesDOMParser.hpp REQUIRED)
+find_library(SQLITE_LIBRARY NAMES sqlite3 REQUIRED)
+find_path(SQLITE_INCLUDE_DIR NAMES sqlite3.h REQUIRED)
+find_library(UUID_LIBRARY NAMES uuid REQUIRED)
+find_path(UUID_INCLUDE_DIR NAMES uuid/uuid.h REQUIRED)
+
+set(CORAL_PACKAGES
+  CoralBase CoralKernel RelationalAccess CoralCommon
+  ConnectionService RelationalService XMLLookupService
+  XMLAuthenticationService EnvironmentAuthenticationService
+  MonitoringService SQLiteAccess)
+
+# public headers live at <pkg>/<pkg>/*.h, so adding every package directory
+# to the include path resolves both '#include "CoralBase/..."' style includes
+# and the packages' private src headers
+foreach(pkg ${CORAL_PACKAGES})
+  include_directories(${CMAKE_SOURCE_DIR}/${pkg})
+endforeach()
+include_directories(${Boost_INCLUDE_DIRS} ${XERCESC_INCLUDE_DIR}
+                    ${SQLITE_INCLUDE_DIR} ${UUID_INCLUDE_DIR})
+
+set(CORAL_BOOST_LIBS Boost::filesystem Boost::thread Boost::date_time)
+
+function(coral_library pkg)
+  file(GLOB_RECURSE _sources "${CMAKE_SOURCE_DIR}/${pkg}/src/*.cpp")
+  add_library(lcg_${pkg} SHARED ${_sources})
+  target_link_libraries(lcg_${pkg} ${ARGN})
+  install(TARGETS lcg_${pkg} LIBRARY DESTINATION lib)
+endfunction()
+
+coral_library(CoralBase ${CORAL_BOOST_LIBS})
+coral_library(CoralKernel lcg_CoralBase ${CMAKE_DL_LIBS} ${CORAL_BOOST_LIBS})
+coral_library(RelationalAccess lcg_CoralBase lcg_CoralKernel ${CORAL_BOOST_LIBS})
+coral_library(CoralCommon lcg_RelationalAccess lcg_CoralBase lcg_CoralKernel
+              ${XERCESC_LIBRARY} ${CORAL_BOOST_LIBS})
+coral_library(ConnectionService lcg_CoralCommon lcg_RelationalAccess ${UUID_LIBRARY}
+              ${CORAL_BOOST_LIBS})
+coral_library(RelationalService lcg_CoralCommon ${CORAL_BOOST_LIBS})
+coral_library(XMLLookupService lcg_CoralCommon ${XERCESC_LIBRARY})
+coral_library(XMLAuthenticationService lcg_CoralCommon ${XERCESC_LIBRARY})
+coral_library(EnvironmentAuthenticationService lcg_CoralCommon)
+coral_library(MonitoringService lcg_CoralCommon)
+coral_library(SQLiteAccess lcg_CoralCommon ${SQLITE_LIBRARY})
+
+# public headers of the packages CMSSW compiles against
+foreach(pkg CoralBase CoralKernel RelationalAccess CoralCommon)
+  install(DIRECTORY ${CMAKE_SOURCE_DIR}/${pkg}/${pkg} DESTINATION include)
+endforeach()

@@ -33,6 +33,15 @@
 # vdt fast-math headers (scram tool vdt_headers), used by TrackingTools and
 # DataFormats/ParticleFlowReco
 , vdt ? null
+# CORAL (pkgs/coral.nix), needed by CondCore
+, coral ? null
+# libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
+, curl ? null
+# clang binaries + libclang python bindings: the CondFormats serialization
+# code (boost-serialization methods for the conditions payload classes) is
+# generated at build time by a libclang-based script, like scram does it
+, clangTools ? null
+, libclangPython ? null
 , legacySiteConf ? false
 # extra python packages for the runtime environment (e.g. six for 10_6-era
 # python config code)
@@ -48,7 +57,9 @@ stdenv.mkDerivation {
 
   # Note: root must not appear both here and in buildInputs, its setup hook
   # breaks when sourced at two offsets.
-  nativeBuildInputs = [ cmake ninja pythonEnv ];
+  # clangTools comes last so that the stdenv gcc stays the selected compiler.
+  nativeBuildInputs = [ cmake ninja pythonEnv ]
+    ++ lib.optional (clangTools != null) clangTools;
 
   buildInputs = [
     root
@@ -68,7 +79,9 @@ stdenv.mkDerivation {
   ] ++ lib.optional (cpu_features != null) cpu_features
     ++ lib.optional (xercesc != null) xercesc
     ++ lib.optionals (hepmc != null) [ hepmc xz ]
-    ++ lib.optional (vdt != null) vdt;
+    ++ lib.optional (vdt != null) vdt
+    ++ lib.optional (coral != null) coral
+    ++ lib.optional (curl != null) curl;
 
   # We drive cmake manually because of the custom source layout (top-level
   # CMakeLists.txt above the cmssw source tree).
@@ -92,6 +105,27 @@ stdenv.mkDerivation {
     # Trim to the plain cmsRun binary, drop the XrdAdaptor dependency and
     # apply version-specific fixups.
     python3 ${../gen/prepare_sources.py} ${version}
+
+    ${lib.optionalString (libclangPython != null) ''
+      # Generate the conditions serialization code (src/Serialization.cc per
+      # CondFormats package), as scram's CondFormats build rules would: the
+      # generator clang-parses each package's headers.h and emits the
+      # boost-serialization method definitions and instantiations.
+      export CMSSW_BASE=$PWD
+      export PYTHONPATH=${libclangPython}/site-packages''${PYTHONPATH:+:$PYTHONPATH}
+      for pkg in $(python3 ${../gen/list_packages.py} config.yml); do
+        case $pkg in
+          CondFormats/Serialization) continue;;
+          CondFormats/*) ;;
+          *) continue;;
+        esac
+        [ -f cmssw/$pkg/src/headers.h ] || continue
+        echo "generating serialization code for $pkg"
+        python3 cmssw/CondFormats/Serialization/python/condformats_serialization_generate.py \
+          --output src/Serialization.cc --package cmssw/$pkg -- \
+          -std=c++${cxxStandard} -I$CMSSW_BASE/cmssw $NIX_CFLAGS_COMPILE
+      done
+    ''}
   '';
 
   configurePhase = ''
@@ -113,6 +147,8 @@ stdenv.mkDerivation {
       ${lib.optionalString (xercesc != null) "-DCMSSW_WITH_XERCESC=ON"} \
       ${lib.optionalString (hepmc != null) "-DCMSSW_WITH_HEPMC=ON"} \
       ${lib.optionalString (vdt != null) "-DCMSSW_WITH_VDT=ON"} \
+      ${lib.optionalString (coral != null) "-DCMSSW_WITH_CORAL=ON"} \
+      ${lib.optionalString (curl != null) "-DCMSSW_WITH_CURL=ON"} \
       -DCMSSW_VERSION=${version} \
       -DCMSSW_BUILD_BIN=ON \
       -DCMSSW_BUILD_PLUGINS=ON \

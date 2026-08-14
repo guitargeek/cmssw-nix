@@ -68,6 +68,23 @@
         "type": "github"
       }
     },
+    "coral-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1740225104,
+        "narHash": "sha256-UEMfvqrMmNiNkqR+pdQuPzDrqOCBtst7XcUfEcmAL/8=",
+        "owner": "cms-externals",
+        "repo": "coral",
+        "rev": "4fc6c24175682aff2d4299765b47b603a7b218d2",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-externals",
+        "ref": "cms/CORAL_2_3_21py3",
+        "repo": "coral",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1786384358,
@@ -106,6 +123,7 @@
         "cms-md5-src": "cms-md5-src",
         "cmssw-10_6-src": "cmssw-10_6-src",
         "cmssw-src": "cmssw-src",
+        "coral-src": "coral-src",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
         "vdt-src": "vdt-src"

@@ -48,9 +48,21 @@ reco-path toolchain (towards AOD → miniAOD → nanoAOD processing): the
 `CommonTools` utilities, the CORAL-free `CondFormats` payload classes with
 their EventSetup records, FWLite (`edmDumpEventContent`, `edmFileUtil` and
 `edmProvDump` work against real files), and the `DataFormats/NanoAOD` flat
-tables. Actually *producing* miniAOD/nanoAOD is still out of scope: that
-would need the `PhysicsTools`/`RecoXyz` plugin packages, real conditions
-access (`CondCore` + the CORAL and frontier externals) and TensorFlow C++.
+tables.
+
+**Conditions database access works in both releases**: CORAL (the LCG
+relational database layer, from CMS's fork) is packaged in
+[pkgs/coral.nix](pkgs/coral.nix) with its SQLite backend and service
+plugins, and both releases build `CondCore` (CondDB, ESSources,
+DBOutputService, the BeamSpot record plugins) against it. The
+boost-serialization code for the `CondFormats` payload classes is generated
+at build time by CMSSW's own libclang-based generator, exactly as scram
+does it. Payloads can be written to and read from `sqlite_file:` databases
+through `PoolDBOutputService` / `PoolDBESSource`. Oracle/Frontier access
+(real GlobalTags from the grid) is not built.
+
+Still out of scope for *producing* miniAOD/nanoAOD: the
+`PhysicsTools`/`RecoXyz` plugin packages and TensorFlow C++.
 Everything comes from nixpkgs except two tiny CMS externals packaged here
 (`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
 C++20 to match CMSSW; the ROOT 6.24 of nixos-22.05 is already C++17 and is

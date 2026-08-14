@@ -38,11 +38,19 @@ subsystems:
           - MVAUtils
           - Statistics
           - Utils
+    CondCore:
+        whitelist:
+          - BeamSpotPlugins
+          - CondDB
+          - DBOutputService
+          - ESSources
+          - PluginSystem
     CondFormats:
         whitelist:
           - Alignment
           - AlignmentRecord
           - BTauObjects
+          - BeamSpotObjects
           - Common
           - DataRecord
           - EcalObjects

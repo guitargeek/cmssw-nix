@@ -5,6 +5,21 @@ bins:
   - FWCore/Framework
   - FWCore/PluginManager
 subsystems:
+    CondCore:
+        whitelist:
+          - BeamSpotPlugins
+          - CondDB
+          - DBOutputService
+          - ESSources
+          - PluginSystem
+    CondFormats:
+        whitelist:
+          - AlignmentRecord
+          - BeamSpotObjects
+          - Common
+          - DataRecord
+          - Serialization
+          - SerializationHelper
     DataFormats:
         # The plugins/ dirs of DataFormats packages contain alpaka accelerator
         # modules for the SoA formats; we don't need them on a laptop.
@@ -85,6 +100,7 @@ subsystems:
     Geometry:
         whitelist:
           - CommonTopologies
+          - Records
     HeterogeneousCore:
         no_plugins: true
         whitelist:
@@ -99,3 +115,7 @@ subsystems:
     SimDataFormats:
         whitelist:
           - RandomEngine
+    Utilities:
+        whitelist:
+          # openssl EVP wrapper used by CondCore/CondDB
+          - OpenSSL

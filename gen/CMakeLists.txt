@@ -66,6 +66,18 @@ if(CMSSW_WITH_VDT)
   # inline fast-math headers only (scram tool vdt_headers)
   find_path(vdt_headers_INCLUDE_DIRECTORIES NAMES vdt/vdtMath.h REQUIRED)
 endif()
+if(CMSSW_WITH_CURL)
+  find_library(curl_LIBRARIES NAMES curl REQUIRED)
+  find_path(curl_INCLUDE_DIRECTORIES NAMES curl/curl.h REQUIRED)
+endif()
+if(CMSSW_WITH_CORAL)
+  # the CORAL libraries carry the lcg_ prefix (CoralKernel dlopens the
+  # backend/service plugins under exactly that name)
+  foreach(_c CoralBase CoralKernel CoralCommon RelationalAccess)
+    find_library(${_c}_LIBRARIES NAMES lcg_${_c} REQUIRED)
+    find_path(${_c}_INCLUDE_DIRECTORIES NAMES CoralBase/Exception.h REQUIRED)
+  endforeach()
+endif()
 
 # ROOT: the scram tool names are fine-grained, but linking the common set of
 # ROOT libraries everywhere is fine for our purposes.

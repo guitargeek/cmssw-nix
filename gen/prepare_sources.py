@@ -73,6 +73,162 @@ def drop_default_services(src):
 
 edit(path, drop_default_services)
 
+# --- eos portable archive vs modern boost (all versions) --------------------
+# CondFormats/Serialization's bundled eos portable archive selects boost
+# spirit's private endian/fpclassify headers for boost >= 1.48, but those
+# were removed in boost 1.69. Map the usage onto the modern boost.endian /
+# boost.math equivalents. The files are CRLF + latin-1 encoded, so they
+# get their own editor.
+endian_shim = "\r\n".join([
+    "#ifndef EOS_ENDIAN_COMPAT_SHIM",
+    "#define EOS_ENDIAN_COMPAT_SHIM",
+    "namespace eos_endian_compat {",
+    "  template <typename T, std::size_t N>",
+    "  inline T load_little_endian(const void* bytes) {",
+    "    T t;",
+    "    std::memcpy(&t, bytes, sizeof(T));",
+    "    return boost::endian::little_to_native(t);",
+    "  }",
+    "  template <typename T, std::size_t N>",
+    "  inline void store_little_endian(void* bytes, T t) {",
+    "    t = boost::endian::native_to_little(t);",
+    "    std::memcpy(bytes, &t, sizeof(T));",
+    "  }",
+    "}",
+    "#endif",
+    "",
+    "",
+])
+
+# the subset of Johan Rade's fp_utilities (the spirit copy of which the
+# archives used) that they actually need: the IEEE754 bit masks and
+# raw-bit access, plus isfinite/fpclassify
+fp_shim = "\r\n".join([
+    "#ifndef EOS_FP_COMPAT_SHIM",
+    "#define EOS_FP_COMPAT_SHIM",
+    "namespace eos_fp_compat {",
+    "  template <typename T> inline bool isfinite(T t) { return std::isfinite(t); }",
+    "  template <typename T> inline int fpclassify(T t) { return std::fpclassify(t); }",
+    "  namespace detail {",
+    "    template <typename T> struct fp_traits_compat;",
+    "    template <> struct fp_traits_compat<float> {",
+    "      typedef std::uint32_t bits;",
+    "      static constexpr bits sign     = 0x80000000u;",
+    "      static constexpr bits exponent = 0x7f800000u;",
+    "      static constexpr bits mantissa = 0x007fffffu;",
+    "      static void get_bits(float x, bits& b) { std::memcpy(&b, &x, sizeof(b)); }",
+    "      static void set_bits(float& x, bits b) { std::memcpy(&x, &b, sizeof(b)); }",
+    "    };",
+    "    template <> struct fp_traits_compat<double> {",
+    "      typedef std::uint64_t bits;",
+    "      static constexpr bits sign     = 0x8000000000000000ull;",
+    "      static constexpr bits exponent = 0x7ff0000000000000ull;",
+    "      static constexpr bits mantissa = 0x000fffffffffffffull;",
+    "      static void get_bits(double x, bits& b) { std::memcpy(&b, &x, sizeof(b)); }",
+    "      static void set_bits(double& x, bits b) { std::memcpy(&x, &b, sizeof(b)); }",
+    "    };",
+    "    template <typename T> struct fp_traits { typedef fp_traits_compat<T> type; };",
+    "  }",
+    "}",
+    "#endif",
+    "",
+    "",
+])
+
+def fix_eos_portable_archive(path):
+    if not os.path.exists(path):
+        return
+    with open(path, encoding="latin-1", newline="") as f:
+        src = f.read()
+    orig = src
+
+    # 10_6-era copies still select boost spirit's private endian/fpclassify
+    # headers (removed in boost 1.69); the 20_1-era copies were already ported
+    # upstream and don't have this marker.
+    if "boost/spirit/home/support/detail/endian" in src:
+        src = src.replace(
+            "#include <boost/spirit/home/support/detail/endian/endian.hpp>",
+            "#include <boost/endian/conversion.hpp>\r\n#include <cstring>",
+        )
+        # both branches of the version ladder; only the >= 1.48 one is active
+        src = src.replace(
+            "#include <boost/spirit/home/support/detail/math/fpclassify.hpp>",
+            "#include <cmath>\r\n#include <cstdint>",
+        )
+        src = src.replace(
+            "namespace fp = boost::spirit::math;",
+            fp_shim + "namespace fp = eos_fp_compat;",
+        )
+        src = src.replace(
+            "namespace endian = boost::spirit::detail;",
+            endian_shim + "namespace endian = eos_endian_compat;",
+        )
+
+    # boost >= 1.89 made the strong typedefs' base_type private (all copies
+    # of the iarchive still use it for loading); mirror what the save() side
+    # has always done and go through an unsigned integer of the same size,
+    # using the public conversion operator and constructor.
+    if "static_cast<T::base_type" in src or "boost::uint_t" in src:
+        if "#include <boost/integer.hpp>" not in src:
+            src = src.replace(
+                "#include <boost/version.hpp>",
+                "#include <boost/version.hpp>\r\n#include <boost/integer.hpp>\r\n#include <climits>",
+                1,
+            )
+        src = src.replace(
+            "      load(static_cast<T::base_type&>(t));",
+            "      typename boost::uint_t<sizeof(T) * CHAR_BIT>::least v = 0;\r\n"
+            "      load(v);\r\n"
+            "      t = T(v);",
+        )
+
+    if src != orig:
+        with open(path, "w", encoding="latin-1", newline="") as f:
+            f.write(src)
+
+fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_iarchive.hpp")
+fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_oarchive.hpp")
+
+
+# --- CondCore without boost_python (all versions) ----------------------------
+# The python wrapper module and the payload-inspector plugins need
+# boost_python (and for the inspectors, CondCore/Utilities); both are out of
+# scope - drop them, keeping the authentication-service plugins.
+path = "cmssw/CondCore/CondDB/plugins/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml: re.sub(
+        r'<library\s+file="CondDBPy[^"]*"[^>]*>.*?</library>\n', "", xml, flags=re.DOTALL))
+
+for inspector in ["cmssw/CondCore/BeamSpotPlugins/plugins/BuildFile.xml"]:
+    if os.path.exists(inspector):
+        os.remove(inspector)
+
+# The serialization generator crashes under python 3 when no -v is given
+# (None < 1 comparison), and it insists on scram's $CMSSW_BASE/src/... layout;
+# our tree calls the source directory "cmssw" instead of "src".
+path = "cmssw/CondFormats/Serialization/python/condformats_serialization_generate.py"
+if os.path.exists(path):
+    def fix_serialization_generator(src):
+        # the layout relaxation is needed for every version of the script ...
+        src = src.replace("if self.split_path[0] != 'src':",
+                          "if self.split_path[0] not in ('src', 'cmssw'):")
+        # ... while the python-3 fixes below were applied upstream at some
+        # point (the 20_1 copy has them, the 10_6 one does not) - gate each on
+        # its marker so both versions come out right
+        if "default=0" not in src:
+            src = src.replace("action='count', help=", "action='count', default=0, help=")
+        if ".decode(" not in src:
+            src = src.replace("subprocess.check_output(command, shell=True)",
+                              "subprocess.check_output(command, shell=True, universal_newlines=True)")
+        src = src.replace("with open(filename, 'wb') as fd:", "with open(filename, 'w') as fd:")
+        if "fd.read().decode" not in src:
+            # latin-1 is byte-preserving, so clang's byte offsets stay valid
+            src = src.replace("        source = fd.read()",
+                              "        source = fd.read().decode('latin-1')")
+        return src
+
+    edit(path, fix_serialization_generator)
+
 if release_cycle >= (20, 0):
     # --- ROOT 6.40 compatibility ---------------------------------------------
 
@@ -152,94 +308,6 @@ if release_cycle < (11, 0):
             '#include "DataFormats/PatCandidates/interface/PackedCandidate.h"\n', ""),
     )
 
-    # CondFormats/Serialization's bundled eos portable archive selects boost
-    # spirit's private endian/fpclassify headers for boost >= 1.48, but those
-    # were removed in boost 1.69. Map the usage onto the modern boost.endian /
-    # boost.math equivalents. The files are CRLF + latin-1 encoded, so they
-    # get their own editor.
-    endian_shim = "\r\n".join([
-        "#ifndef EOS_ENDIAN_COMPAT_SHIM",
-        "#define EOS_ENDIAN_COMPAT_SHIM",
-        "namespace eos_endian_compat {",
-        "  template <typename T, std::size_t N>",
-        "  inline T load_little_endian(const void* bytes) {",
-        "    T t;",
-        "    std::memcpy(&t, bytes, sizeof(T));",
-        "    return boost::endian::little_to_native(t);",
-        "  }",
-        "  template <typename T, std::size_t N>",
-        "  inline void store_little_endian(void* bytes, T t) {",
-        "    t = boost::endian::native_to_little(t);",
-        "    std::memcpy(bytes, &t, sizeof(T));",
-        "  }",
-        "}",
-        "#endif",
-        "",
-        "",
-    ])
-
-    # the subset of Johan Rade's fp_utilities (the spirit copy of which the
-    # archives used) that they actually need: the IEEE754 bit masks and
-    # raw-bit access, plus isfinite/fpclassify
-    fp_shim = "\r\n".join([
-        "#ifndef EOS_FP_COMPAT_SHIM",
-        "#define EOS_FP_COMPAT_SHIM",
-        "namespace eos_fp_compat {",
-        "  template <typename T> inline bool isfinite(T t) { return std::isfinite(t); }",
-        "  template <typename T> inline int fpclassify(T t) { return std::fpclassify(t); }",
-        "  namespace detail {",
-        "    template <typename T> struct fp_traits_compat;",
-        "    template <> struct fp_traits_compat<float> {",
-        "      typedef std::uint32_t bits;",
-        "      static constexpr bits sign     = 0x80000000u;",
-        "      static constexpr bits exponent = 0x7f800000u;",
-        "      static constexpr bits mantissa = 0x007fffffu;",
-        "      static void get_bits(float x, bits& b) { std::memcpy(&b, &x, sizeof(b)); }",
-        "      static void set_bits(float& x, bits b) { std::memcpy(&x, &b, sizeof(b)); }",
-        "    };",
-        "    template <> struct fp_traits_compat<double> {",
-        "      typedef std::uint64_t bits;",
-        "      static constexpr bits sign     = 0x8000000000000000ull;",
-        "      static constexpr bits exponent = 0x7ff0000000000000ull;",
-        "      static constexpr bits mantissa = 0x000fffffffffffffull;",
-        "      static void get_bits(double x, bits& b) { std::memcpy(&b, &x, sizeof(b)); }",
-        "      static void set_bits(double& x, bits b) { std::memcpy(&x, &b, sizeof(b)); }",
-        "    };",
-        "    template <typename T> struct fp_traits { typedef fp_traits_compat<T> type; };",
-        "  }",
-        "}",
-        "#endif",
-        "",
-        "",
-    ])
-
-    def fix_eos_portable_archive(path):
-        with open(path, encoding="latin-1", newline="") as f:
-            src = f.read()
-        if "boost/spirit/home/support/detail/endian" not in src:  # rerun
-            return
-        src = src.replace(
-            "#include <boost/spirit/home/support/detail/endian/endian.hpp>",
-            "#include <boost/endian/conversion.hpp>\r\n#include <cstring>",
-        )
-        # both branches of the version ladder; only the >= 1.48 one is active
-        src = src.replace(
-            "#include <boost/spirit/home/support/detail/math/fpclassify.hpp>",
-            "#include <cmath>\r\n#include <cstdint>",
-        )
-        src = src.replace(
-            "namespace fp = boost::spirit::math;",
-            fp_shim + "namespace fp = eos_fp_compat;",
-        )
-        src = src.replace(
-            "namespace endian = boost::spirit::detail;",
-            endian_shim + "namespace endian = eos_endian_compat;",
-        )
-        with open(path, "w", encoding="latin-1", newline="") as f:
-            f.write(src)
-
-    fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_iarchive.hpp")
-    fix_eos_portable_archive("cmssw/CondFormats/Serialization/interface/eos/portable_oarchive.hpp")
 
     # The FWCore/PythonUtilities scripts (edmDumpEventContent & friends) are
     # still python 2 in this release; upstream only ported them for 11_X.

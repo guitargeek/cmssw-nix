@@ -33,9 +33,14 @@
       url = "github:dpiparo/vdt/v0.4.3";
       flake = false;
     };
+
+    coral-src = {
+      url = "github:cms-externals/coral/cms/CORAL_2_3_21py3";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -60,6 +65,21 @@
         src = vdt-src;
       };
 
+      libclang-python = pkgs.callPackage ./pkgs/libclang-python.nix { };
+
+      libclang-python_2205 = pkgs2205.callPackage ./pkgs/libclang-python.nix {
+        llvmPackages = pkgs2205.llvmPackages_14;
+      };
+
+      # CORAL for CondCore, once per release era
+      coral = pkgs.callPackage ./pkgs/coral.nix {
+        src = coral-src;
+      };
+
+      coral_2205 = pkgs2205.callPackage ./pkgs/coral.nix {
+        src = coral-src;
+      };
+
       cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
         src = cmssw-src;
         version = "CMSSW_20_1_0_pre2";
@@ -67,6 +87,11 @@
         tbb = pkgs.onetbb;
         cpu_features = pkgs.cpu_features;
         pybind11 = pkgs.python3Packages.pybind11;
+        xercesc = pkgs.xercesc;
+        curl = pkgs.curl;
+        inherit coral;
+        clangTools = pkgs.clang;
+        libclangPython = libclang-python;
       };
 
       # ROOT 6.24 from nixos-22.05 is already built with C++17 (the gcc 11
@@ -83,6 +108,9 @@
         xercesc = pkgs2205.xercesc;
         hepmc = pkgs2205.hepmc2;
         inherit vdt;
+        coral = coral_2205;
+        clangTools = pkgs2205.llvmPackages_14.clang;
+        libclangPython = libclang-python_2205;
         legacySiteConf = true;
         # the 10_6-era python config code still imports six and past (future)
         extraPythonPackages = ps: [ ps.six ps.future ];
@@ -106,14 +134,14 @@
     in
     {
       packages.${system} = {
-        inherit cms-md5 cmssw root cmssw_10_6_30;
+        inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205;
         default = cmssw;
       };
 
       devShells.${system} = {
-        default = makeUserShell pkgs cmssw root [ pkgs.onetbb pkgs.fmt ];
+        default = makeUserShell pkgs cmssw root [ pkgs.onetbb pkgs.fmt coral ];
 
-        cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root [ pkgs2205.tbb ];
+        cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root [ pkgs2205.tbb coral_2205 ];
 
         # Environments for hacking on the CMSSW build itself: all the
         # dependencies, so the generator + cmake can be run by hand against a
