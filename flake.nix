@@ -49,9 +49,20 @@
       url = "github:cms-data/CalibCalorimetry-EcalTrivialCondModules";
       flake = false;
     };
+
+    # externals for the reco chain: HepPDT (particle data table) and lwtnn
+    # (lightweight NN inference, DeepFlavour + track classifier)
+    heppdt-src = {
+      url = "github:cms-externals/heppdt/cms/3.04.01";
+      flake = false;
+    };
+    lwtnn-src = {
+      url = "github:lwtnn/lwtnn/v2.9";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, heppdt-src, lwtnn-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -97,6 +108,14 @@
         src = pkgs2205.root.src;
       };
 
+      heppdt_2205 = pkgs2205.callPackage ./pkgs/heppdt.nix {
+        src = heppdt-src;
+      };
+
+      lwtnn_2205 = pkgs2205.callPackage ./pkgs/lwtnn.nix {
+        src = lwtnn-src;
+      };
+
       cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
         src = cmssw-src;
         version = "CMSSW_20_1_0_pre2";
@@ -127,6 +146,11 @@
         inherit vdt;
         gsl = pkgs2205.gsl;
         minuit2 = minuit2_2205;
+        fastjet = pkgs2205.fastjet;
+        fastjet-contrib = pkgs2205.fastjet-contrib;
+        heppdt = heppdt_2205;
+        lwtnn = lwtnn_2205;
+        openblas = pkgs2205.openblas;
         coral = coral_2205;
         extraData = [
           { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }

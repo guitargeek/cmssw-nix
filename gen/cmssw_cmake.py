@@ -252,6 +252,12 @@ def get_global_dependencies(root_node):
     return global_dependencies
 
 
+# (target name, "Subsystem/Package") of every shared library built: used to
+# generate the fillDescriptions-based *_cfi.py files (scram's "cfipython")
+# with edmWriteConfigs at install time and place them in the right package.
+library_manifest = []
+
+
 def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, config):
     target = name(elem)
 
@@ -282,6 +288,9 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, 
             cmake.add_interface_library()
         else:
             cmake.add_library(["${SOURCE_FILES}"] + files)
+            parts = os.path.normpath(root).split(os.sep)
+            if len(parts) >= 2:
+                library_manifest.append((target, parts[0] + "/" + parts[1]))
     if elem.tag == "bin":
         cmake.add_executable(files)
 
@@ -431,3 +440,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cmssw_to_cmake(args.src, os.path.abspath(args.config))
+
+    with open("library_manifest.txt", "w") as f:
+        for target, pkg in library_manifest:
+            f.write(f"{target} {pkg}\n")

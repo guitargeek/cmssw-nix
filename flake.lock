@@ -117,6 +117,40 @@
         "type": "github"
       }
     },
+    "heppdt-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1611084220,
+        "narHash": "sha256-orsDFv4ffSUshI0G2lyPYwPMKU/AuV+hwXv+EcgPs/M=",
+        "owner": "cms-externals",
+        "repo": "heppdt",
+        "rev": "2b499cfb4302d48d1fd91911fddec88e94219a44",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-externals",
+        "ref": "cms/3.04.01",
+        "repo": "heppdt",
+        "type": "github"
+      }
+    },
+    "lwtnn-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1560873957,
+        "narHash": "sha256-vN4L8JxNoNMJnpohW4KCUuw9omZ4PHEijBxrvBNxvPo=",
+        "owner": "lwtnn",
+        "repo": "lwtnn",
+        "rev": "263e042941d2d13cf0127001736668cfcaa35a80",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lwtnn",
+        "ref": "v2.9",
+        "repo": "lwtnn",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1786384358,
@@ -158,6 +192,8 @@
         "coral-src": "coral-src",
         "ecal-deadchannel-data": "ecal-deadchannel-data",
         "ecal-trivialcond-data": "ecal-trivialcond-data",
+        "heppdt-src": "heppdt-src",
+        "lwtnn-src": "lwtnn-src",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
         "vdt-src": "vdt-src"

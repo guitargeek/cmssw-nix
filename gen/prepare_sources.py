@@ -338,6 +338,11 @@ for root, dirs, files in os.walk("cmssw/Geometry"):
             r'<library[^>]*>(?:(?!</library>).)*name="(?:Fireworks/Core|'
             r'DetectorDescription/DDCMS|dd4hep)"(?:(?!</library>).)*</library>\n?',
             "", xml, flags=re.DOTALL))
+        # ... and the DD4hep test plugins, which use the DDCMS classes
+        # without declaring the dependency
+        edit(os.path.join(root, "BuildFile.xml"), lambda xml: re.sub(
+            r'<library[^>]*name="DD4hep_[^"]*"[^>]*>(?:(?!</library>).)*</library>\n?',
+            "", xml, flags=re.DOTALL))
 for f in glob.glob("cmssw/Geometry/MuonNumbering/src/DD4hep_*.cc"):
     os.remove(f)
 
@@ -357,6 +362,72 @@ if os.path.isdir(rdir):
     if os.path.exists(rdir + "/BuildFile.xml"):
         edit(rdir + "/BuildFile.xml", lambda xml: re.sub(
             r'<use\s+name="TrackingTools/TrackRefitter"\s*/>\n?', "", xml))
+
+# --- full reco chain without TensorFlow / alignment refit / HLT ------------
+# The DNN-based producers need the TensorFlow C++ external, which we do not
+# build: drop them (DeepMET, DeepTau/DPFIsolation) together with the
+# TensorFlow dependency declarations.
+path = "cmssw/RecoMET/METPUSubtraction/plugins"
+if os.path.isdir(path):
+    for f in glob.glob(path + "/DeepMETProducer.*"):
+        os.remove(f)
+    edit(path + "/BuildFile.xml", lambda xml: re.sub(
+        r'<use\s+name="PhysicsTools/TensorFlow"\s*/>\n?', "", xml))
+rtau = "cmssw/RecoTauTag/RecoTau"
+if os.path.isdir(rtau):
+    for f in (glob.glob(rtau + "/src/DeepTauBase.cc")
+              + glob.glob(rtau + "/interface/DeepTauBase.h")
+              + glob.glob(rtau + "/plugins/DeepTauId.cc")
+              + glob.glob(rtau + "/plugins/DPFIsolation.cc")):
+        os.remove(f)
+    for bf in [rtau + "/BuildFile.xml", rtau + "/plugins/BuildFile.xml"]:
+        if os.path.exists(bf):
+            edit(bf, lambda xml: re.sub(
+                r'<use\s+name="PhysicsTools/TensorFlow"\s*/>\n?', "", xml))
+
+# The two-body-decay constrained-refit producers are alignment tools that
+# would pull in the Alignment subsystem.
+path = "cmssw/RecoTracker/TrackProducer/plugins"
+if os.path.isdir(path):
+    for f in glob.glob(path + "/TwoBodyDecay*"):
+        os.remove(f)
+    edit(path + "/BuildFile.xml", lambda xml: re.sub(
+        r'<use\s+name="Alignment/[^"]*"\s*/>\n?', "", xml))
+
+# RecoTracker/DeDx: the only HLTrigger/HLTcore user is the HLT filter
+# plugin - drop it and the dependency.
+path = "cmssw/RecoTracker/DeDx/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml: re.sub(
+        r'<use\s+name="HLTrigger/HLTcore"\s*/>\n?', "", xml))
+    for f in glob.glob("cmssw/RecoTracker/DeDx/plugins/HLTDeDxFilter.*"):
+        os.remove(f)
+
+# Several libraries reference edm::HepMCProduct's type info (through the
+# GenParticle/GenJet template helpers) without declaring the library that
+# defines it; scram resolved it transitively.
+for pkg in ["PhysicsTools/UtilAlgos", "RecoJets/JetProducers",
+            "RecoTracker/DeDx", "JetMETCorrections/Modules",
+            "RecoBTag/Combined", "RecoEgamma/EgammaHLTProducers"]:
+    path = "cmssw/%s/BuildFile.xml" % pkg
+    if os.path.exists(path):
+        edit(path, lambda xml:
+             xml if "GeneratorProducts" in xml
+             else '<use   name="SimDataFormats/GeneratorProducts"/>\n' + xml)
+path = "cmssw/RecoEgamma/EgammaHLTProducers/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml:
+         xml if "TrackingTools/TransientTrack" in xml
+         else '<use   name="TrackingTools/TransientTrack"/>\n' + xml)
+
+# SiPixelQualityESProducer dereferences the DetVOff payload even when the
+# SiPixelDetVOffRcd is not in its merge list (running without a conditions
+# DB there is nothing to provide it from).
+path = "cmssw/CalibTracker/SiPixelESProducers/plugins/SiPixelQualityESProducer.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace(
+        "dbptr->add(Voff.product());",
+        "if (Voff.isValid())\n    dbptr->add(Voff.product());"))
 
 # A couple of plugins BuildFiles (DetectorDescription/Core, Geometry/
 # EcalCommonData) place the EDM_PLUGIN flag *outside* the <library> element;
@@ -480,6 +551,28 @@ if release_cycle < (11, 0):
             edit(path, insert_after(
                 "#include <CalibMuon/CSCCalibration/interface/%s.h>" % indexer,
                 "#include <algorithm>"))
+    path = "cmssw/CondFormats/CTPPSReadoutObjects/src/PPSTimingCalibration.cc"
+    if os.path.exists(path):
+        edit(path, insert_after(
+            '#include "CondFormats/CTPPSReadoutObjects/interface/PPSTimingCalibration.h"',
+            "#include <ostream>"))
+    path = "cmssw/RecoEgamma/EgammaTools/interface/EGEnergySysIndex.h"
+    if os.path.exists(path):
+        edit(path, insert_after("#include <array>",
+                                "#include <cstddef>\n#include <string>"))
+    path = "cmssw/RecoTauTag/RecoTau/plugins/PFRecoTauDiscriminationAgainstElectron2.cc"
+    if os.path.exists(path):
+        edit(path, insert_after(
+            '#include "FWCore/Utilities/interface/Exception.h"',
+            '#include <string>\n#include "TObjString.h"'))
+    path = "cmssw/RecoBTag/Combined/plugins/DeepCMVATagInfoProducer.cc"
+    if os.path.exists(path):
+        edit(path, lambda src: src.replace("(isinf(", "(std::isinf("))
+    # newer fastjet-contrib dropped the bool argument
+    path = "cmssw/RecoJets/JetProducers/plugins/CSJetProducer.cc"
+    if os.path.exists(path):
+        edit(path, lambda src: src.replace(
+            "set_do_mass_subtraction(true)", "set_do_mass_subtraction()"))
 
     # TauReco's dictionary header includes two pat:: headers, but none of its
     # classes_def entries use pat types; drop them instead of pulling the

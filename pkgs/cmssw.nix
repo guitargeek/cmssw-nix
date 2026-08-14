@@ -38,6 +38,14 @@
 # standalone Minuit2 (pkgs/minuit2.nix) for ROOT builds without the Minuit2
 # component (nixpkgs 22.05); newer ROOTs provide ROOT::Minuit2 themselves
 , minuit2 ? null
+# reco-chain externals: fastjet (+contrib) for jet clustering, HepPDT for
+# the particle data table, lwtnn for the DeepFlavour tagger and the lwtnn
+# track classifier, openblas for the MVA trainer
+, fastjet ? null
+, fastjet-contrib ? null
+, heppdt ? null
+, lwtnn ? null
+, openblas ? null
 # CORAL (pkgs/coral.nix), needed by CondCore
 , coral ? null
 # libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
@@ -92,6 +100,11 @@ stdenv.mkDerivation {
     ++ lib.optional (vdt != null) vdt
     ++ lib.optional (gsl != null) gsl
     ++ lib.optional (minuit2 != null) minuit2
+    ++ lib.optional (fastjet != null) fastjet
+    ++ lib.optional (fastjet-contrib != null) fastjet-contrib
+    ++ lib.optional (heppdt != null) heppdt
+    ++ lib.optional (lwtnn != null) lwtnn
+    ++ lib.optional (openblas != null) openblas
     ++ lib.optional (coral != null) coral
     ++ lib.optional (curl != null) curl;
 
@@ -160,6 +173,10 @@ stdenv.mkDerivation {
       ${lib.optionalString (hepmc != null) "-DCMSSW_WITH_HEPMC=ON"} \
       ${lib.optionalString (vdt != null) "-DCMSSW_WITH_VDT=ON"} \
       ${lib.optionalString (gsl != null) "-DCMSSW_WITH_GSL=ON"} \
+      ${lib.optionalString (fastjet != null) "-DCMSSW_WITH_FASTJET=ON"} \
+      ${lib.optionalString (heppdt != null) "-DCMSSW_WITH_HEPPDT=ON"} \
+      ${lib.optionalString (lwtnn != null) "-DCMSSW_WITH_LWTNN=ON"} \
+      ${lib.optionalString (openblas != null) "-DCMSSW_WITH_OPENBLAS=ON"} \
       ${lib.optionalString (coral != null) "-DCMSSW_WITH_CORAL=ON"} \
       ${lib.optionalString (curl != null) "-DCMSSW_WITH_CURL=ON"} \
       -DCMSSW_VERSION=${version} \
@@ -176,7 +193,9 @@ stdenv.mkDerivation {
     # exhaust the memory of smaller machines
     jobs=$NIX_BUILD_CORES
     if [ "$jobs" -gt 10 ]; then jobs=10; fi
-    cmake --build build -j $jobs
+    # -k 0: keep going on errors, so one failed build reports every broken
+    # target instead of just the first
+    cmake --build build -j $jobs -- -k 0
     runHook postBuild
   '';
 
@@ -206,6 +225,34 @@ stdenv.mkDerivation {
       mkdir -p $out/src/${d.path}/data
       cp -r ${d.src}/. $out/src/${d.path}/data/
     '') extraData}
+
+    # Generate the fillDescriptions-based *_cfi.py files (scram's
+    # "cfipython") into each package's python directory, so the standard
+    # configuration files can import them. The library manifest maps every
+    # built library back to its package.
+    if [ -x $out/bin/edmWriteConfigs ] && [ -f library_manifest.txt ]; then
+      echo "generating cfipython files"
+      export LD_LIBRARY_PATH=$out/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+      gen_cfis() {
+        target=$1; pkg=$2
+        for so in $out/lib/plugin$target.so $out/lib/lib$target.so; do
+          [ -f "$so" ] || continue
+          tmp=$(mktemp -d)
+          ( cd $tmp && $out/bin/edmWriteConfigs -p "$so" > /dev/null 2>&1 ) || true
+          if ls $tmp/*_cfi.py > /dev/null 2>&1; then
+            mkdir -p $out/src/$pkg/python
+            for f in $tmp/*_cfi.py; do
+              # handwritten files win over generated ones
+              [ -e $out/src/$pkg/python/$(basename $f) ] || cp $f $out/src/$pkg/python/
+            done
+          fi
+          rm -rf $tmp
+        done
+      }
+      export -f gen_cfis
+      export out
+      xargs -P 8 -n 2 bash -c 'gen_cfis "$@"' _ < library_manifest.txt
+    fi
 
     # Python directory structure: make e.g. FWCore.ParameterSet.Config
     # importable from $out/python.

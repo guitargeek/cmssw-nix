@@ -41,6 +41,7 @@ find_library(md5_LIBRARIES NAMES cms-md5 REQUIRED)
 find_path(md5_INCLUDE_DIRECTORIES NAMES md5.h REQUIRED)
 find_library(libuuid_LIBRARIES NAMES uuid REQUIRED)
 find_library(openssl_LIBRARIES NAMES crypto REQUIRED)
+find_path(openssl_INCLUDE_DIRECTORIES NAMES openssl/md5.h REQUIRED)
 find_library(zlib_LIBRARIES NAMES z REQUIRED)
 find_library(jemalloc_LIBRARIES NAMES jemalloc REQUIRED)
 if(CMSSW_WITH_CPU_FEATURES)
@@ -71,6 +72,32 @@ if(CMSSW_WITH_GSL)
   find_library(_gslcblas NAMES gslcblas REQUIRED)
   list(APPEND gsl_LIBRARIES ${_gslcblas})
   find_path(gsl_INCLUDE_DIRECTORIES NAMES gsl/gsl_math.h REQUIRED)
+endif()
+if(CMSSW_WITH_FASTJET)
+  find_library(fastjet_LIBRARIES NAMES fastjet REQUIRED)
+  foreach(_l fastjetplugins fastjettools siscone siscone_spherical)
+    find_library(_fj_${_l} NAMES ${_l})
+    if(_fj_${_l})
+      list(APPEND fastjet_LIBRARIES ${_fj_${_l}})
+    endif()
+  endforeach()
+  find_path(fastjet_INCLUDE_DIRECTORIES NAMES fastjet/PseudoJet.hh REQUIRED)
+  # fastjet-contrib installs a single combined library
+  find_library(fastjet-contrib_LIBRARIES NAMES fastjetcontribfragile REQUIRED)
+  find_path(fastjet-contrib_INCLUDE_DIRECTORIES NAMES fastjet/contrib/SoftDrop.hh REQUIRED)
+endif()
+if(CMSSW_WITH_HEPPDT)
+  find_library(heppdt_LIBRARIES NAMES HepPDT REQUIRED)
+  find_library(_heppid NAMES HepPID REQUIRED)
+  list(APPEND heppdt_LIBRARIES ${_heppid})
+  find_path(heppdt_INCLUDE_DIRECTORIES NAMES HepPDT/ParticleID.hh REQUIRED)
+endif()
+if(CMSSW_WITH_LWTNN)
+  find_library(lwtnn_LIBRARIES NAMES lwtnn REQUIRED)
+  find_path(lwtnn_INCLUDE_DIRECTORIES NAMES lwtnn/LightweightNeuralNetwork.hh REQUIRED)
+endif()
+if(CMSSW_WITH_OPENBLAS)
+  find_library(openblas_LIBRARIES NAMES openblas REQUIRED)
 endif()
 if(CMSSW_WITH_CURL)
   find_library(curl_LIBRARIES NAMES curl REQUIRED)
@@ -105,6 +132,11 @@ set(rootminuit_LIBRARIES ${_root_common_libs} ROOT::Minuit)
 set(rootminuit_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 set(rootmlp_LIBRARIES ${_root_common_libs} ROOT::MLP)
 set(rootmlp_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+# RooFit (PhysicsTools/Utilities)
+set(roofit_LIBRARIES ${_root_common_libs} ROOT::RooFitCore ROOT::RooFit)
+set(roofit_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+set(roofitcore_LIBRARIES ${_root_common_libs} ROOT::RooFitCore)
+set(roofitcore_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 # Minuit2: from ROOT if it was built with it, else from the standalone
 # Minuit2 package (pkgs/minuit2.nix, used with the 22.05-era ROOT)
 if(TARGET ROOT::Minuit2)
@@ -201,11 +233,20 @@ endif()
 # ---------------------------------------------------------------------------
 
 # Extra include directories that genreflex (which does not see the compiler
-# wrapper's implicit search paths) always needs.
+# wrapper's implicit search paths) always needs. All optional external tool
+# include directories are listed here as well: the per-target collection
+# below only sees the include directories of *already-configured* targets,
+# so tool includes of packages configured later in the tree walk would be
+# missed (empty variables expand to nothing).
 set(GENREFLEX_INCLUDE_LIST "")
 foreach(dir ${Boost_INCLUDE_DIRS} ${CLHEP_INCLUDE_DIRS} ${eigen_INCLUDE_DIRECTORIES}
         ${alpaka_INCLUDE_DIRECTORIES} ${tbb_INCLUDE_DIRECTORIES} ${fmt_INCLUDE_DIRECTORIES}
-        ${libuuid_INCLUDE_DIRECTORIES} ${md5_INCLUDE_DIRECTORIES})
+        ${libuuid_INCLUDE_DIRECTORIES} ${md5_INCLUDE_DIRECTORIES}
+        ${hepmc_INCLUDE_DIRECTORIES} ${vdt_headers_INCLUDE_DIRECTORIES}
+        ${gsl_INCLUDE_DIRECTORIES} ${fastjet_INCLUDE_DIRECTORIES}
+        ${fastjet-contrib_INCLUDE_DIRECTORIES} ${heppdt_INCLUDE_DIRECTORIES}
+        ${lwtnn_INCLUDE_DIRECTORIES} ${CoralBase_INCLUDE_DIRECTORIES}
+        ${cpu_features_INCLUDE_DIRECTORIES} ${openssl_INCLUDE_DIRECTORIES})
   list(APPEND GENREFLEX_INCLUDE_LIST "-I${dir}")
 endforeach()
 list(REMOVE_DUPLICATES GENREFLEX_INCLUDE_LIST)

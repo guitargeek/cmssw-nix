@@ -37,9 +37,21 @@
 # (EcalTrivialConditionRetriever, HcalHardcodeCalibrations). Several stale
 # or optional dependencies are pruned at prepare time, see
 # prepare_sources.py.
+#
+# Full high-level reconstruction chain: tracking + vertexing
+# (TrackingTools, RecoTracker, RecoPixelVertexing, RecoVertex), muons
+# (RecoMuon), e/gamma (RecoEcal, RecoEgamma), particle flow
+# (RecoParticleFlow), jets/MET (RecoJets, RecoMET, JetMETCorrections with
+# fastjet), b/tau tagging (RecoBTag with lwtnn, RecoBTau, RecoTauTag) and
+# the supporting PhysicsTools/CommonTools/Sim* layers. The DNN producers
+# that need TensorFlow/ONNXRuntime and the HLT/L1 tooling (utm external)
+# are excluded; see prepare_sources.py for the related prunes.
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
+  # edmWriteConfigs: generates the fillDescriptions-based *_cfi.py files
+  # (scram's cfipython) at install time
+  - FWCore/ParameterSet
   # edmFileUtil (needed by edmDumpEventContent), edmProvDump, edmCopyUtil
   - IOPool/Common
 subsystems:
@@ -49,6 +61,7 @@ subsystems:
         no_plugins:
           - EcalTPGTools
         whitelist:
+          - CaloMiscalibTools
           - EcalLaserAnalyzer
           - EcalLaserCorrection
           - EcalTPGTools
@@ -71,13 +84,21 @@ subsystems:
           - SiPixelESProducers
           - SiStripCommon
           - SiStripESProducers
+    Calibration:
+        whitelist:
+          - Tools
     CommonTools:
         # no_plugins: MVAUtils' only plugin is a conditions-DB writer that
         # would pull in CondCore and the CORAL externals
         no_plugins: true
         whitelist:
+          - BaseParticlePropagator
+          - CandAlgos
           - CandUtils
+          - Clustering1D
           - MVAUtils
+          - ParticleFlow
+          - RecoAlgos
           - Statistics
           - UtilAlgos
           - Utils
@@ -88,12 +109,16 @@ subsystems:
           - Eras
           - ProcessModifiers
     CondCore:
+        # Utilities' plugins are the python payload-inspector modules
+        no_plugins:
+          - Utilities
         whitelist:
           - BeamSpotPlugins
           - CondDB
           - DBOutputService
           - ESSources
           - PluginSystem
+          - Utilities
     CondFormats:
         whitelist:
           - Alignment
@@ -101,6 +126,9 @@ subsystems:
           - BTauObjects
           - BeamSpotObjects
           - CSCObjects
+          - CTPPSReadoutObjects
+          - Calibration
+          - CastorObjects
           - Common
           - DTObjects
           - DataRecord
@@ -110,12 +138,20 @@ subsystems:
           - EgammaObjects
           - External
           - GeometryObjects
+          - HIObjects
+          - HLTObjects
           - HcalObjects
+          - JetMETObjects
           - L1TObjects
+          - Luminosity
+          - MFObjects
+          - PCLConfig
           - PhysicsToolsObjects
           - RPCObjects
+          - RecoMuonObjects
           - RunInfo
           - Serialization
+          - SiPhase2TrackerObjects
           - SiPixelObjects
           - SiPixelTransient
           - SiStripObjects
@@ -135,6 +171,7 @@ subsystems:
           - CaloRecHit
           - CaloTowers
           - Candidate
+          - CastorReco
           - Common
           - DTDigi
           - DTRecHit
@@ -142,6 +179,7 @@ subsystems:
           - EcalDetId
           # EcalRecHit's collection headers reach the EcalDigi data frames
           - EcalDigi
+          - EcalRawData
           - EcalRecHit
           - EgammaCandidates
           - EgammaReco
@@ -156,6 +194,7 @@ subsystems:
           - GeometrySurface
           - GeometryVector
           - GsfTrackReco
+          - HGCRecHit
           - HLTReco
           - HcalCalibObjects
           - HcalDetId
@@ -263,6 +302,7 @@ subsystems:
           - ForwardGeometry
           - GEMGeometry
           - GEMGeometryBuilder
+          - GlobalTrackingGeometryBuilder
           - HGCalCommonData
           - HGCalGeometry
           - HcalAlgo
@@ -271,6 +311,9 @@ subsystems:
           - HcalTowerAlgo
           # data-only: the muon chamber XML + numbering constants and the
           # sens spec-pars the geometry builders filter on
+          - MTDCommonData
+          - MTDGeometryBuilder
+          - MTDNumberingBuilder
           - MuonCommonData
           - MuonNumbering
           - MuonSimData
@@ -283,6 +326,9 @@ subsystems:
     GeometryReaders:
         whitelist:
           - XMLIdealGeometryESSource
+    IOMC:
+        whitelist:
+          - RandomEngine
     IOPool:
         whitelist:
           - Common
@@ -290,10 +336,24 @@ subsystems:
           - Output
           - Provenance
           - TFileAdaptor
+    JetMETCorrections:
+        whitelist:
+          - Algorithms
+          - JetCorrector
+          - JetParton
+          - JetVertexAssociation
+          - MinBias
+          - Modules
+          - Objects
+          - TauJet
+          - Type1MET
     MagneticField:
         whitelist:
           - Engine
+          - GeomBuilder
+          - Interpolation
           - Layers
+          - ParametrizedEngine
           - Records
           - UniformEngine
           - VolumeBasedEngine
@@ -302,13 +362,68 @@ subsystems:
         whitelist:
           # python-only package: cmstools & friends, imported by
           # edmDumpEventContent
+          - FWLite
+          - HepMCCandAlgos
+          - IsolationAlgos
+          - IsolationUtils
+          - JetMCUtils
+          - MVAComputer
+          - MVATrainer
           - PythonAnalysis
+          - SelectorUtils
+          - UtilAlgos
+          - Utilities
+    RecoBTag:
+        whitelist:
+          - BTagTools
+          - CTagging
+          - Combined
+          - ImpactParameter
+          - Records
+          - SecondaryVertex
+          - SoftLepton
+          - TrackProbability
+          - XMLCalibration
+    RecoBTau:
+        whitelist:
+          - JetTagComputer
+    RecoCaloTools:
+        whitelist:
+          - Navigation
+          - Selectors
+    RecoEcal:
+        whitelist:
+          - EgammaClusterAlgos
+          - EgammaClusterProducers
+          - EgammaCoreTools
+    RecoEgamma:
+        whitelist:
+          - EgammaElectronAlgos
+          - EgammaElectronProducers
+          - EgammaHFProducers
+          - EgammaHLTAlgos
+          - EgammaHLTProducers
+          - EgammaIsolationAlgos
+          - EgammaMCTools
+          - EgammaPhotonAlgos
+          - EgammaPhotonProducers
+          - EgammaTools
+          - ElectronIdentification
+          - PhotonIdentification
+    RecoJets:
+        whitelist:
+          - JetAlgorithms
+          - JetAssociationAlgorithms
+          - JetAssociationProducers
+          - JetPlusTracks
+          - JetProducers
     RecoLocalCalo:
         whitelist:
           - CaloTowersCreator
           - EcalDeadChannelRecoveryAlgos
           - EcalRecAlgos
           - EcalRecProducers
+          - HGCalRecAlgos
           - HcalRecAlgos
           - HcalRecProducers
     RecoLocalMuon:
@@ -323,14 +438,103 @@ subsystems:
     RecoLocalTracker:
         whitelist:
           - ClusterParameterEstimator
+          - Phase2TrackerRecHits
           - Records
           - SiPixelClusterizer
           - SiPixelRecHits
           - SiStripClusterizer
           - SiStripRecHitConverter
           - SiStripZeroSuppression
+    RecoMET:
+        whitelist:
+          - METAlgorithms
+          - METPUSubtraction
+          - METProducers
+    RecoMTD:
+        whitelist:
+          - DetLayers
+          - MeasurementDet
+          - Navigation
+          - Records
+          - TrackExtender
+          - TransientTrackingRecHit
+    RecoMuon:
+        whitelist:
+          - DetLayers
+          - GlobalMuonProducer
+          - GlobalTrackFinder
+          - GlobalTrackingTools
+          - L2MuonIsolationProducer
+          - L2MuonProducer
+          - L2MuonSeedGenerator
+          - L3MuonIsolationProducer
+          - L3MuonProducer
+          - L3TrackFinder
+          - MeasurementDet
+          - MuonIdentification
+          - MuonIsolation
+          - MuonIsolationProducers
+          - MuonSeedGenerator
+          - Navigation
+          - Records
+          - StandAloneMuonProducer
+          - StandAloneTrackFinder
+          - TrackerSeedGenerator
+          - TrackingTools
+          - TransientTrackingRecHit
+    RecoParticleFlow:
+        whitelist:
+          - PFClusterProducer
+          - PFClusterTools
+          - PFProducer
+          - PFTracking
+    RecoPixelVertexing:
+        whitelist:
+          - PixelLowPtUtilities
+          - PixelTrackFitting
+          - PixelTriplets
+          - PixelVertexFinding
+    RecoTauTag:
+        whitelist:
+          - ImpactParameter
+          - RecoTau
+          - TauTagTools
+    RecoTracker:
+        whitelist:
+          - CkfPattern
+          - ConversionSeedGenerators
+          - DeDx
+          - FinalTrackSelectors
+          - GeometryESProducer
+          - MeasurementDet
+          - Record
+          - SiTrackerMRHTools
+          - TkDetLayers
+          - TkHitPairs
+          - TkMSParametrization
+          - TkNavigation
+          - TkSeedGenerator
+          - TkSeedingLayers
+          - TkTrackingRegions
+          - TrackProducer
+          - TransientTrackingRecHit
     RecoVertex:
         whitelist:
+          - AdaptiveVertexFinder
+          - AdaptiveVertexFit
+          - BeamSpotProducer
+          - ConfigurableVertexReco
+          - GaussianSumVertexFit
+          - GhostTrackFitter
+          - KalmanVertexFit
+          - KinematicFit
+          - KinematicFitPrimitives
+          - LinearizationPointFinders
+          - MultiVertexFit
+          - PrimaryVertexProducer
+          - TrimmedKalmanVertexFinder
+          - TrimmedVertexFit
+          - V0Producer
           - VertexPrimitives
           - VertexTools
     SimCalorimetry:
@@ -340,27 +544,63 @@ subsystems:
           - EcalSimAlgos
     SimDataFormats:
         whitelist:
+          - Associations
           - CaloHit
+          - CrossingFrame
+          - DigiSimLinks
           - EncodedEventId
           - GeneratorProducts
           - JetMatching
           - PileupSummaryInfo
           - RandomEngine
+          - Track
+          - TrackerDigiSimLink
+          - TrackingAnalysis
+          - TrackingHit
+          - Vertex
     SimGeneral:
         whitelist:
+          - HepPDTRecord
           - NoiseGenerators
+    SimMuon:
+        whitelist:
+          - MCTruth
+    SimTracker:
+        whitelist:
+          - Records
+          - TrackAssociation
+          - TrackerHitAssociation
+    TrackPropagation:
+        whitelist:
+          - RungeKutta
+          - SteppingHelixPropagator
     TrackingTools:
         whitelist:
           - AnalyticalJacobians
+          - DetLayers
           - GeomPropagators
           - GsfTools
+          - GsfTracking
+          - IPTools
+          - KalmanUpdators
+          - MaterialEffects
+          - MeasurementDet
           - PatternTools
+          - Producers
+          - RecoGeometry
           - Records
+          - TrackAssociator
+          - TrackFitters
+          - TrackRefitter
+          - TrajectoryCleaning
+          - TrajectoryFiltering
           - TrajectoryParametrization
           - TrajectoryState
           - TransientTrack
           - TransientTrackingRecHit
     Utilities:
         whitelist:
+          - BinningTools
+          - General
           - StorageFactory
           - Xerces

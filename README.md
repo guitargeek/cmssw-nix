@@ -91,8 +91,37 @@ exactly the expected clusters, rec hits, segments and calo towers — see
 [examples/MuonLocalReco](examples/MuonLocalReco), which double as
 regression tests.
 
-Still out of scope for *producing* miniAOD/nanoAOD: the remaining
-`PhysicsTools`/`RecoXyz` plugin packages and TensorFlow C++.
+On top of the local reconstruction, the build now carries the **complete
+high-level reconstruction chain**: the full `TrackingTools` +
+`RecoTracker` + `RecoPixelVertexing` + `RecoVertex` tracking and vertexing
+machinery, standalone/global/tracker muons (`RecoMuon`), e/gamma
+clustering and identification (`RecoEcal`, `RecoEgamma`), particle flow
+(`RecoParticleFlow`), jets and MET with their corrections (`RecoJets`,
+`RecoMET`, `JetMETCorrections` with fastjet + fastjet-contrib), b- and
+tau-tagging (`RecoBTag` incl. the lwtnn-based DeepFlavour,
+`RecoTauTag`), and the supporting `PhysicsTools`/`CommonTools`/
+`SimDataFormats` layers — about 430 packages in total. New externals:
+fastjet(+contrib) and openblas from nixpkgs, HepPDT and lwtnn packaged
+here ([pkgs/heppdt.nix](pkgs/heppdt.nix), [pkgs/lwtnn.nix](pkgs/lwtnn.nix)).
+The chain is validated end-to-end without external data: toy digis placed
+along true helices through the XML-built tracker reconstruct — through
+the standard clusterizers, pixel-triplet seeding, helix fit and
+primary-vertex fit, and onward through the full combinatorial Kalman
+filter (`CkfTrackCandidateMaker` + `CTFFinalFitWithMaterial`) — into the
+injected tracks (momenta reproduced to a few permil with 16–21 hits) and
+a primary vertex at the origin (see
+[examples/TrackingChain](examples/TrackingChain)).
+
+The install also generates scram's "cfipython" configuration fragments:
+`edmWriteConfigs` is run over every built library at install time (via a
+library→package manifest emitted by the generator) and the resulting
+`*_cfi.py` files are merged into the package python directories, so the
+standard configuration files that import them work unchanged.
+
+Still out of scope: the DNN-based producers that need the TensorFlow C++
+or ONNXRuntime externals (DeepMET, DeepTau, DeepJet — pruned at prepare
+time), the HLT/trigger tooling (would need the `utm` external), and the
+generator packages.
 Everything comes from nixpkgs except two tiny CMS externals packaged here
 (`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
 C++20 to match CMSSW; the ROOT 6.24 of nixos-22.05 is already C++17 and is
