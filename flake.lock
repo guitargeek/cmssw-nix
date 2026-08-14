@@ -85,6 +85,38 @@
         "type": "github"
       }
     },
+    "ecal-deadchannel-data": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1564663532,
+        "narHash": "sha256-49Q7gXgkwibvadeBxb7lG+V5tXwXKC7l7IVwLslAlio=",
+        "owner": "cms-data",
+        "repo": "RecoLocalCalo-EcalDeadChannelRecoveryAlgos",
+        "rev": "d2d749840e255bd890a4474d0eee2ebda93a9e97",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-data",
+        "repo": "RecoLocalCalo-EcalDeadChannelRecoveryAlgos",
+        "type": "github"
+      }
+    },
+    "ecal-trivialcond-data": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1564662677,
+        "narHash": "sha256-AAVkVDhh7k/UKhfxVo24arMy0NBQ8G5087c49Sl0QZw=",
+        "owner": "cms-data",
+        "repo": "CalibCalorimetry-EcalTrivialCondModules",
+        "rev": "137140da73ab8abceb091feedb22566cc4098e13",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-data",
+        "repo": "CalibCalorimetry-EcalTrivialCondModules",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1786384358,
@@ -124,6 +156,8 @@
         "cmssw-10_6-src": "cmssw-10_6-src",
         "cmssw-src": "cmssw-src",
         "coral-src": "coral-src",
+        "ecal-deadchannel-data": "ecal-deadchannel-data",
+        "ecal-trivialcond-data": "ecal-trivialcond-data",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
         "vdt-src": "vdt-src"

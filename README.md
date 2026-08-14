@@ -61,19 +61,30 @@ does it. Payloads can be written to and read from `sqlite_file:` databases
 through `PoolDBOutputService` / `PoolDBESSource`. Oracle/Frontier access
 (real GlobalTags from the grid) is not built.
 
-The first reconstruction step itself is also covered for the tracker:
-**tracker local reco** (the SiPixel/SiStrip clusterizers, the strip zero
-suppression and the rec-hit converters with their cluster-parameter
-estimators) together with the infrastructure it stands on — the
-`TrackerGeometry` built at runtime from the DDD XML detector description
-(`DetectorDescription`, `XMLIdealGeometryESSource` and the tracker geometry
-data files), the tracker cabling/quality/gain/noise ES producers from
-`CalibTracker` including the fake ("from parameters") conditions sources,
-and the uniform + volume-based magnetic field engines. The chain is
-validated end-to-end without any external data: toy digis placed on the
-first pixel-barrel and TIB modules of the XML-built geometry come out as
-exactly one cluster and one rec hit each, positions and errors included,
-with all conditions supplied by the fake ES sources.
+The first reconstruction step itself is also covered for the tracker and
+the calorimeters. **Tracker local reco**: the SiPixel/SiStrip clusterizers,
+the strip zero suppression and the rec-hit converters with their
+cluster-parameter estimators, together with the infrastructure they stand
+on — the `TrackerGeometry` built at runtime from the DDD XML detector
+description (`DetectorDescription`, `XMLIdealGeometryESSource` and the
+tracker geometry data files), the tracker cabling/quality/gain/noise ES
+producers from `CalibTracker` including the fake ("from parameters")
+conditions sources, and the uniform + volume-based magnetic field engines.
+**Calorimeter local reco**: the Ecal uncalibrated/calibrated rec-hit
+producers (weights method, plus the multifit workers), the phase-1 HBHE
+reconstructor (Mahi, M0 and — thanks to a standalone Minuit2 built from
+the ROOT sources — the method-2 pulse fit), the HF/HO reconstructors and
+the calo-tower creator, on top of the calo geometry builders
+(`CaloGeometry` from the same XML detector description) and the standalone
+conditions providers (`EcalTrivialConditionRetriever`,
+`HcalHardcodeCalibrations`).
+
+Both chains are validated end-to-end without any external data: toy digis
+placed on modules/cells of the XML-built geometries come out as exactly
+the expected clusters, rec hits and calo towers — see
+[examples/TrackerLocalReco](examples/TrackerLocalReco) and
+[examples/CaloLocalReco](examples/CaloLocalReco), which double as
+regression tests.
 
 Still out of scope for *producing* miniAOD/nanoAOD: the remaining
 `PhysicsTools`/`RecoXyz` plugin packages and TensorFlow C++.
@@ -100,9 +111,10 @@ See [examples/MyAnalyzer](examples/MyAnalyzer) for building and running an
 analyzer plugin against this CMSSW installation (self-contained, works with
 both releases), [examples/MiniAODReader](examples/MiniAODReader) for
 reading a real CMS Open Data miniAOD file with the 10_6_30 package, and
-[examples/TrackerLocalReco](examples/TrackerLocalReco) for running the
-tracker local reconstruction on toy digis with the XML-built geometry and
-fake conditions.
+[examples/TrackerLocalReco](examples/TrackerLocalReco) and
+[examples/CaloLocalReco](examples/CaloLocalReco) for running the tracker
+and calorimeter local reconstruction on toy digis with the XML-built
+geometries and fake/hardcoded conditions.
 
 ## Layout
 

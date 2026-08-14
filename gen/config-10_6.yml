@@ -29,14 +29,36 @@
 # uniform + volume-based magnetic field engines. The Shallow* calibration-
 # ntuple producers of CalibTracker/SiStripCommon are pruned at prepare time
 # (they would pull in SimTracker truth-matching and the muon geometries).
+#
+# Calorimeter local reco: the Ecal uncalibrated/calibrated rec-hit
+# producers, the Hcal reconstructors and the calo-tower creator, with the
+# calo geometry builders (CaloEventSetup, EcalAlgo, HcalTowerAlgo + the
+# Ecal/Hcal/HGCal XML data) and the standalone conditions providers
+# (EcalTrivialConditionRetriever, HcalHardcodeCalibrations). Several stale
+# or optional dependencies are pruned at prepare time, see
+# prepare_sources.py.
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
   # edmFileUtil (needed by edmDumpEventContent), edmProvDump, edmCopyUtil
   - IOPool/Common
 subsystems:
+    CalibCalorimetry:
+        # EcalTPGTools' plugins are Oracle-based DB writers; the library
+        # (EcalTPGScale, used by the Ecal dead-channel recovery) is fine
+        no_plugins:
+          - EcalTPGTools
+        whitelist:
+          - EcalLaserAnalyzer
+          - EcalLaserCorrection
+          - EcalTPGTools
+          - EcalTrivialCondModules
+          - HcalAlgos
+          - HcalPlugins
     CalibFormats:
         whitelist:
+          - CaloObjects
+          - HcalObjects
           - SiPixelObjects
           - SiStripObjects
     CalibTracker:
@@ -55,6 +77,12 @@ subsystems:
           - Statistics
           - UtilAlgos
           - Utils
+    Configuration:
+        # python-only packages: the era/process modifiers that many standard
+        # cfi files import
+        whitelist:
+          - Eras
+          - ProcessModifiers
     CondCore:
         whitelist:
           - BeamSpotPlugins
@@ -70,10 +98,12 @@ subsystems:
           - BeamSpotObjects
           - Common
           - DataRecord
+          - ESObjects
           - EcalObjects
           - EgammaObjects
           - External
           - GeometryObjects
+          - HcalObjects
           - L1TObjects
           - PhysicsToolsObjects
           - RunInfo
@@ -117,6 +147,7 @@ subsystems:
           - GeometryVector
           - GsfTrackReco
           - HLTReco
+          - HcalCalibObjects
           - HcalDetId
           - HcalDigi
           # referenced by HLTReco's TriggerRefsCollections dictionary
@@ -202,10 +233,24 @@ subsystems:
     Geometry:
         whitelist:
           - CMSCommonData
+          - CaloEventSetup
           - CaloGeometry
+          - CaloTopology
           - CommonDetUnit
           - CommonTopologies
+          - EcalAlgo
+          - EcalCommonData
           - EcalMapping
+          # data-only: the ReadOutName spec-pars the Ecal geometry loader
+          # filters on (ecalsens.xml)
+          - EcalSimData
+          - ForwardGeometry
+          - HGCalCommonData
+          - HGCalGeometry
+          - HcalAlgo
+          - HcalCommonData
+          - HcalEventSetup
+          - HcalTowerAlgo
           - Records
           - TrackerCommonData
           - TrackerGeometryBuilder
@@ -233,6 +278,14 @@ subsystems:
           # python-only package: cmstools & friends, imported by
           # edmDumpEventContent
           - PythonAnalysis
+    RecoLocalCalo:
+        whitelist:
+          - CaloTowersCreator
+          - EcalDeadChannelRecoveryAlgos
+          - EcalRecAlgos
+          - EcalRecProducers
+          - HcalRecAlgos
+          - HcalRecProducers
     RecoLocalTracker:
         whitelist:
           - ClusterParameterEstimator
@@ -246,12 +299,22 @@ subsystems:
         whitelist:
           - VertexPrimitives
           - VertexTools
+    SimCalorimetry:
+        # EB/EE pulse shapes for the Ecal uncalibrated-rec-hit workers
+        whitelist:
+          - CaloSimAlgos
+          - EcalSimAlgos
     SimDataFormats:
         whitelist:
+          - CaloHit
+          - EncodedEventId
           - GeneratorProducts
           - JetMatching
           - PileupSummaryInfo
           - RandomEngine
+    SimGeneral:
+        whitelist:
+          - NoiseGenerators
     TrackingTools:
         whitelist:
           - AnalyticalJacobians

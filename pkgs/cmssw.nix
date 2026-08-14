@@ -33,6 +33,11 @@
 # vdt fast-math headers (scram tool vdt_headers), used by TrackingTools and
 # DataFormats/ParticleFlowReco
 , vdt ? null
+# GSL, used by CalibCalorimetry/HcalAlgos (part of the calo local reco)
+, gsl ? null
+# standalone Minuit2 (pkgs/minuit2.nix) for ROOT builds without the Minuit2
+# component (nixpkgs 22.05); newer ROOTs provide ROOT::Minuit2 themselves
+, minuit2 ? null
 # CORAL (pkgs/coral.nix), needed by CondCore
 , coral ? null
 # libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
@@ -46,6 +51,11 @@
 # extra python packages for the runtime environment (e.g. six for 10_6-era
 # python config code)
 , extraPythonPackages ? (ps: [ ])
+# cms-data externals: data files distributed outside the cmssw repository
+# (github.com/cms-data/<Subsystem>-<Package>), installed as the package's
+# data/ directory like scram does. List of { path = "Subsystem/Package";
+# src = <flake input>; }.
+, extraData ? [ ]
 }:
 
 let
@@ -80,6 +90,8 @@ stdenv.mkDerivation {
     ++ lib.optional (xercesc != null) xercesc
     ++ lib.optionals (hepmc != null) [ hepmc xz ]
     ++ lib.optional (vdt != null) vdt
+    ++ lib.optional (gsl != null) gsl
+    ++ lib.optional (minuit2 != null) minuit2
     ++ lib.optional (coral != null) coral
     ++ lib.optional (curl != null) curl;
 
@@ -147,6 +159,7 @@ stdenv.mkDerivation {
       ${lib.optionalString (xercesc != null) "-DCMSSW_WITH_XERCESC=ON"} \
       ${lib.optionalString (hepmc != null) "-DCMSSW_WITH_HEPMC=ON"} \
       ${lib.optionalString (vdt != null) "-DCMSSW_WITH_VDT=ON"} \
+      ${lib.optionalString (gsl != null) "-DCMSSW_WITH_GSL=ON"} \
       ${lib.optionalString (coral != null) "-DCMSSW_WITH_CORAL=ON"} \
       ${lib.optionalString (curl != null) "-DCMSSW_WITH_CURL=ON"} \
       -DCMSSW_VERSION=${version} \
@@ -187,6 +200,12 @@ stdenv.mkDerivation {
         find $out/src/$pkg -name CMakeLists.txt -delete
       fi
     done
+
+    # cms-data externals: install as the data/ directory of their package
+    ${lib.concatMapStrings (d: ''
+      mkdir -p $out/src/${d.path}/data
+      cp -r ${d.src}/. $out/src/${d.path}/data/
+    '') extraData}
 
     # Python directory structure: make e.g. FWCore.ParameterSet.Config
     # importable from $out/python.

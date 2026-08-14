@@ -66,6 +66,12 @@ if(CMSSW_WITH_VDT)
   # inline fast-math headers only (scram tool vdt_headers)
   find_path(vdt_headers_INCLUDE_DIRECTORIES NAMES vdt/vdtMath.h REQUIRED)
 endif()
+if(CMSSW_WITH_GSL)
+  find_library(gsl_LIBRARIES NAMES gsl REQUIRED)
+  find_library(_gslcblas NAMES gslcblas REQUIRED)
+  list(APPEND gsl_LIBRARIES ${_gslcblas})
+  find_path(gsl_INCLUDE_DIRECTORIES NAMES gsl/gsl_math.h REQUIRED)
+endif()
 if(CMSSW_WITH_CURL)
   find_library(curl_LIBRARIES NAMES curl REQUIRED)
   find_path(curl_INCLUDE_DIRECTORIES NAMES curl/curl.h REQUIRED)
@@ -83,8 +89,8 @@ endif()
 # ROOT libraries everywhere is fine for our purposes.
 set(_root_common_libs
   ROOT::Core ROOT::RIO ROOT::Net ROOT::Tree ROOT::TreePlayer ROOT::Thread
-  ROOT::MathCore ROOT::Hist ROOT::Matrix ROOT::Physics ROOT::GenVector
-  ROOT::Smatrix ROOT::ROOTVecOps)
+  ROOT::MathCore ROOT::MathMore ROOT::Hist ROOT::Matrix ROOT::Physics
+  ROOT::GenVector ROOT::Smatrix ROOT::ROOTVecOps)
 foreach(_t root rootcore rootcling rootrflx rootmath rootmathcore
         roothistmatrix rootsmatrix rootrio rootphysics)
   set(${_t}_LIBRARIES ${_root_common_libs})
@@ -93,6 +99,25 @@ endforeach()
 # TMVA on top of the common set (CommonTools/MVAUtils)
 set(roottmva_LIBRARIES ${_root_common_libs} ROOT::TMVA)
 set(roottmva_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+# Minuit/Minuit2 (Hcal method-2 pulse fits) and the TMultiLayerPerceptron
+# (Ecal dead-channel recovery) on top of the common set
+set(rootminuit_LIBRARIES ${_root_common_libs} ROOT::Minuit)
+set(rootminuit_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+set(rootmlp_LIBRARIES ${_root_common_libs} ROOT::MLP)
+set(rootmlp_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+# Minuit2: from ROOT if it was built with it, else from the standalone
+# Minuit2 package (pkgs/minuit2.nix, used with the 22.05-era ROOT)
+if(TARGET ROOT::Minuit2)
+  set(rootminuit2_LIBRARIES ${_root_common_libs} ROOT::Minuit2)
+  set(rootminuit2_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+else()
+  find_library(_minuit2_lib NAMES Minuit2 REQUIRED)
+  find_library(_minuit2math_lib NAMES Minuit2Math REQUIRED)
+  # the standalone package nests its header root at include/Minuit2
+  find_path(_minuit2_inc NAMES Minuit2/Minuit2Minimizer.h PATH_SUFFIXES Minuit2 REQUIRED)
+  set(rootminuit2_LIBRARIES ${_root_common_libs} ${_minuit2_lib} ${_minuit2math_lib})
+  set(rootminuit2_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS} ${_minuit2_inc})
+endif()
 
 set(boost_LIBRARIES Boost::filesystem Boost::thread Boost::regex
     Boost::serialization Boost::iostreams Boost::date_time)

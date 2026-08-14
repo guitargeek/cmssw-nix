@@ -15,6 +15,7 @@ plus a few version-specific fixups, see below.
 import glob
 import os
 import re
+import shutil
 import sys
 
 version = sys.argv[1] if len(sys.argv) > 1 else "CMSSW_20_1_0"
@@ -233,6 +234,89 @@ if os.path.isdir(pdir):
         r'<use\s+name="(?:SimTracker/[^"]*|TrackingTools/TrackFitters)"\s*/>\n?',
         "", xml))
 
+# --- calo local reco without RecoMET / Oracle / Geant4 (all versions) --------
+# RecoLocalCalo/HcalRecAlgos declares RecoMET/METAlgorithms, but the only
+# thing it actually links from that direction is EcalSeverityLevelAlgo
+# (through the transitive closure) - depend on RecoLocalCalo/EcalRecAlgos
+# directly instead of dragging in the muon/JetMET reco chains. The
+# CalibCalorimetry/EcalTPGTools library declares the Ecal digitizer but
+# does not use it.
+path = "cmssw/RecoLocalCalo/HcalRecAlgos/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml: xml.replace(
+        '<use   name="RecoMET/METAlgorithms"/>',
+        '<use   name="RecoLocalCalo/EcalRecAlgos"/>\n'
+        '<use   name="DataFormats/TrackReco"/>'))
+
+# The Ecal uncalibrated-rec-hit workers use the EB/EE pulse shapes from
+# SimCalorimetry/EcalSimAlgos; scram got that library transitively through
+# the EcalTPGTools dependency pruned above - declare it directly.
+path = "cmssw/RecoLocalCalo/EcalRecProducers/plugins/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml: xml.replace(
+        '<use   name="CalibCalorimetry/EcalTPGTools"/>',
+        '<use   name="CalibCalorimetry/EcalTPGTools"/>\n'
+        '<use   name="SimCalorimetry/EcalSimAlgos"/>'))
+path = "cmssw/CalibCalorimetry/EcalTPGTools/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml: re.sub(
+        r'<use\s+name="SimCalorimetry/EcalSimAlgos"\s*/>\n?', "", xml))
+
+# EcalTrivialConditionRetriever (the from-parameters source for all Ecal
+# conditions) has two heavyweight dependencies for niche features: reading
+# intercalib constants from XML files (CondTools/Ecal, which drags in Oracle)
+# and the luminosity-ageing model (SimG4CMS/Calo, which drags in Geant4).
+# The ageing class is fully self-contained -> vendor it into the package;
+# the XML readers become a runtime error.
+etcm = "cmssw/CalibCalorimetry/EcalTrivialCondModules"
+if os.path.isdir(etcm) and os.path.exists("cmssw/SimG4CMS/Calo/interface/EnergyResolutionVsLumi.h"):
+    for cls in ["EnergyResolutionVsLumi", "EvolutionECAL"]:
+        shutil.copy("cmssw/SimG4CMS/Calo/interface/%s.h" % cls,
+                    etcm + "/src/%s.h" % cls)
+        with open("cmssw/SimG4CMS/Calo/src/%s.cc" % cls) as f:
+            cc = f.read()
+        with open(etcm + "/src/%s.cc" % cls, "w") as f:
+            f.write(re.sub(r'#include "SimG4CMS/Calo/interface/(\w+\.h)"',
+                           r'#include "\1"', cc))
+
+    def fix_trivial_retriever(src):
+        src = src.replace(
+            '#include "SimG4CMS/Calo/interface/EnergyResolutionVsLumi.h"',
+            '#include "EnergyResolutionVsLumi.h"')
+        src = re.sub(r'#include "CondTools/Ecal/[^"]*"\n', "", src)
+        src = re.sub(
+            r'Ecal\w*XMLTranslator::readXML\([^;]*\);',
+            'throw cms::Exception("Unsupported") << "reading intercalib '
+            'constants from XML files is not supported in this build";',
+            src)
+        # the header object was only ever passed to the removed readXML calls
+        src = re.sub(r'\n\s*EcalCondHeader h;', "", src)
+        return src
+    edit(etcm + "/src/EcalTrivialConditionRetriever.cc", fix_trivial_retriever)
+    edit(etcm + "/BuildFile.xml", lambda xml: re.sub(
+        r'<use\s+name="(?:CondTools/Ecal|SimG4CMS/Calo)"\s*/>\n?', "", xml))
+
+# The method-2 HBHE pulse fit (HybridMinimizer) uses the MnPrint logging API
+# that ROOT dropped in 6.24: the MN_* message macros become no-ops (they are
+# minimizer debug prints) and the static level setter got renamed.
+path = "cmssw/RecoLocalCalo/HcalRecAlgos/src/HybridMinimizer.cc"
+if os.path.exists(path):
+    def fix_mnprint(src):
+        if "MN_INFO_MSG" not in src:
+            return src
+        shim = ("\n// compatibility with the ROOT >= 6.24 MnPrint API\n"
+                "#define MN_INFO_MSG(str)\n"
+                "#define MN_ERROR_MSG(str)\n"
+                "#define MN_INFO_MSG2(loc, str)\n"
+                "#define MN_ERROR_MSG2(loc, str)\n"
+                "#define MN_INFO_VAL2(loc, x)\n"
+                "#define MN_ERROR_VAL2(loc, x)\n")
+        src = src.replace('#include "Minuit2/MnPrint.h"',
+                          '#include "Minuit2/MnPrint.h"' + shim)
+        src = src.replace("MnPrint::SetLevel(", "MnPrint::SetGlobalLevel(")
+        return src
+    edit(path, fix_mnprint)
+
 # The DD-algorithm plugin BuildFiles (Geometry/*CommonData) build a second
 # plugin library against dd4hep for the DD4hep-based geometry variant; only
 # the classic DDD one is in scope.
@@ -241,6 +325,27 @@ for root, dirs, files in os.walk("cmssw/Geometry"):
         edit(os.path.join(root, "BuildFile.xml"), lambda xml: re.sub(
             r'<library[^>]*>(?:(?!</library>).)*DD4HEP_PLUGIN(?:(?!</library>).)*</library>\n?',
             "", xml, flags=re.DOTALL))
+
+# A couple of plugins BuildFiles (DetectorDescription/Core, Geometry/
+# EcalCommonData) place the EDM_PLUGIN flag *outside* the <library> element;
+# scram applies it file-wide, our generator per-library. Move it inside so
+# the DD algorithms register as plugins.
+for root, dirs, files in os.walk("cmssw"):
+    if os.path.basename(root) != "plugins" or "BuildFile.xml" not in files:
+        continue
+    path = os.path.join(root, "BuildFile.xml")
+    with open(path, encoding="latin-1") as f:
+        xml = f.read()
+    if "</library>" not in xml:
+        continue
+    tail = xml.rsplit("</library>", 1)[-1]
+    if not re.search(r"<flags\s+EDM_PLUGIN", tail):
+        continue
+    xml = xml[: len(xml) - len(tail)] + re.sub(
+        r'<flags\s+EDM_PLUGIN="1"\s*/>\n?', "", tail)
+    xml = xml.replace("</library>", '  <flags   EDM_PLUGIN="1"/>\n</library>')
+    with open(path, "w", encoding="latin-1") as f:
+        f.write(xml)
 
 # The serialization generator crashes under python 3 when no -v is given
 # (None < 1 comparison), and it insists on scram's $CMSSW_BASE/src/... layout;

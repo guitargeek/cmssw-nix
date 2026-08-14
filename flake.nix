@@ -38,9 +38,20 @@
       url = "github:cms-externals/coral/cms/CORAL_2_3_21py3";
       flake = false;
     };
+
+    # cms-data externals: BDT weights for the Ecal dead-channel recovery,
+    # amplitude/pedestal/time weights for the trivial Ecal conditions
+    ecal-deadchannel-data = {
+      url = "github:cms-data/RecoLocalCalo-EcalDeadChannelRecoveryAlgos";
+      flake = false;
+    };
+    ecal-trivialcond-data = {
+      url = "github:cms-data/CalibCalorimetry-EcalTrivialCondModules";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -80,6 +91,12 @@
         src = coral-src;
       };
 
+      # standalone Minuit2 from the ROOT 6.24 sources: the 22.05 ROOT was
+      # built without the Minuit2 component, but the Hcal local reco needs it
+      minuit2_2205 = pkgs2205.callPackage ./pkgs/minuit2.nix {
+        src = pkgs2205.root.src;
+      };
+
       cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
         src = cmssw-src;
         version = "CMSSW_20_1_0_pre2";
@@ -108,7 +125,13 @@
         xercesc = pkgs2205.xercesc;
         hepmc = pkgs2205.hepmc2;
         inherit vdt;
+        gsl = pkgs2205.gsl;
+        minuit2 = minuit2_2205;
         coral = coral_2205;
+        extraData = [
+          { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
+          { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
+        ];
         clangTools = pkgs2205.llvmPackages_14.clang;
         libclangPython = libclang-python_2205;
         legacySiteConf = true;

@@ -5,5 +5,6 @@ examples/MyAnalyzer/myelectrons.root
 examples/MiniAODReader/build/
 examples/MiniAODReader/miniaod.root
 examples/TrackerLocalReco/build/
+examples/CaloLocalReco/build/
 *.pyc
 __pycache__/
