@@ -6,5 +6,6 @@ examples/MiniAODReader/build/
 examples/MiniAODReader/miniaod.root
 examples/TrackerLocalReco/build/
 examples/CaloLocalReco/build/
+examples/MuonLocalReco/build/
 *.pyc
 __pycache__/

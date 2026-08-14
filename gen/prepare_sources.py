@@ -326,6 +326,38 @@ for root, dirs, files in os.walk("cmssw/Geometry"):
             r'<library[^>]*>(?:(?!</library>).)*DD4HEP_PLUGIN(?:(?!</library>).)*</library>\n?',
             "", xml, flags=re.DOTALL))
 
+# --- muon local reco without Fireworks / dd4hep / track extrapolation ------
+# The muon geometry builders ship extra plugin libraries for the Fireworks
+# geometry validation and the DD4hep geometry variant (in stanzas flagged
+# EDM_PLUGIN, so the DD4HEP_PLUGIN prune above does not catch them), and
+# Geometry/MuonNumbering carries the DD4hep numbering classes in its main
+# library. Drop them.
+for root, dirs, files in os.walk("cmssw/Geometry"):
+    if "BuildFile.xml" in files and root.endswith("plugins"):
+        edit(os.path.join(root, "BuildFile.xml"), lambda xml: re.sub(
+            r'<library[^>]*>(?:(?!</library>).)*name="(?:Fireworks/Core|'
+            r'DetectorDescription/DDCMS|dd4hep)"(?:(?!</library>).)*</library>\n?',
+            "", xml, flags=re.DOTALL))
+for f in glob.glob("cmssw/Geometry/MuonNumbering/src/DD4hep_*.cc"):
+    os.remove(f)
+
+# RecoLocalMuon/RPCRecHit mixes the rec-hit producer with the RPC-efficiency
+# extrapolation tools (RPCPointProducer and the track/segment-to-RPC
+# propagators), whose TrackRefitter dependency would pull in the whole
+# muon/tracker DetLayers chain. Drop the extrapolation half.
+rdir = "cmssw/RecoLocalMuon/RPCRecHit"
+if os.path.isdir(rdir):
+    for name in ["TracktoRPC", "DTSegtoRPC", "CSCSegtoRPC", "RPCPointProducer"]:
+        for f in glob.glob("%s/src/%s.*" % (rdir, name)) + glob.glob(
+                "%s/interface/%s.*" % (rdir, name)):
+            os.remove(f)
+    if os.path.exists(rdir + "/src/SealModule.cc"):
+        edit(rdir + "/src/SealModule.cc", lambda src: "\n".join(
+            line for line in src.split("\n") if "RPCPointProducer" not in line))
+    if os.path.exists(rdir + "/BuildFile.xml"):
+        edit(rdir + "/BuildFile.xml", lambda xml: re.sub(
+            r'<use\s+name="TrackingTools/TrackRefitter"\s*/>\n?', "", xml))
+
 # A couple of plugins BuildFiles (DetectorDescription/Core, Geometry/
 # EcalCommonData) place the EDM_PLUGIN flag *outside* the <library> element;
 # scram applies it file-wide, our generator per-library. Move it inside so
@@ -442,6 +474,12 @@ if release_cycle < (11, 0):
         "cmssw/IOPool/Input/src/RootTree.cc",
         insert_after('#include "TTree.h"', '#include "TLeaf.h"'),
     )
+    for indexer in ["CSCIndexerPostls1", "CSCIndexerStartup"]:
+        path = "cmssw/CalibMuon/CSCCalibration/src/%s.cc" % indexer
+        if os.path.exists(path):
+            edit(path, insert_after(
+                "#include <CalibMuon/CSCCalibration/interface/%s.h>" % indexer,
+                "#include <algorithm>"))
 
     # TauReco's dictionary header includes two pat:: headers, but none of its
     # classes_def entries use pat types; drop them instead of pulling the

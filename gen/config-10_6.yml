@@ -55,6 +55,10 @@ subsystems:
           - EcalTrivialCondModules
           - HcalAlgos
           - HcalPlugins
+    CalibMuon:
+        whitelist:
+          - CSCCalibration
+          - DTDigiSync
     CalibFormats:
         whitelist:
           - CaloObjects
@@ -96,8 +100,11 @@ subsystems:
           - AlignmentRecord
           - BTauObjects
           - BeamSpotObjects
+          - CSCObjects
           - Common
+          - DTObjects
           - DataRecord
+          - GEMObjects
           - ESObjects
           - EcalObjects
           - EgammaObjects
@@ -106,6 +113,7 @@ subsystems:
           - HcalObjects
           - L1TObjects
           - PhysicsToolsObjects
+          - RPCObjects
           - RunInfo
           - Serialization
           - SiPixelObjects
@@ -117,6 +125,7 @@ subsystems:
           - BTauReco
           - BeamSpot
           - CLHEP
+          - CSCDigi
           - CSCRecHit
           # CTPPS + forward protons + L1 stage-2 trigger blocks: present in
           # every UL2016 miniAOD event record
@@ -141,6 +150,7 @@ subsystems:
           - FWLite
           - FTLRecHit
           - ForwardDetId
+          - GEMDigi
           - GEMRecHit
           - GeometryCommonDetAlgo
           - GeometrySurface
@@ -177,6 +187,8 @@ subsystems:
           - Phase2TrackerDigi
           - ProtonReco
           - Provenance
+          - RPCDigi
+          - RPCRecHit
           - RecoCandidate
           - Scalers
           # not in the strict BuildFile closure, but the TrackerRecHit2D
@@ -233,11 +245,15 @@ subsystems:
     Geometry:
         whitelist:
           - CMSCommonData
+          - CSCGeometry
+          - CSCGeometryBuilder
           - CaloEventSetup
           - CaloGeometry
           - CaloTopology
           - CommonDetUnit
           - CommonTopologies
+          - DTGeometry
+          - DTGeometryBuilder
           - EcalAlgo
           - EcalCommonData
           - EcalMapping
@@ -245,12 +261,21 @@ subsystems:
           # filters on (ecalsens.xml)
           - EcalSimData
           - ForwardGeometry
+          - GEMGeometry
+          - GEMGeometryBuilder
           - HGCalCommonData
           - HGCalGeometry
           - HcalAlgo
           - HcalCommonData
           - HcalEventSetup
           - HcalTowerAlgo
+          # data-only: the muon chamber XML + numbering constants and the
+          # sens spec-pars the geometry builders filter on
+          - MuonCommonData
+          - MuonNumbering
+          - MuonSimData
+          - RPCGeometry
+          - RPCGeometryBuilder
           - Records
           - TrackerCommonData
           - TrackerGeometryBuilder
@@ -286,6 +311,15 @@ subsystems:
           - EcalRecProducers
           - HcalRecAlgos
           - HcalRecProducers
+    RecoLocalMuon:
+        whitelist:
+          - CSCRecHitD
+          - CSCSegment
+          - DTRecHit
+          - DTSegment
+          - GEMRecHit
+          - GEMSegment
+          - RPCRecHit
     RecoLocalTracker:
         whitelist:
           - ClusterParameterEstimator

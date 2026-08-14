@@ -61,8 +61,8 @@ does it. Payloads can be written to and read from `sqlite_file:` databases
 through `PoolDBOutputService` / `PoolDBESSource`. Oracle/Frontier access
 (real GlobalTags from the grid) is not built.
 
-The first reconstruction step itself is also covered for the tracker and
-the calorimeters. **Tracker local reco**: the SiPixel/SiStrip clusterizers,
+The first reconstruction step itself is also covered for the tracker, the
+calorimeters and the muon system. **Tracker local reco**: the SiPixel/SiStrip clusterizers,
 the strip zero suppression and the rec-hit converters with their
 cluster-parameter estimators, together with the infrastructure they stand
 on — the `TrackerGeometry` built at runtime from the DDD XML detector
@@ -77,13 +77,18 @@ the ROOT sources — the method-2 pulse fit), the HF/HO reconstructors and
 the calo-tower creator, on top of the calo geometry builders
 (`CaloGeometry` from the same XML detector description) and the standalone
 conditions providers (`EcalTrivialConditionRetriever`,
-`HcalHardcodeCalibrations`).
+`HcalHardcodeCalibrations`). **Muon local reco**: DT rec hits and 4D
+segments, CSC rec hits and segments and RPC rec hits, with the muon
+geometries built from the same XML detector description and the fake
+CSC calibrations / parameter-based DT synchronization instead of a
+conditions DB.
 
-Both chains are validated end-to-end without any external data: toy digis
-placed on modules/cells of the XML-built geometries come out as exactly
-the expected clusters, rec hits and calo towers — see
-[examples/TrackerLocalReco](examples/TrackerLocalReco) and
-[examples/CaloLocalReco](examples/CaloLocalReco), which double as
+All three chains are validated end-to-end without any external data: toy
+digis placed on modules/cells of the XML-built geometries come out as
+exactly the expected clusters, rec hits, segments and calo towers — see
+[examples/TrackerLocalReco](examples/TrackerLocalReco),
+[examples/CaloLocalReco](examples/CaloLocalReco) and
+[examples/MuonLocalReco](examples/MuonLocalReco), which double as
 regression tests.
 
 Still out of scope for *producing* miniAOD/nanoAOD: the remaining
@@ -111,9 +116,10 @@ See [examples/MyAnalyzer](examples/MyAnalyzer) for building and running an
 analyzer plugin against this CMSSW installation (self-contained, works with
 both releases), [examples/MiniAODReader](examples/MiniAODReader) for
 reading a real CMS Open Data miniAOD file with the 10_6_30 package, and
-[examples/TrackerLocalReco](examples/TrackerLocalReco) and
-[examples/CaloLocalReco](examples/CaloLocalReco) for running the tracker
-and calorimeter local reconstruction on toy digis with the XML-built
+[examples/TrackerLocalReco](examples/TrackerLocalReco),
+[examples/CaloLocalReco](examples/CaloLocalReco) and
+[examples/MuonLocalReco](examples/MuonLocalReco) for running the tracker,
+calorimeter and muon local reconstruction on toy digis with the XML-built
 geometries and fake/hardcoded conditions.
 
 ## Layout
