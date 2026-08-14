@@ -18,17 +18,33 @@
 # AOD -> miniAOD -> nanoAOD processing): the TrackingTools/MagneticField/
 # RecoVertex transient-track machinery, the CommonTools utilities, the
 # CORAL-free CondFormats payload classes with their EventSetup records,
-# FWLite, and the DataFormats/NanoAOD flat tables. CondCore itself (real
-# conditions access) is still out: it needs the CORAL external.
+# FWLite, and the DataFormats/NanoAOD flat tables. CondCore (conditions DB
+# access through the CORAL external, SQLite backend) is included.
+#
+# Tracker local reco: the SiPixel/SiStrip clusterizers and rec-hit converters
+# with the ES machinery they sit on — TrackerGeometry built from the DDD XML
+# geometry (DetectorDescription + XMLIdealGeometryESSource + the tracker
+# geometry data files), tracker cabling/quality/gain/noise ES producers
+# (CalibTracker, incl. the fake/from-parameters conditions sources), and the
+# uniform + volume-based magnetic field engines. The Shallow* calibration-
+# ntuple producers of CalibTracker/SiStripCommon are pruned at prepare time
+# (they would pull in SimTracker truth-matching and the muon geometries).
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
   # edmFileUtil (needed by edmDumpEventContent), edmProvDump, edmCopyUtil
   - IOPool/Common
 subsystems:
+    CalibFormats:
+        whitelist:
+          - SiPixelObjects
+          - SiStripObjects
     CalibTracker:
         whitelist:
           - Records
+          - SiPixelESProducers
+          - SiStripCommon
+          - SiStripESProducers
     CommonTools:
         # no_plugins: MVAUtils' only plugin is a conditions-DB writer that
         # would pull in CondCore and the CORAL externals
@@ -37,6 +53,7 @@ subsystems:
           - CandUtils
           - MVAUtils
           - Statistics
+          - UtilAlgos
           - Utils
     CondCore:
         whitelist:
@@ -56,9 +73,14 @@ subsystems:
           - EcalObjects
           - EgammaObjects
           - External
+          - GeometryObjects
           - L1TObjects
           - PhysicsToolsObjects
+          - RunInfo
           - Serialization
+          - SiPixelObjects
+          - SiPixelTransient
+          - SiStripObjects
     DataFormats:
         no_plugins: true
         whitelist:
@@ -131,7 +153,9 @@ subsystems:
           # otherwise)
           - SiPixelCluster
           - SiPixelDetId
+          - SiPixelDigi
           - SiStripCluster
+          - SiStripCommon
           - SiStripDetId
           # SiStripCluster's header reaches the strip digi headers
           - SiStripDigi
@@ -147,6 +171,13 @@ subsystems:
           - TrajectoryState
           - VertexReco
           - WrappedStdDictionaries
+    DetectorDescription:
+        whitelist:
+          - Core
+          - Parser
+    EventFilter:
+        whitelist:
+          - SiStripRawToDigi
     FWCore:
         whitelist:
           - Catalog
@@ -170,10 +201,18 @@ subsystems:
           - Version
     Geometry:
         whitelist:
+          - CMSCommonData
           - CaloGeometry
           - CommonDetUnit
+          - CommonTopologies
           - EcalMapping
           - Records
+          - TrackerCommonData
+          - TrackerGeometryBuilder
+          - TrackerNumberingBuilder
+    GeometryReaders:
+        whitelist:
+          - XMLIdealGeometryESSource
     IOPool:
         whitelist:
           - Common
@@ -184,7 +223,11 @@ subsystems:
     MagneticField:
         whitelist:
           - Engine
+          - Layers
           - Records
+          - UniformEngine
+          - VolumeBasedEngine
+          - VolumeGeometry
     PhysicsTools:
         whitelist:
           # python-only package: cmstools & friends, imported by
@@ -192,7 +235,13 @@ subsystems:
           - PythonAnalysis
     RecoLocalTracker:
         whitelist:
+          - ClusterParameterEstimator
           - Records
+          - SiPixelClusterizer
+          - SiPixelRecHits
+          - SiStripClusterizer
+          - SiStripRecHitConverter
+          - SiStripZeroSuppression
     RecoVertex:
         whitelist:
           - VertexPrimitives
@@ -213,6 +262,7 @@ subsystems:
           - TrajectoryParametrization
           - TrajectoryState
           - TransientTrack
+          - TransientTrackingRecHit
     Utilities:
         whitelist:
           - StorageFactory

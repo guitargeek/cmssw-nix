@@ -12,6 +12,7 @@ version string as argument (e.g. CMSSW_10_6_30). Common to all versions:
 
 plus a few version-specific fixups, see below.
 """
+import glob
 import os
 import re
 import sys
@@ -202,6 +203,44 @@ if os.path.exists(path):
 for inspector in ["cmssw/CondCore/BeamSpotPlugins/plugins/BuildFile.xml"]:
     if os.path.exists(inspector):
         os.remove(inspector)
+
+# --- tracker local reco without DQM / dd4hep (all versions) ------------------
+# CalibTracker/SiStripESProducers declares DQMServices/Core (+classlib) in its
+# library BuildFile, but nothing in src/ or interface/ references DQM - the
+# dependency is stale. Drop it instead of pulling the DQM subsystem in.
+path = "cmssw/CalibTracker/SiStripESProducers/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml: re.sub(
+        r'<use\s+name="(?:DQMServices/Core|classlib)"\s*/>\n?', "", xml))
+
+# ... except for one plugin, which really does read bad modules from a DQM
+# file - drop it.
+path = "cmssw/CalibTracker/SiStripESProducers/plugins/real/SiStripBadModuleFedErrESSource.cc"
+if os.path.exists(path):
+    os.remove(path)
+
+# CalibTracker/SiStripCommon's plugins mix things the local reco needs (the
+# SiStripDetInfoFileReader service, TkDetMap, the DCS/BField filters) with
+# the Shallow* calibration-ntuple producers, which would pull in the whole
+# SimTracker truth-matching / track-fitting chain. Drop the Shallow half.
+pdir = "cmssw/CalibTracker/SiStripCommon/plugins"
+if os.path.isdir(pdir):
+    for f in glob.glob(pdir + "/Shallow*"):
+        os.remove(f)
+    edit(pdir + "/SealModules.cc", lambda src: "\n".join(
+        line for line in src.split("\n") if "Shallow" not in line))
+    edit(pdir + "/BuildFile.xml", lambda xml: re.sub(
+        r'<use\s+name="(?:SimTracker/[^"]*|TrackingTools/TrackFitters)"\s*/>\n?',
+        "", xml))
+
+# The DD-algorithm plugin BuildFiles (Geometry/*CommonData) build a second
+# plugin library against dd4hep for the DD4hep-based geometry variant; only
+# the classic DDD one is in scope.
+for root, dirs, files in os.walk("cmssw/Geometry"):
+    if "BuildFile.xml" in files and root.endswith("plugins"):
+        edit(os.path.join(root, "BuildFile.xml"), lambda xml: re.sub(
+            r'<library[^>]*>(?:(?!</library>).)*DD4HEP_PLUGIN(?:(?!</library>).)*</library>\n?',
+            "", xml, flags=re.DOTALL))
 
 # The serialization generator crashes under python 3 when no -v is given
 # (None < 1 comparison), and it insists on scram's $CMSSW_BASE/src/... layout;

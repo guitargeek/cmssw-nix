@@ -61,7 +61,21 @@ does it. Payloads can be written to and read from `sqlite_file:` databases
 through `PoolDBOutputService` / `PoolDBESSource`. Oracle/Frontier access
 (real GlobalTags from the grid) is not built.
 
-Still out of scope for *producing* miniAOD/nanoAOD: the
+The first reconstruction step itself is also covered for the tracker:
+**tracker local reco** (the SiPixel/SiStrip clusterizers, the strip zero
+suppression and the rec-hit converters with their cluster-parameter
+estimators) together with the infrastructure it stands on — the
+`TrackerGeometry` built at runtime from the DDD XML detector description
+(`DetectorDescription`, `XMLIdealGeometryESSource` and the tracker geometry
+data files), the tracker cabling/quality/gain/noise ES producers from
+`CalibTracker` including the fake ("from parameters") conditions sources,
+and the uniform + volume-based magnetic field engines. The chain is
+validated end-to-end without any external data: toy digis placed on the
+first pixel-barrel and TIB modules of the XML-built geometry come out as
+exactly one cluster and one rec hit each, positions and errors included,
+with all conditions supplied by the fake ES sources.
+
+Still out of scope for *producing* miniAOD/nanoAOD: the remaining
 `PhysicsTools`/`RecoXyz` plugin packages and TensorFlow C++.
 Everything comes from nixpkgs except two tiny CMS externals packaged here
 (`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
@@ -84,8 +98,11 @@ nix develop .#cmssw_10_6_30
 
 See [examples/MyAnalyzer](examples/MyAnalyzer) for building and running an
 analyzer plugin against this CMSSW installation (self-contained, works with
-both releases), and [examples/MiniAODReader](examples/MiniAODReader) for
-reading a real CMS Open Data miniAOD file with the 10_6_30 package.
+both releases), [examples/MiniAODReader](examples/MiniAODReader) for
+reading a real CMS Open Data miniAOD file with the 10_6_30 package, and
+[examples/TrackerLocalReco](examples/TrackerLocalReco) for running the
+tracker local reconstruction on toy digis with the XML-built geometry and
+fake conditions.
 
 ## Layout
 
