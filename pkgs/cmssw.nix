@@ -56,6 +56,10 @@
 , hdf5 ? null
 # HepMC 3: the 20_1 generator products carry both the HepMC 2 and 3 formats
 , hepmc3 ? null
+# ML inference externals used by the 20_1 reconstruction: ONNXRuntime (e/gamma
+# identification, particle flow) and XGBoost (photon identification)
+, onnxruntime ? null
+, xgboost ? null
 # CORAL (pkgs/coral.nix), needed by CondCore
 , coral ? null
 # libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
@@ -120,6 +124,8 @@ stdenv.mkDerivation {
     ++ lib.optional (geant4 != null) geant4
     ++ lib.optional (hdf5 != null) hdf5
     ++ lib.optional (hepmc3 != null) hepmc3
+    ++ lib.optionals (onnxruntime != null) [ onnxruntime onnxruntime.dev ]
+    ++ lib.optional (xgboost != null) xgboost
     ++ lib.optional (coral != null) coral
     ++ lib.optional (curl != null) curl;
 
@@ -197,6 +203,8 @@ stdenv.mkDerivation {
       ${lib.optionalString (geant4 != null) "-DCMSSW_WITH_GEANT4=ON"} \
       ${lib.optionalString (hdf5 != null) "-DCMSSW_WITH_HDF5=ON"} \
       ${lib.optionalString (hepmc3 != null) "-DCMSSW_WITH_HEPMC3=ON"} \
+      ${lib.optionalString (onnxruntime != null) "-DCMSSW_WITH_ONNXRUNTIME=ON"} \
+      ${lib.optionalString (xgboost != null) "-DCMSSW_WITH_XGBOOST=ON"} \
       ${lib.optionalString (coral != null) "-DCMSSW_WITH_CORAL=ON"} \
       ${lib.optionalString (curl != null) "-DCMSSW_WITH_CURL=ON"} \
       -DCMSSW_VERSION=${version} \

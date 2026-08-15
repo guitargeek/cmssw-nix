@@ -133,10 +133,19 @@ where the 10_6 era still had a prunable DDD code path), it is packaged
 here in [pkgs/dd4hep.nix](pkgs/dd4hep.nix); the L1 trigger data formats
 additionally need the Xilinx arbitrary-precision headers
 ([pkgs/hls.nix](pkgs/hls.nix)), and Geant4, HDF5, HepMC 2 *and* 3 come
-from nixpkgs. What is left out is the part of the 20_1 reconstruction
-that is wired directly into ML inference — the e/gamma clustering and
-identification chain, particle-flow blocks and tau ID need TensorFlow
-C++, ONNXRuntime, XGBoost or Triton, none of which are packaged here.
+from nixpkgs. The e/gamma clustering and identification chain, the particle-flow
+blocks and tau ID are included as well: **ONNXRuntime** and **XGBoost**
+come from nixpkgs and carry the electron/photon identification MVAs, the
+PF DNN and the b-tagging DNNs. Two inference backends remain out of
+reach — the TensorFlow C++ API (nixpkgs' `libtensorflow` is broken and
+ships only the C API, and the wheel that carries `libtensorflow_cc` is
+not fetchable in a sandboxed build) and the Triton client for SONIC
+remote inference. Their handful of consumers are pruned at prepare time
+the same way the 10_6 build prunes DeepTau: the DeepSC superclustering,
+the DeepTau discriminators, the DNN muon seeder and the SONIC producers.
+Where a pruned code path is user-selectable, it now raises a clear
+runtime error (`SCProducerCache` refuses `ClusteringType = "DeepSC"`)
+rather than silently behaving differently.
 Everything comes from nixpkgs except two tiny CMS externals packaged here
 (`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
 C++20 to match CMSSW; the ROOT 6.24 of nixos-22.05 is already C++17 and is

@@ -29,17 +29,17 @@
 
 class ToyTrackerDigiProducer : public edm::stream::EDProducer<> {
 public:
-  explicit ToyTrackerDigiProducer(const edm::ParameterSet&) {
+  explicit ToyTrackerDigiProducer(const edm::ParameterSet&)
+      : geomToken_(esConsumes<TrackerGeometry, TrackerDigiGeometryRecord>()) {
     produces<edm::DetSetVector<SiStripDigi>>();
     produces<edm::DetSetVector<PixelDigi>>();
   }
 
   void produce(edm::Event& event, const edm::EventSetup& setup) override {
-    edm::ESHandle<TrackerGeometry> geom;
-    setup.get<TrackerDigiGeometryRecord>().get(geom);
+    const TrackerGeometry& geom = setup.getData(geomToken_);
 
     DetId pixelDet, stripDet;
-    for (const auto* du : geom->detUnits()) {
+    for (const auto* du : geom.detUnits()) {
       DetId id = du->geographicalId();
       if (pixelDet.rawId() == 0 && id.subdetId() == PixelSubdetector::PixelBarrel)
         pixelDet = id;
@@ -70,6 +70,9 @@ public:
     event.put(std::make_unique<edm::DetSetVector<SiStripDigi>>(stripSets));
     event.put(std::make_unique<edm::DetSetVector<PixelDigi>>(pixelSets));
   }
+
+private:
+  edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
 };
 
 class TrackerLocalRecoChecker : public edm::one::EDAnalyzer<> {

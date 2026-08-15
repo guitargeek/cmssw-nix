@@ -49,6 +49,11 @@
       url = "github:cms-data/CalibCalorimetry-EcalTrivialCondModules";
       flake = false;
     };
+    # the field maps the volume-based magnetic field engine interpolates
+    magfield-data = {
+      url = "github:cms-data/MagneticField-Interpolation";
+      flake = false;
+    };
 
     # externals for the reco chain: HepPDT (particle data table) and lwtnn
     # (lightweight NN inference, DeepFlavour + track classifier)
@@ -75,7 +80,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, heppdt-src, lwtnn-src, dd4hep-src, hls-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, lwtnn-src, dd4hep-src, hls-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -176,6 +181,8 @@
         hdf5 = pkgs.hdf5-cpp;
         hepmc = pkgs.hepmc2;
         hepmc3 = pkgs.hepmc3;
+        onnxruntime = pkgs.onnxruntime;
+        xgboost = pkgs.xgboost;
       };
 
       # ROOT 6.24 from nixos-22.05 is already built with C++17 (the gcc 11
@@ -203,6 +210,7 @@
         extraData = [
           { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
           { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
+          { path = "MagneticField/Interpolation"; src = magfield-data; }
         ];
         # 20_1-only externals: callPackage would otherwise auto-fill these
         # from the 22.05 package set just because the names exist there
@@ -211,6 +219,8 @@
         hepmc3 = null;
         dd4hep = null;
         hls = null;
+        onnxruntime = null;
+        xgboost = null;
         clangTools = pkgs2205.llvmPackages_14.clang;
         libclangPython = libclang-python_2205;
         legacySiteConf = true;

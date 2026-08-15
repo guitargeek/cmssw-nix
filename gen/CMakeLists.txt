@@ -103,6 +103,15 @@ if(CMSSW_WITH_HEPMC3)
   find_library(hepmc3_LIBRARIES NAMES HepMC3 REQUIRED)
   find_path(hepmc3_INCLUDE_DIRECTORIES NAMES HepMC3/GenEvent.h REQUIRED)
 endif()
+if(CMSSW_WITH_ONNXRUNTIME)
+  find_library(onnxruntime_LIBRARIES NAMES onnxruntime REQUIRED)
+  # CMSSW includes it as <onnxruntime/onnxruntime_cxx_api.h>
+  find_path(onnxruntime_INCLUDE_DIRECTORIES NAMES onnxruntime/onnxruntime_cxx_api.h REQUIRED)
+endif()
+if(CMSSW_WITH_XGBOOST)
+  find_library(xgboost_LIBRARIES NAMES xgboost REQUIRED)
+  find_path(xgboost_INCLUDE_DIRECTORIES NAMES xgboost/c_api.h REQUIRED)
+endif()
 if(CMSSW_WITH_HLS)
   find_path(hls_INCLUDE_DIRECTORIES NAMES ap_int.h REQUIRED)
 endif()
@@ -277,7 +286,8 @@ foreach(dir ${Boost_INCLUDE_DIRS} ${CLHEP_INCLUDE_DIRS} ${eigen_INCLUDE_DIRECTOR
         ${cpu_features_INCLUDE_DIRECTORIES} ${openssl_INCLUDE_DIRECTORIES}
         ${dd4hep_INCLUDE_DIRECTORIES} ${hls_INCLUDE_DIRECTORIES}
         ${geant4core_INCLUDE_DIRECTORIES} ${hdf5_INCLUDE_DIRECTORIES}
-        ${hepmc3_INCLUDE_DIRECTORIES})
+        ${hepmc3_INCLUDE_DIRECTORIES} ${onnxruntime_INCLUDE_DIRECTORIES}
+        ${xgboost_INCLUDE_DIRECTORIES})
   list(APPEND GENREFLEX_INCLUDE_LIST "-I${dir}")
 endforeach()
 list(REMOVE_DUPLICATES GENREFLEX_INCLUDE_LIST)

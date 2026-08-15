@@ -8,7 +8,13 @@ if(NOT DEFINED ENV{CMSSW_BASE})
 endif()
 set(CMSSW_BASE $ENV{CMSSW_BASE})
 
-set(CMAKE_CXX_STANDARD 17)
+# Match the C++ standard CMSSW was built with (C++20 for modern releases,
+# C++17 for the 10_6 era).
+if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
+  set(CMAKE_CXX_STANDARD 17)
+else()
+  set(CMAKE_CXX_STANDARD 20)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 include_directories(${CMSSW_BASE}/src)

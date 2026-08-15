@@ -378,9 +378,11 @@ subsystems:
           - IsolationUtils
           - JetMCUtils
           - MVAComputer
+          - ONNXRuntime
           - PythonAnalysis
           - SelectorUtils
           - Utilities
+          - XGBoost
     RecoBTag:
         no_plugins:
           - ImpactParameter
@@ -403,16 +405,32 @@ subsystems:
         whitelist:
           - Navigation
           - Selectors
+    RecoEcal:
+        whitelist:
+          - EgammaClusterAlgos
+          - EgammaClusterProducers
+          - EgammaCoreTools
     RecoEgamma:
         no_plugins:
+          - EgammaElectronProducers
           - EgammaHFProducers
           - EgammaHLTProducers
           - EgammaMCTools
+          - EgammaTools
+          - ElectronIdentification
+          - PhotonIdentification
         whitelist:
+          - EgammaElectronAlgos
+          - EgammaElectronProducers
           - EgammaHFProducers
           - EgammaHLTProducers
           - EgammaIsolationAlgos
           - EgammaMCTools
+          - EgammaPhotonAlgos
+          - EgammaPhotonProducers
+          - EgammaTools
+          - ElectronIdentification
+          - PhotonIdentification
     RecoJets:
         no_plugins:
           - JetPlusTracks
@@ -504,15 +522,15 @@ subsystems:
           - Records
           - StandAloneMuonProducer
           - StandAloneTrackFinder
+          - TrackerSeedGenerator
           - TrackingTools
           - TransientTrackingRecHit
     RecoParticleFlow:
         whitelist:
           - PFClusterTools
+          - PFProducer
           - PFTracking
     RecoTauTag:
-        no_plugins:
-          - RecoTau
         whitelist:
           - RecoTau
     RecoTracker:

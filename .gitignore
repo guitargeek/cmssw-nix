@@ -1,12 +1,10 @@
 result
 result-*
-examples/MyAnalyzer/build/
+examples/*/build/
+examples/*/build-*/
+examples/*/build.log
+examples/*/run.log
 examples/MyAnalyzer/myelectrons.root
-examples/MiniAODReader/build/
 examples/MiniAODReader/miniaod.root
-examples/TrackerLocalReco/build/
-examples/CaloLocalReco/build/
-examples/MuonLocalReco/build/
 *.pyc
 __pycache__/
-examples/TrackingChain/build/

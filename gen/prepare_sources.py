@@ -476,6 +476,112 @@ if os.path.exists(path):
         "dbptr->add(Voff.product());",
         "if (Voff.isValid())\n    dbptr->add(Voff.product());"))
 
+# --- e/gamma & tau without TensorFlow / Triton (all versions) ---------------
+# ONNXRuntime and XGBoost are packaged, but the TensorFlow C++ API and the
+# Triton inference client are not. Their consumers are a handful of isolated
+# files: the DeepSC supercluster clustering, the DeepTau discriminators, the
+# DNN muon seeder, and the SONIC (remote-inference) producers.
+def drop_tool_deps(path, deps):
+    if not os.path.exists(path):
+        return
+    edit(path, lambda xml: re.sub(
+        r'<use\s+name="(?:' + "|".join(re.escape(d) for d in deps) + r')"\s*/>\n?',
+        "", xml))
+
+
+TF_TRITON_DEPS = ["PhysicsTools/TensorFlow", "HeterogeneousCore/SonicTriton",
+                  "HeterogeneousCore/SonicCore", "tensorflow-cc",
+                  "triton-inference-client"]
+
+# the DeepSC clustering: its graph classes live in EgammaCoreTools and are
+# used from one method of the supercluster algorithm
+ecore = "cmssw/RecoEcal/EgammaCoreTools"
+if os.path.exists(ecore + "/interface/EcalClustersGraph.h"):
+    for pat in ["/interface/EcalClustersGraph.*", "/src/EcalClustersGraph.*",
+                "/interface/DeepSCGraphEvaluation.*", "/src/DeepSCGraphEvaluation.*"]:
+        for f in glob.glob(ecore + pat):
+            os.remove(f)
+    drop_tool_deps(ecore + "/BuildFile.xml", TF_TRITON_DEPS)
+
+    # the producer cache holds the DeepSC graph evaluator; keep its interface
+    # (the supercluster producer uses it as its GlobalCache) but refuse the
+    # DeepSC clustering mode instead of pulling in TensorFlow
+    with open(ecore + "/interface/SCProducerCache.h", "w") as f:
+        f.write("""#ifndef RecoEcal_EgammaCoreTools_SCProducerCache_h
+#define RecoEcal_EgammaCoreTools_SCProducerCache_h
+
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/Utilities/interface/Exception.h"
+
+#include <string>
+
+namespace reco {
+
+  // The DeepSC clustering needs the TensorFlow C++ API, which is not part of
+  // this build. The cache type is kept (the supercluster producer declares it
+  // as its GlobalCache) but the DeepSC mode is refused.
+  class SCProducerCache {
+  public:
+    SCProducerCache(const edm::ParameterSet& conf) {
+      if (conf.getParameter<std::string>("ClusteringType") == "DeepSC")
+        throw cms::Exception("Unsupported")
+            << "the DeepSC clustering needs the TensorFlow C++ API, "
+            << "which is not part of this build";
+    }
+  };
+
+}  // namespace reco
+
+#endif
+""")
+
+    path = "cmssw/RecoEcal/EgammaClusterAlgos/interface/PFECALSuperClusterAlgo.h"
+    if os.path.exists(path):
+        edit(path, lambda src: "\n".join(
+            l for l in src.split("\n")
+            if "EcalClustersGraph.h" not in l and "buildAllSuperClustersDeepSC" not in l))
+    path = "cmssw/RecoEcal/EgammaClusterAlgos/src/PFECALSuperClusterAlgo.cc"
+    if os.path.exists(path):
+        def fix_pfecal(src):
+            src = src.replace(
+                '#include "RecoEcal/EgammaCoreTools/interface/EcalClustersGraph.h"\n', "")
+            # the DeepSC branch of the clustering entry point
+            src = re.sub(r'\n\s*else if \(_clustype == PFECALSuperClusterAlgo::kDeepSC\)\n'
+                         r'\s*buildAllSuperClustersDeepSC\([^;]*\);',
+                         '\n  else if (_clustype == PFECALSuperClusterAlgo::kDeepSC)\n'
+                         '    throw cms::Exception("Unsupported")\n'
+                         '        << "the DeepSC clustering needs the TensorFlow C++ API, '
+                         'which is not part of this build";', src)
+            # ... and its implementation
+            src = re.sub(r'void PFECALSuperClusterAlgo::buildAllSuperClustersDeepSC\(.*?\n\}\n',
+                         "", src, flags=re.DOTALL)
+            return src
+        edit(path, fix_pfecal)
+
+# SONIC (Triton) producers and the DNN-based tau/muon modules
+for path, patterns in [
+    ("cmssw/RecoEcal/EgammaClusterAlgos", ["/interface/SCEnergyCorrectorDRN.*",
+                                           "/src/SCEnergyCorrectorDRN.*"]),
+    ("cmssw/RecoEcal/EgammaClusterProducers", ["/src/SCEnergyCorrectorDRNProducer.*"]),
+    ("cmssw/RecoEgamma/EgammaTools", ["/plugins/DRNCorrectionProducerT.*"]),
+    ("cmssw/RecoTauTag/RecoTau", ["/plugins/DeepTauId*.cc", "/interface/DeepTauId*.h",
+                                  "/interface/DeepTauScaling.h"]),
+    ("cmssw/RecoMuon/TrackerSeedGenerator", ["/plugins/TSGForOIDNN.*"]),
+]:
+    if not os.path.isdir(path):
+        continue
+    for pat in patterns:
+        for f in glob.glob(path + pat):
+            os.remove(f)
+    for bf in [path + "/BuildFile.xml", path + "/plugins/BuildFile.xml"]:
+        drop_tool_deps(bf, TF_TRITON_DEPS)
+# the DNN muon seeder was the only user of the phase-2 track-trigger
+# associations (which need the conifer external)
+drop_tool_deps("cmssw/RecoMuon/TrackerSeedGenerator/BuildFile.xml",
+               ["SimTracker/TrackTriggerAssociation"])
+drop_tool_deps("cmssw/RecoMuon/TrackerSeedGenerator/plugins/BuildFile.xml",
+               ["SimTracker/TrackTriggerAssociation"])
+
 # --- no alpaka backend variants (all versions) ------------------------------
 # Libraries flagged ALPAKA_BACKENDS are built once per accelerator backend by
 # scram, each with its own ALPAKA_ACC_* defines and namespace. We build the

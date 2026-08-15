@@ -184,6 +184,22 @@
         "type": "github"
       }
     },
+    "magfield-data": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1656513523,
+        "narHash": "sha256-DBjQFiaBVzL/CZ5zpOIeuUxCdqr270UajwvrxAixv8A=",
+        "owner": "cms-data",
+        "repo": "MagneticField-Interpolation",
+        "rev": "d26df47beb8fbfcf28b9693a14b9bcba3a2a60bc",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-data",
+        "repo": "MagneticField-Interpolation",
+        "type": "github"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1786384358,
@@ -229,6 +245,7 @@
         "heppdt-src": "heppdt-src",
         "hls-src": "hls-src",
         "lwtnn-src": "lwtnn-src",
+        "magfield-data": "magfield-data",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
         "vdt-src": "vdt-src"
