@@ -28,6 +28,7 @@ if [ "$era" = 10_6 ]; then
     "TrackingChain:python/tracking_chain_cfg.py"
     "TrackingChain:python/ckf_chain_cfg.py"
     "MagneticFieldMap:python/magfield_cfg.py"
+    "MuonChain:python/muon_sta_cfg.py"
   )
 else
   jobs=(

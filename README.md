@@ -112,6 +112,35 @@ injected tracks (momenta reproduced to a few permil with 16–21 hits) and
 a primary vertex at the origin (see
 [examples/TrackingChain](examples/TrackingChain)).
 
+The **real (volume-based) magnetic field** is available as well, not just the
+uniform 3.8 T approximation: the field volumes are parsed from their own XML
+description and the field inside them is interpolated from the grid tables of
+the `cms-data` external `MagneticField-Interpolation`, which the 10_6 build
+installs under `MagneticField/Interpolation/data`. The profile it gives —
+3.81 T on the beam line, through zero in the gap between cryostat and return
+yoke, back to −1.29 T inside the barrel yoke iron — is validated in
+[examples/MagneticFieldMap](examples/MagneticFieldMap). (The data external
+carries all six table sets, about 480 MB, of which only the 3.8 T set is used
+by default.)
+
+With the real field in place, **standalone muon reconstruction** works: a
+50 GeV muon stepped out of the origin through that field leaves DT digis in
+four barrel chambers, and the standard chain (rec hits → 4D segments →
+`ancientMuonSeed` → `StandAloneMuonProducer`) fits them back into a
+`reco::Track` carrying all 32 hits with the right charge and direction — see
+[examples/MuonChain](examples/MuonChain). This is the step a uniform field
+cannot do, since the fit lives entirely in the region where the flux has
+returned through the iron.
+
+The self-contained examples double as a regression suite;
+[examples/run_all.sh](examples/run_all.sh) builds and runs all of them for
+either release:
+
+```bash
+nix develop .#cmssw_10_6_30 --command ./examples/run_all.sh 10_6
+nix develop --command ./examples/run_all.sh 20_1
+```
+
 The install also generates scram's "cfipython" configuration fragments:
 `edmWriteConfigs` is run over every built library at install time (via a
 library→package manifest emitted by the generator) and the resulting
@@ -125,7 +154,7 @@ generator packages.
 
 ### The same scope for `CMSSW_20_1_0_pre2`
 
-The modern release is built to the same scope (458 packages): the local
+The modern release is built to the same scope (472 packages): the local
 and high-level reconstruction chains, the conditions and geometry
 machinery, and the supporting data formats. Because 20_1 moved its
 geometry onto **DD4hep** (the builders link it from their main libraries,
@@ -173,7 +202,9 @@ reading a real CMS Open Data miniAOD file with the 10_6_30 package, and
 [examples/CaloLocalReco](examples/CaloLocalReco) and
 [examples/MuonLocalReco](examples/MuonLocalReco) for running the tracker,
 calorimeter and muon local reconstruction on toy digis with the XML-built
-geometries and fake/hardcoded conditions.
+geometries and fake/hardcoded conditions, and
+[examples/MagneticFieldMap](examples/MagneticFieldMap) for the volume-based
+magnetic field.
 
 ## Layout
 
@@ -185,6 +216,17 @@ geometries and fake/hardcoded conditions.
 * `gen/` — the BuildFile→CMake generator, the build configuration
   (`config.yml`), the top-level `CMakeLists.txt`, and the environment setup
   hook
+* `gen/plan_packages.py` — works out *which* packages a release can build:
+  it walks the `BuildFile.xml` dependency graph to a fixpoint (a package is
+  buildable when none of its externals are missing and all its dependencies
+  are buildable, modelling the edits `prepare_sources.py` makes) and writes
+  the configuration. This is how `gen/config.yml` was produced from the
+  10_6 configuration as the target scope:
+
+  ```bash
+  python3 gen/plan_packages.py --src <cmssw source> --base gen/config.yml \
+      --wanted gen/config-10_6.yml --output gen/config.yml
+  ```
 
 ## Notes
 
