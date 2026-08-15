@@ -19,6 +19,8 @@ stdenv.mkDerivation {
   '';
 
   cmakeFlags = [
+    # cmake 4 (nixpkgs unstable) rejects the old minimum-required version
+    "-DCMAKE_POLICY_VERSION_MINIMUM=3.5"
     "-DBUILTIN_BOOST=OFF"
     "-DBUILTIN_EIGEN=OFF"
   ];

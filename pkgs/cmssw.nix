@@ -46,6 +46,16 @@
 , heppdt ? null
 , lwtnn ? null
 , openblas ? null
+# DD4hep: the 20_1-era geometry packages build on it
+, dd4hep ? null
+# Xilinx ap_int/ap_fixed headers (20_1 L1 trigger data formats) and Geant4
+# (the HGCal geometry constants use G4 units)
+, hls ? null
+, geant4 ? null
+# HDF5: the 20_1 EcalTrivialConditionRetriever reads its pulse shapes from it
+, hdf5 ? null
+# HepMC 3: the 20_1 generator products carry both the HepMC 2 and 3 formats
+, hepmc3 ? null
 # CORAL (pkgs/coral.nix), needed by CondCore
 , coral ? null
 # libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
@@ -105,6 +115,11 @@ stdenv.mkDerivation {
     ++ lib.optional (heppdt != null) heppdt
     ++ lib.optional (lwtnn != null) lwtnn
     ++ lib.optional (openblas != null) openblas
+    ++ lib.optional (dd4hep != null) dd4hep
+    ++ lib.optional (hls != null) hls
+    ++ lib.optional (geant4 != null) geant4
+    ++ lib.optional (hdf5 != null) hdf5
+    ++ lib.optional (hepmc3 != null) hepmc3
     ++ lib.optional (coral != null) coral
     ++ lib.optional (curl != null) curl;
 
@@ -177,6 +192,11 @@ stdenv.mkDerivation {
       ${lib.optionalString (heppdt != null) "-DCMSSW_WITH_HEPPDT=ON"} \
       ${lib.optionalString (lwtnn != null) "-DCMSSW_WITH_LWTNN=ON"} \
       ${lib.optionalString (openblas != null) "-DCMSSW_WITH_OPENBLAS=ON"} \
+      ${lib.optionalString (dd4hep != null) "-DCMSSW_WITH_DD4HEP=ON"} \
+      ${lib.optionalString (hls != null) "-DCMSSW_WITH_HLS=ON"} \
+      ${lib.optionalString (geant4 != null) "-DCMSSW_WITH_GEANT4=ON"} \
+      ${lib.optionalString (hdf5 != null) "-DCMSSW_WITH_HDF5=ON"} \
+      ${lib.optionalString (hepmc3 != null) "-DCMSSW_WITH_HEPMC3=ON"} \
       ${lib.optionalString (coral != null) "-DCMSSW_WITH_CORAL=ON"} \
       ${lib.optionalString (curl != null) "-DCMSSW_WITH_CURL=ON"} \
       -DCMSSW_VERSION=${version} \

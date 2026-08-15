@@ -122,6 +122,21 @@ Still out of scope: the DNN-based producers that need the TensorFlow C++
 or ONNXRuntime externals (DeepMET, DeepTau, DeepJet — pruned at prepare
 time), the HLT/trigger tooling (would need the `utm` external), and the
 generator packages.
+
+### The same scope for `CMSSW_20_1_0_pre2`
+
+The modern release is built to the same scope (458 packages): the local
+and high-level reconstruction chains, the conditions and geometry
+machinery, and the supporting data formats. Because 20_1 moved its
+geometry onto **DD4hep** (the builders link it from their main libraries,
+where the 10_6 era still had a prunable DDD code path), it is packaged
+here in [pkgs/dd4hep.nix](pkgs/dd4hep.nix); the L1 trigger data formats
+additionally need the Xilinx arbitrary-precision headers
+([pkgs/hls.nix](pkgs/hls.nix)), and Geant4, HDF5, HepMC 2 *and* 3 come
+from nixpkgs. What is left out is the part of the 20_1 reconstruction
+that is wired directly into ML inference — the e/gamma clustering and
+identification chain, particle-flow blocks and tau ID need TensorFlow
+C++, ONNXRuntime, XGBoost or Triton, none of which are packaged here.
 Everything comes from nixpkgs except two tiny CMS externals packaged here
 (`cms-md5`, alpaka headers). For `CMSSW_20_1_0_pre2`, ROOT is rebuilt with
 C++20 to match CMSSW; the ROOT 6.24 of nixos-22.05 is already C++17 and is

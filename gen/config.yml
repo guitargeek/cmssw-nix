@@ -1,10 +1,73 @@
 # Packages to build: the transitive closure needed for cmsRun + ROOT-file
 # input/output (PoolSource / PoolOutputModule) + the electron data formats used
 # by the MyAnalyzer example.
+#
+# Extended to the scope of the 10_6 configuration: the full local and
+# high-level reconstruction chain. Left out are the 20_1-era packages that
+# need inference externals we do not build (TensorFlow, ONNXRuntime,
+# XGBoost, PyTorch, Triton, hls4ml) and the trigger/simulation subsystems.
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
+  - FWCore/ParameterSet
+  - IOPool/Common
 subsystems:
+    CalibCalorimetry:
+        no_plugins:
+          - EcalLaserAnalyzer
+          - EcalTPGTools
+        whitelist:
+          - CaloMiscalibTools
+          - CastorCalib
+          - EcalLaserAnalyzer
+          - EcalLaserCorrection
+          - EcalTPGTools
+          - EcalTrivialCondModules
+          - HcalAlgos
+          - HcalPlugins
+    CalibFormats:
+        whitelist:
+          - CaloObjects
+          - CastorObjects
+          - HcalObjects
+          - SiPixelObjects
+          - SiStripObjects
+    CalibMuon:
+        no_plugins:
+          - DTDigiSync
+        whitelist:
+          - CSCCalibration
+          - DTDigiSync
+    CalibTracker:
+        no_plugins:
+          - SiStripCommon
+          - SiStripESProducers
+        whitelist:
+          - Records
+          - SiPixelESProducers
+          - SiStripCommon
+          - SiStripESProducers
+          - StandaloneTrackerTopology
+    Calibration:
+        no_plugins:
+          - Tools
+        whitelist:
+          - Tools
+    CommonTools:
+        no_plugins:
+          - MVAUtils
+        whitelist:
+          - BaseParticlePropagator
+          - CandAlgos
+          - CandUtils
+          - Clustering1D
+          - Egamma
+          - MVAUtils
+          - ParticleFlow
+          - RecoAlgos
+          - Statistics
+          - UtilAlgos
+          - Utils
     CondCore:
         whitelist:
           - BeamSpotPlugins
@@ -12,69 +75,183 @@ subsystems:
           - DBOutputService
           - ESSources
           - PluginSystem
+          - PopCon
     CondFormats:
-        whitelist:
-          - AlignmentRecord
-          - BeamSpotObjects
+        no_plugins:
           - Common
+          - MFObjects
+          - PCLConfig
+        whitelist:
+          - Alignment
+          - AlignmentRecord
+          - BTauObjects
+          - BeamSpotObjects
+          - CSCObjects
+          - Calibration
+          - CastorObjects
+          - Common
+          - DTObjects
           - DataRecord
+          - ESObjects
+          - EcalObjects
+          - EgammaObjects
+          - External
+          - GBRForest
+          - GEMObjects
+          - GeometryObjects
+          - HGCalObjects
+          - HIObjects
+          - HLTObjects
+          - HcalObjects
+          - JetMETObjects
+          - L1TObjects
+          - Luminosity
+          - MFObjects
+          - PCLConfig
+          - PPSObjects
+          - PhysicsToolsObjects
+          - RPCObjects
+          - RecoMuonObjects
+          - RunInfo
           - Serialization
           - SerializationHelper
+          - SiPhase2TrackerObjects
+          - SiPixelObjects
+          - SiPixelTransient
+          - SiStripObjects
+    CondTools:
+        whitelist:
+          - Hcal
+    Configuration:
+        whitelist:
+          - Eras
+          - ProcessModifiers
     DataFormats:
-        # The plugins/ dirs of DataFormats packages contain alpaka accelerator
-        # modules for the SoA formats; we don't need them on a laptop.
         no_plugins: true
         whitelist:
           - AlpakaCommon
+          - BTauReco
           - BeamSpot
           - CLHEP
+          - CSCDigi
+          - CSCRecHit
+          - CTPPSDetId
+          - CTPPSDigi
+          - CTPPSReco
           - CaloRecHit
           - CaloTowers
           - Candidate
+          - CastorReco
           - Common
+          - DTDigi
+          - DTRecHit
           - DetId
           - EcalDetId
           - EcalDigi
+          - EcalRawData
           - EcalRecHit
           - EgammaCandidates
           - EgammaReco
+          - EgammaTrackReco
+          - FEDRawData
           - FTLRecHit
+          - FWLite
           - ForwardDetId
+          - GEMDigi
+          - GEMRecHit
           - GeometryCommonDetAlgo
           - GeometrySurface
           - GeometryVector
           - GsfTrackReco
+          - HGCRecHit
+          - HGCalDigi
+          - HGCalReco
+          - HLTReco
+          - HcalCalibObjects
           - HcalDetId
+          - HcalDigi
+          - HcalIsolatedTrack
+          - HcalRecHit
+          - HepMCCandidate
+          - JetMatching
+          - JetReco
+          - L1CaloTrigger
+          - L1GlobalCaloTrigger
+          - L1GlobalMuonTrigger
+          - L1GlobalTrigger
+          - L1TCorrelator
+          - L1TGlobal
+          - L1TMuon
+          - L1TMuonPhase2
+          - L1TParticleFlow
+          - L1TrackTrigger
+          - L1Trigger
+          - Luminosity
+          - METReco
           - Math
+          - MuonData
           - MuonDetId
+          - MuonReco
+          - MuonSeed
+          - NanoAOD
+          - OnlineMetaData
+          - ParticleFlowCandidate
+          - ParticleFlowReco
+          - PatCandidates
           - Phase2TrackerCluster
           - Phase2TrackerDigi
           - Portable
+          - ProtonReco
           - Provenance
+          - RPCDigi
+          - RPCRecHit
           - RecoCandidate
+          - Scalers
           - Scouting
           - SiPixelCluster
+          - SiPixelClusterSoA
           - SiPixelDetId
+          - SiPixelDigi
+          - SiPixelDigiSoA
+          - SiPixelRawData
           - SiStripCluster
+          - SiStripClusterSoA
+          - SiStripCommon
           - SiStripDetId
           - SiStripDigi
+          - SiStripDigiSoA
           - SoATemplate
           - StdDictionaries
+          - Streamer
+          - TauReco
           - TrackCandidate
           - TrackReco
+          - TrackSoA
           - TrackerCommon
           - TrackerRecHit2D
           - TrackingRecHit
+          - TrackingRecHitSoA
           - TrajectorySeed
           - TrajectoryState
           - TrivialSerialisation
           - VertexReco
           - WrappedStdDictionaries
+    DetectorDescription:
+        whitelist:
+          - Core
+          - DDCMS
+          - Parser
+          - RegressionTest
+    EventFilter:
+        whitelist:
+          - SiPixelRawToDigi
+          - SiStripRawToDigi
     FWCore:
         whitelist:
           - AbstractServices
           - Common
           - Concurrency
+          - FWLite
           - Framework
           - MessageLogger
           - MessageService
@@ -86,6 +263,7 @@ subsystems:
           - PythonParameterSet
           - PythonUtilities
           - Reflection
+          - SOA
           - ServiceRegistry
           - Services
           - Sources
@@ -98,24 +276,370 @@ subsystems:
           - StorageFactory
           - TFileAdaptor
     Geometry:
+        no_plugins:
+          - CaloEventSetup
+          - EcalMapping
+          - GlobalTrackingGeometryBuilder
         whitelist:
+          - CMSCommonData
+          - CSCGeometry
+          - CSCGeometryBuilder
+          - CaloEventSetup
+          - CaloGeometry
+          - CaloTopology
           - CommonTopologies
+          - DTGeometry
+          - DTGeometryBuilder
+          - EcalAlgo
+          - EcalCommonData
+          - EcalMapping
+          - EcalSimData
+          - ForwardGeometry
+          - GEMGeometry
+          - GEMGeometryBuilder
+          - GlobalTrackingGeometryBuilder
+          - HGCalCommonData
+          - HGCalGeometry
+          - HGCalTBCommonData
+          - HcalAlgo
+          - HcalCommonData
+          - HcalEventSetup
+          - HcalTowerAlgo
+          - MTDCommonData
+          - MTDGeometryBuilder
+          - MTDNumberingBuilder
+          - MuonCommonData
+          - MuonNumbering
+          - MuonSimData
+          - RPCGeometry
+          - RPCGeometryBuilder
           - Records
+          - TrackerCommonData
+          - TrackerGeometryBuilder
+          - TrackerNumberingBuilder
+          - VeryForwardGeometryBuilder
+    GeometryReaders:
+        whitelist:
+          - XMLIdealGeometryESSource
     HeterogeneousCore:
         no_plugins: true
         whitelist:
+          - AlpakaCore
           - AlpakaInterface
+          - SonicCore
           - TrivialSerialisation
+    IOMC:
+        whitelist:
+          - RandomEngine
     IOPool:
         whitelist:
           - Common
           - Input
           - Output
           - Provenance
+    JetMETCorrections:
+        no_plugins:
+          - Modules
+          - TauJet
+          - Type1MET
+        whitelist:
+          - Algorithms
+          - JetCorrector
+          - JetVertexAssociation
+          - MinBias
+          - Modules
+          - Objects
+          - TauJet
+          - Type1MET
+    MagneticField:
+        no_plugins:
+          - GeomBuilder
+          - ParametrizedEngine
+        whitelist:
+          - Engine
+          - GeomBuilder
+          - Interpolation
+          - Layers
+          - ParametrizedEngine
+          - Records
+          - UniformEngine
+          - VolumeBasedEngine
+          - VolumeGeometry
+    Mixing:
+        whitelist:
+          - Base
+    PhysicsTools:
+        no_plugins:
+          - IsolationAlgos
+        whitelist:
+          - FWLite
+          - HepMCCandAlgos
+          - IsolationAlgos
+          - IsolationUtils
+          - JetMCUtils
+          - MVAComputer
+          - PythonAnalysis
+          - SelectorUtils
+          - Utilities
+    RecoBTag:
+        no_plugins:
+          - ImpactParameter
+          - SecondaryVertex
+          - SoftLepton
+        whitelist:
+          - BTagTools
+          - CTagging
+          - Combined
+          - ImpactParameter
+          - Records
+          - SecondaryVertex
+          - SoftLepton
+          - TrackProbability
+          - XMLCalibration
+    RecoBTau:
+        whitelist:
+          - JetTagComputer
+    RecoCaloTools:
+        whitelist:
+          - Navigation
+          - Selectors
+    RecoEgamma:
+        no_plugins:
+          - EgammaHFProducers
+          - EgammaHLTProducers
+          - EgammaMCTools
+        whitelist:
+          - EgammaHFProducers
+          - EgammaHLTProducers
+          - EgammaIsolationAlgos
+          - EgammaMCTools
+    RecoJets:
+        no_plugins:
+          - JetPlusTracks
+        whitelist:
+          - JetAlgorithms
+          - JetAssociationAlgorithms
+          - JetAssociationProducers
+          - JetPlusTracks
+          - JetProducers
+    RecoLocalCalo:
+        no_plugins:
+          - EcalRecProducers
+          - HGCalRecAlgos
+        whitelist:
+          - CaloTowersCreator
+          - EcalDeadChannelRecoveryAlgos
+          - EcalRecAlgos
+          - EcalRecProducers
+          - HGCalRecAlgos
+          - HcalRecAlgos
+          - HcalRecProducers
+    RecoLocalMuon:
+        whitelist:
+          - CSCRecHitD
+          - CSCSegment
+          - DTRecHit
+          - DTSegment
+          - GEMRecHit
+          - GEMSegment
+          - RPCRecHit
+    RecoLocalTracker:
+        no_plugins:
+          - SiPixelClusterizer
+          - SiStripClusterizer
+        whitelist:
+          - ClusterParameterEstimator
+          - Phase2TrackerRecHits
+          - Records
+          - SiPixelClusterizer
+          - SiPixelRecHits
+          - SiStripClusterizer
+          - SiStripRecHitConverter
+          - SiStripZeroSuppression
+    RecoMET:
+        no_plugins:
+          - METPUSubtraction
+        whitelist:
+          - METAlgorithms
+          - METPUSubtraction
+          - METProducers
+    RecoMTD:
+        no_plugins:
+          - TrackExtender
+        whitelist:
+          - DetLayers
+          - MeasurementDet
+          - Records
+          - TimingTools
+          - TrackExtender
+          - TransientTrackingRecHit
+    RecoMuon:
+        no_plugins:
+          - GlobalMuonProducer
+          - L2MuonIsolationProducer
+          - L2MuonProducer
+          - L2MuonSeedGenerator
+          - L3MuonProducer
+          - MuonIdentification
+          - MuonIsolation
+          - MuonIsolationProducers
+          - StandAloneMuonProducer
+        whitelist:
+          - DetLayers
+          - GlobalMuonProducer
+          - GlobalTrackFinder
+          - GlobalTrackingTools
+          - L2MuonIsolationProducer
+          - L2MuonProducer
+          - L2MuonSeedGenerator
+          - L3MuonIsolationProducer
+          - L3MuonProducer
+          - L3TrackFinder
+          - MeasurementDet
+          - MuonIdentification
+          - MuonIsolation
+          - MuonIsolationProducers
+          - MuonSeedGenerator
+          - Navigation
+          - Records
+          - StandAloneMuonProducer
+          - StandAloneTrackFinder
+          - TrackingTools
+          - TransientTrackingRecHit
+    RecoParticleFlow:
+        whitelist:
+          - PFClusterTools
+          - PFTracking
+    RecoTauTag:
+        no_plugins:
+          - RecoTau
+        whitelist:
+          - RecoTau
+    RecoTracker:
+        no_plugins:
+          - ConversionSeedGenerators
+          - FinalTrackSelectors
+          - GeometryESProducer
+          - TkNavigation
+          - TkSeedGenerator
+          - TkTrackingRegions
+          - TrackProducer
+        whitelist:
+          - CkfPattern
+          - ConversionSeedGenerators
+          - DeDx
+          - FinalTrackSelectors
+          - GeometryESProducer
+          - MeasurementDet
+          - PixelLowPtUtilities
+          - PixelSeeding
+          - PixelTrackFitting
+          - Record
+          - SiTrackerMRHTools
+          - SpecialSeedGenerators
+          - TkDetLayers
+          - TkHitPairs
+          - TkMSParametrization
+          - TkNavigation
+          - TkSeedGenerator
+          - TkSeedingLayers
+          - TkTrackingRegions
+          - TrackProducer
+          - TransientTrackingRecHit
+    RecoVertex:
+        no_plugins:
+          - AdaptiveVertexFinder
+          - BeamSpotProducer
+        whitelist:
+          - AdaptiveVertexFinder
+          - AdaptiveVertexFit
+          - BeamSpotProducer
+          - ConfigurableVertexReco
+          - GaussianSumVertexFit
+          - GhostTrackFitter
+          - KalmanVertexFit
+          - KinematicFit
+          - KinematicFitPrimitives
+          - LinearizationPointFinders
+          - MultiVertexFit
+          - PrimaryVertexProducer
+          - TrimmedKalmanVertexFinder
+          - TrimmedVertexFit
+          - V0Producer
+          - VertexPrimitives
+          - VertexTools
+    SimCalorimetry:
+        whitelist:
+          - CaloSimAlgos
+          - EcalSimAlgos
+          - HcalSimAlgos
     SimDataFormats:
         whitelist:
+          - Associations
+          - CaloAnalysis
+          - CaloHit
+          - CrossingFrame
+          - DigiSimLinks
+          - EncodedEventId
+          - GeneratorProducts
+          - PileupSummaryInfo
           - RandomEngine
+          - Track
+          - TrackerDigiSimLink
+          - TrackingAnalysis
+          - TrackingHit
+          - Vertex
+    SimGeneral:
+        no_plugins:
+          - MixingModule
+          - PreMixingModule
+        whitelist:
+          - HepPDTRecord
+          - MixingModule
+          - NoiseGenerators
+          - PreMixingModule
+          - TrackingAnalysis
+    SimMuon:
+        whitelist:
+          - MCTruth
+    SimTracker:
+        no_plugins:
+          - TrackAssociation
+        whitelist:
+          - Common
+          - TrackAssociation
+          - TrackerHitAssociation
+    TrackPropagation:
+        whitelist:
+          - RungeKutta
+          - SteppingHelixPropagator
+    TrackingTools:
+        whitelist:
+          - AnalyticalJacobians
+          - DetLayers
+          - GeomPropagators
+          - GsfTools
+          - GsfTracking
+          - IPTools
+          - KalmanUpdators
+          - MaterialEffects
+          - MeasurementDet
+          - PatternTools
+          - Producers
+          - RecoGeometry
+          - Records
+          - TrackAssociator
+          - TrackFitters
+          - TrackRefitter
+          - TrajectoryCleaning
+          - TrajectoryFiltering
+          - TrajectoryParametrization
+          - TrajectoryState
+          - TransientTrack
+          - TransientTrackingRecHit
     Utilities:
         whitelist:
-          # openssl EVP wrapper used by CondCore/CondDB
+          - BinningTools
+          - General
           - OpenSSL
+          - Xerces

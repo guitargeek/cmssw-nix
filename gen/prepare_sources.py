@@ -334,17 +334,23 @@ for root, dirs, files in os.walk("cmssw/Geometry"):
 # library. Drop them.
 for root, dirs, files in os.walk("cmssw/Geometry"):
     if "BuildFile.xml" in files and root.endswith("plugins"):
+        # only the Fireworks geometry-validation plugins: the DD4hep code
+        # paths are pruned by name/flag below, and where dd4hep is available
+        # (20_1) the regular ES-producer stanzas that use it must be kept
         edit(os.path.join(root, "BuildFile.xml"), lambda xml: re.sub(
-            r'<library[^>]*>(?:(?!</library>).)*name="(?:Fireworks/Core|'
-            r'DetectorDescription/DDCMS|dd4hep)"(?:(?!</library>).)*</library>\n?',
+            r'<library[^>]*>(?:(?!</library>).)*name="Fireworks/Core"'
+            r'(?:(?!</library>).)*</library>\n?',
             "", xml, flags=re.DOTALL))
         # ... and the DD4hep test plugins, which use the DDCMS classes
         # without declaring the dependency
         edit(os.path.join(root, "BuildFile.xml"), lambda xml: re.sub(
             r'<library[^>]*name="DD4hep_[^"]*"[^>]*>(?:(?!</library>).)*</library>\n?',
             "", xml, flags=re.DOTALL))
-for f in glob.glob("cmssw/Geometry/MuonNumbering/src/DD4hep_*.cc"):
-    os.remove(f)
+# (only where dd4hep is unavailable: in the 20_1 era these files carry the
+# real cms::MuonNumbering implementation, not an optional second path)
+if release_cycle < (11, 0):
+    for f in glob.glob("cmssw/Geometry/MuonNumbering/src/DD4hep_*.cc"):
+        os.remove(f)
 
 # RecoLocalMuon/RPCRecHit mixes the rec-hit producer with the RPC-efficiency
 # extrapolation tools (RPCPointProducer and the track/segment-to-RPC
@@ -396,12 +402,13 @@ if os.path.isdir(path):
 
 # RecoTracker/DeDx: the only HLTrigger/HLTcore user is the HLT filter
 # plugin - drop it and the dependency.
-path = "cmssw/RecoTracker/DeDx/BuildFile.xml"
-if os.path.exists(path):
-    edit(path, lambda xml: re.sub(
-        r'<use\s+name="HLTrigger/HLTcore"\s*/>\n?', "", xml))
-    for f in glob.glob("cmssw/RecoTracker/DeDx/plugins/HLTDeDxFilter.*"):
-        os.remove(f)
+for path in ["cmssw/RecoTracker/DeDx/BuildFile.xml",
+             "cmssw/RecoTracker/DeDx/plugins/BuildFile.xml"]:
+    if os.path.exists(path):
+        edit(path, lambda xml: re.sub(
+            r'<use\s+name="HLTrigger/HLTcore"\s*/>\n?', "", xml))
+for f in glob.glob("cmssw/RecoTracker/DeDx/plugins/HLTDeDxFilter.*"):
+    os.remove(f)
 
 # Several libraries reference edm::HepMCProduct's type info (through the
 # GenParticle/GenJet template helpers) without declaring the library that
@@ -420,6 +427,46 @@ if os.path.exists(path):
          xml if "TrackingTools/TransientTrack" in xml
          else '<use   name="TrackingTools/TransientTrack"/>\n' + xml)
 
+# the trivial Ecal conditions source writes IOVs through cond::Iov_t but
+# (in the 20_1 layout) does not declare the CondCore dependency
+path = "cmssw/CalibCalorimetry/EcalTrivialCondModules/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda xml:
+         xml if "CondCore/CondDB" in xml
+         else ('<use   name="CondCore/CondDB"/>\n'
+               '<use   name="CondCore/DBOutputService"/>\n'
+               '<use   name="CondFormats/Alignment"/>\n' + xml))
+
+# --- L1 trigger menu payloads without the utm external (all versions) ------
+# CondFormats/L1TObjects carries the L1TUtm* trigger-menu classes, which wrap
+# the CMS utm library. Nothing in the reconstruction reads them, and they are
+# self-contained (their EventSetup records live in their own files), so drop
+# them together with the dependency.
+l1t = "cmssw/CondFormats/L1TObjects"
+if os.path.isdir(l1t) and os.path.exists(l1t + "/BuildFile.xml"):
+    with open(l1t + "/BuildFile.xml", encoding="latin-1") as f:
+        if "utm" in f.read():
+            for pat in [l1t + "/interface/*L1TUtm*", l1t + "/src/*L1TUtm*",
+                        "cmssw/CondFormats/DataRecord/interface/*L1TUtm*",
+                        "cmssw/CondFormats/DataRecord/src/*L1TUtm*"]:
+                for f2 in glob.glob(pat):
+                    os.remove(f2)
+            edit(l1t + "/BuildFile.xml", lambda xml: re.sub(
+                r'<use\s+name="utm"\s*/>\n?', "", xml))
+            # drop their dictionary entries and headers
+            for base, names in [(l1t + "/src", ["classes.h", "classes_def.xml"])]:
+                for n in names:
+                    p = os.path.join(base, n)
+                    if not os.path.exists(p):
+                        continue
+                    if n.endswith(".xml"):
+                        edit(p, lambda xml: re.sub(
+                            r'[ \t]*<class[^>]*name\s*=\s*"[^"]*L1TUtm[^"]*"'
+                            r'(?:[^>]*/>|[^>]*>.*?</class>)\n?', "", xml, flags=re.DOTALL))
+                    else:
+                        edit(p, lambda src: "\n".join(
+                            l for l in src.split("\n") if "L1TUtm" not in l))
+
 # SiPixelQualityESProducer dereferences the DetVOff payload even when the
 # SiPixelDetVOffRcd is not in its merge list (running without a conditions
 # DB there is nothing to provide it from).
@@ -428,6 +475,23 @@ if os.path.exists(path):
     edit(path, lambda src: src.replace(
         "dbptr->add(Voff.product());",
         "if (Voff.isValid())\n    dbptr->add(Voff.product());"))
+
+# --- no alpaka backend variants (all versions) ------------------------------
+# Libraries flagged ALPAKA_BACKENDS are built once per accelerator backend by
+# scram, each with its own ALPAKA_ACC_* defines and namespace. We build the
+# host code only, so drop those stanzas (their sources live in alpaka/
+# subdirectories, which the generator already keeps out of the plain globs).
+for root, dirs, files in os.walk("cmssw"):
+    if "BuildFile.xml" not in files:
+        continue
+    path = os.path.join(root, "BuildFile.xml")
+    with open(path, encoding="latin-1") as f:
+        xml = f.read()
+    if "ALPAKA_BACKENDS" not in xml:
+        continue
+    edit(path, lambda x: re.sub(
+        r'<library[^>]*>(?:(?!</library>).)*ALPAKA_BACKENDS(?:(?!</library>).)*</library>\n?',
+        "", x, flags=re.DOTALL))
 
 # A couple of plugins BuildFiles (DetectorDescription/Core, Geometry/
 # EcalCommonData) place the EDM_PLUGIN flag *outside* the <library> element;

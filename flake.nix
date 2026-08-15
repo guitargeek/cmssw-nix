@@ -60,9 +60,22 @@
       url = "github:lwtnn/lwtnn/v2.9";
       flake = false;
     };
+
+    # DD4hep: the 20_1-era geometry is built on it
+    dd4hep-src = {
+      url = "github:AIDASoft/DD4hep/v01-31";
+      flake = false;
+    };
+
+    # Xilinx arbitrary-precision headers: the 20_1 L1 trigger data formats
+    # store their words in ap_int/ap_fixed types
+    hls-src = {
+      url = "github:Xilinx/HLS_arbitrary_Precision_Types";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, heppdt-src, lwtnn-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, heppdt-src, lwtnn-src, dd4hep-src, hls-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -84,6 +97,10 @@
       };
 
       vdt = pkgs2205.callPackage ./pkgs/vdt.nix {
+        src = vdt-src;
+      };
+
+      vdt_201 = pkgs.callPackage ./pkgs/vdt.nix {
         src = vdt-src;
       };
 
@@ -116,6 +133,25 @@
         src = lwtnn-src;
       };
 
+      lwtnn_201 = pkgs.callPackage ./pkgs/lwtnn.nix {
+        src = lwtnn-src;
+      };
+
+      heppdt_201 = pkgs.callPackage ./pkgs/heppdt.nix {
+        src = heppdt-src;
+      };
+
+      hls = pkgs.callPackage ./pkgs/hls.nix {
+        src = hls-src;
+      };
+
+      dd4hep = pkgs.callPackage ./pkgs/dd4hep.nix {
+        src = dd4hep-src;
+        version = "01-31";
+        inherit root;
+        xercesc = pkgs.xercesc;
+      };
+
       cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
         src = cmssw-src;
         version = "CMSSW_20_1_0_pre2";
@@ -128,6 +164,18 @@
         inherit coral;
         clangTools = pkgs.clang;
         libclangPython = libclang-python;
+        gsl = pkgs.gsl;
+        vdt = vdt_201;
+        fastjet = pkgs.fastjet;
+        fastjet-contrib = pkgs.fastjet-contrib;
+        heppdt = heppdt_201;
+        lwtnn = lwtnn_201;
+        openblas = pkgs.openblas;
+        inherit dd4hep hls;
+        geant4 = pkgs.geant4;
+        hdf5 = pkgs.hdf5-cpp;
+        hepmc = pkgs.hepmc2;
+        hepmc3 = pkgs.hepmc3;
       };
 
       # ROOT 6.24 from nixos-22.05 is already built with C++17 (the gcc 11
@@ -156,6 +204,13 @@
           { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
           { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
         ];
+        # 20_1-only externals: callPackage would otherwise auto-fill these
+        # from the 22.05 package set just because the names exist there
+        geant4 = null;
+        hdf5 = null;
+        hepmc3 = null;
+        dd4hep = null;
+        hls = null;
         clangTools = pkgs2205.llvmPackages_14.clang;
         libclangPython = libclang-python_2205;
         legacySiteConf = true;

@@ -85,6 +85,23 @@
         "type": "github"
       }
     },
+    "dd4hep-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1737992138,
+        "narHash": "sha256-6TnZ0iFAjdzpWFwn1TkGal8J6xwowPr27NcnlA28gGA=",
+        "owner": "AIDASoft",
+        "repo": "DD4hep",
+        "rev": "0aafe1c25ab1c834482f109f08a91441510af66a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "AIDASoft",
+        "ref": "v01-31",
+        "repo": "DD4hep",
+        "type": "github"
+      }
+    },
     "ecal-deadchannel-data": {
       "flake": false,
       "locked": {
@@ -131,6 +148,22 @@
         "owner": "cms-externals",
         "ref": "cms/3.04.01",
         "repo": "heppdt",
+        "type": "github"
+      }
+    },
+    "hls-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1552953799,
+        "narHash": "sha256-jtHn7qFQZUMgE9RIEXWWlCv37NJHaMomdRdHXVycXcI=",
+        "owner": "Xilinx",
+        "repo": "HLS_arbitrary_Precision_Types",
+        "rev": "200a9aecaadf471592558540dc5a88256cbf880f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Xilinx",
+        "repo": "HLS_arbitrary_Precision_Types",
         "type": "github"
       }
     },
@@ -190,9 +223,11 @@
         "cmssw-10_6-src": "cmssw-10_6-src",
         "cmssw-src": "cmssw-src",
         "coral-src": "coral-src",
+        "dd4hep-src": "dd4hep-src",
         "ecal-deadchannel-data": "ecal-deadchannel-data",
         "ecal-trivialcond-data": "ecal-trivialcond-data",
         "heppdt-src": "heppdt-src",
+        "hls-src": "hls-src",
         "lwtnn-src": "lwtnn-src",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
