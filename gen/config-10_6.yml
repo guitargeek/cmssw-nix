@@ -155,6 +155,13 @@ subsystems:
           - SiPixelObjects
           - SiPixelTransient
           - SiStripObjects
+    CondTools:
+        # BTagCalibration reader classes (used by the nanoAOD BTagSFProducer);
+        # the plugins are DB writers needing PhysicsTools/CondLiteIO
+        no_plugins:
+          - BTau
+        whitelist:
+          - BTau
     DataFormats:
         no_plugins: true
         whitelist:
@@ -278,9 +285,30 @@ subsystems:
           - PythonUtilities
           - ServiceRegistry
           - Services
+          - SharedMemory
           - Sources
           - Utilities
           - Version
+    GeneratorInterface:
+        # Event generation with Pythia 8. The Tauola/Photos/EvtGen decay
+        # interfaces are built base-classes-only (no_plugins): the concrete
+        # implementations in their plugins/ link the tauolapp/photospp/evtgen
+        # externals, which are not packaged; ExternalDecayDriver creates them
+        # through plugin factories, so a configuration that does not request
+        # external decays never notices.
+        no_plugins:
+          - EvtGenInterface
+          - PhotosInterface
+          - TauolaInterface
+        whitelist:
+          - Core
+          - EvtGenInterface
+          - ExternalDecays
+          - LHEInterface
+          - PartonShowerVeto
+          - PhotosInterface
+          - Pythia8Interface
+          - TauolaInterface
     Geometry:
         whitelist:
           - CMSCommonData
@@ -369,6 +397,7 @@ subsystems:
           - JetMCUtils
           - MVAComputer
           - MVATrainer
+          - NanoAOD
           - PythonAnalysis
           - SelectorUtils
           - UtilAlgos
@@ -550,6 +579,7 @@ subsystems:
           - DigiSimLinks
           - EncodedEventId
           - GeneratorProducts
+          - HTXS
           - JetMatching
           - PileupSummaryInfo
           - RandomEngine
@@ -560,6 +590,9 @@ subsystems:
           - Vertex
     SimGeneral:
         whitelist:
+          # particle data table ES source + the .tbl data files (needed by
+          # GenParticleProducer and the generator statistics)
+          - HepPDTESSource
           - HepPDTRecord
           - NoiseGenerators
     SimMuon:

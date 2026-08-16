@@ -58,6 +58,13 @@ endif()
 if(CMSSW_WITH_HEPMC)
   find_library(hepmc_LIBRARIES NAMES HepMC REQUIRED)
   find_path(hepmc_INCLUDE_DIRECTORIES NAMES HepMC/GenEvent.h REQUIRED)
+  # The fortran-io half of HepMC 2 (the HEPEVT_Wrapper statics the Pythia8
+  # interface uses) is a separate tool: libHepMCfio references the hepevt_
+  # fortran common, which only the Pythia8Interface plugin library defines
+  # (see prepare_sources.py) - linking fio from every hepmc user would make
+  # every one of them fail to dlopen.
+  find_library(hepmcfio_LIBRARIES NAMES HepMCfio REQUIRED)
+  set(hepmcfio_INCLUDE_DIRECTORIES ${hepmc_INCLUDE_DIRECTORIES})
   # the same package (SimDataFormats/GeneratorProducts) also uses liblzma
   # through the scram tool name "xz"
   find_library(xz_LIBRARIES NAMES lzma REQUIRED)
@@ -139,6 +146,22 @@ endif()
 if(CMSSW_WITH_CURL)
   find_library(curl_LIBRARIES NAMES curl REQUIRED)
   find_path(curl_INCLUDE_DIRECTORIES NAMES curl/curl.h REQUIRED)
+endif()
+if(CMSSW_WITH_PYTHIA8)
+  find_library(pythia8_LIBRARIES NAMES pythia8 REQUIRED)
+  find_path(pythia8_INCLUDE_DIRECTORIES NAMES Pythia8/Pythia.h REQUIRED)
+endif()
+if(CMSSW_WITH_LHAPDF)
+  find_library(lhapdf_LIBRARIES NAMES LHAPDF REQUIRED)
+  find_path(lhapdf_INCLUDE_DIRECTORIES NAMES LHAPDF/LHAPDF.h REQUIRED)
+endif()
+if(CMSSW_WITH_SIGCPP)
+  # libsigc++ 2: headers under include/sigc++-2.0, and the generated
+  # sigc++config.h next to the library
+  find_library(sigcpp_LIBRARIES NAMES sigc-2.0 REQUIRED)
+  find_path(sigcpp_INCLUDE_DIRECTORIES NAMES sigc++/sigc++.h PATH_SUFFIXES sigc++-2.0 REQUIRED)
+  get_filename_component(_sigcpp_libdir ${sigcpp_LIBRARIES} DIRECTORY)
+  list(APPEND sigcpp_INCLUDE_DIRECTORIES ${_sigcpp_libdir}/sigc++-2.0/include)
 endif()
 if(CMSSW_WITH_CORAL)
   # the CORAL libraries carry the lcg_ prefix (CoralKernel dlopens the
@@ -253,7 +276,10 @@ add_compile_definitions(
   CMS_MICRO_ARCH="x86-64"
 )
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -msse3 -Wno-deprecated-declarations -Wno-attributes -Wno-unused-result -Wno-psabi")
+# -DNDEBUG matches scram: without it the boost assertions are live, and e.g.
+# the nanoAOD TableOutputBranches aborts on taking .front() of a legitimately
+# empty table column
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -msse3 -DNDEBUG -Wno-deprecated-declarations -Wno-attributes -Wno-unused-result -Wno-psabi")
 
 if(CMSSW_WITH_ALPAKA)
   add_compile_definitions(
@@ -287,7 +313,8 @@ foreach(dir ${Boost_INCLUDE_DIRS} ${CLHEP_INCLUDE_DIRS} ${eigen_INCLUDE_DIRECTOR
         ${dd4hep_INCLUDE_DIRECTORIES} ${hls_INCLUDE_DIRECTORIES}
         ${geant4core_INCLUDE_DIRECTORIES} ${hdf5_INCLUDE_DIRECTORIES}
         ${hepmc3_INCLUDE_DIRECTORIES} ${onnxruntime_INCLUDE_DIRECTORIES}
-        ${xgboost_INCLUDE_DIRECTORIES})
+        ${xgboost_INCLUDE_DIRECTORIES} ${pythia8_INCLUDE_DIRECTORIES}
+        ${lhapdf_INCLUDE_DIRECTORIES} ${sigcpp_INCLUDE_DIRECTORIES})
   list(APPEND GENREFLEX_INCLUDE_LIST "-I${dir}")
 endforeach()
 list(REMOVE_DUPLICATES GENREFLEX_INCLUDE_LIST)

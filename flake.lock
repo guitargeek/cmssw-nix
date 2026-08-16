@@ -232,6 +232,23 @@
         "type": "github"
       }
     },
+    "pythia8-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1718881300,
+        "narHash": "sha256-nEi9uTU52S469wdtbPsRVF1Frgguz+indoL5mmD+P0I=",
+        "owner": "cms-externals",
+        "repo": "pythia8",
+        "rev": "f422e5d9e21b03b249d6ccec51d61bf31de262ea",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-externals",
+        "ref": "cms/240",
+        "repo": "pythia8",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "alpaka-src": "alpaka-src",
@@ -248,6 +265,7 @@
         "magfield-data": "magfield-data",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
+        "pythia8-src": "pythia8-src",
         "vdt-src": "vdt-src"
       }
     },

@@ -29,6 +29,7 @@ if [ "$era" = 10_6 ]; then
     "TrackingChain:python/ckf_chain_cfg.py"
     "MagneticFieldMap:python/magfield_cfg.py"
     "MuonChain:python/muon_sta_cfg.py"
+    "NanoGen:python/nanogen_cfg.py"
   )
 else
   jobs=(
@@ -51,6 +52,11 @@ run_one() {
     export LD_LIBRARY_PATH=$PWD/$bld:${LD_LIBRARY_PATH:-}
     edmPluginRefresh "$PWD/$bld" > /dev/null 2>&1
     cmsRun "$cfg" > run.log 2>&1 || { echo "   RUN FAILED"; tail -25 run.log; exit 1; }
+    # an optional <cfg>_check.py validates the job output from outside
+    # CMSSW (e.g. reading a produced nanoAOD file with plain ROOT)
+    if [ -f "${cfg%.py}_check.py" ]; then
+      python3 "${cfg%.py}_check.py" > check.log 2>&1 || { echo "   CHECK FAILED"; tail -15 check.log; exit 1; }
+    fi
     echo "   ok" )
 }
 

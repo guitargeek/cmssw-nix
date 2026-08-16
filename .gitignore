@@ -4,6 +4,8 @@ examples/*/build/
 examples/*/build-*/
 examples/*/build.log
 examples/*/run.log
+examples/*/check.log
+examples/NanoGen/nanogen.root
 examples/MyAnalyzer/myelectrons.root
 examples/MiniAODReader/miniaod.root
 *.pyc

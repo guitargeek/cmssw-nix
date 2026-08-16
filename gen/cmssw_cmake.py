@@ -14,6 +14,7 @@ the nix build:
 
 import glob
 import os
+import re
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
@@ -165,6 +166,20 @@ def complete_build_file(build_file, default_lib_name=None, in_plugin_dir=False):
         default_lib_name = default_lib_name + "Plugins"
     if auto:
         xml = '<library   file="*.cc *.cxx *.cpp" name="' + default_lib_name + '">\n' + xml + "\n</library>"
+
+    if not auto and in_plugin_dir:
+        # scram semantics: a <library> in a plugins/ directory is an EDM
+        # plugin by default; only an explicit EDM_PLUGIN="0" opts out. Some
+        # BuildFiles rely on the default (e.g. PhysicsTools/HepMCCandAlgos),
+        # and a plugin library that misses the flag here is built with the
+        # lib prefix and silently never registered.
+        def _mark_plugin(m):
+            block = m.group(0)
+            if "EDM_PLUGIN" in block:
+                return block
+            i = block.index(">") + 1
+            return block[:i] + '\n  <flags   EDM_PLUGIN="1"/>' + block[i:]
+        xml = re.sub(r"<library\b(?:(?!</library>).)*</library>", _mark_plugin, xml, flags=re.DOTALL)
 
     return xml
 

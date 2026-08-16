@@ -799,3 +799,219 @@ if release_cycle < (11, 0):
         ),
     )
 
+
+
+# --- event generation: Pythia8 without the DIRE/VINCIA/EvtGen externals ------
+#
+# The 10_6 Pythia8Interface hard-includes the DIRE and VINCIA shower plugins
+# (separate externals in the 8.2 era; merged into Pythia in 8.3) and pythia's
+# EvtGen adapter. None of the three externals are packaged. The call sites are
+# scattered over the whole hadronizer, so instead of pruning them the includes
+# are replaced with minimal stubs whose constructors throw: a configuration
+# that requests VinciaPlugin/DirePlugin/useEvtGen fails with a clear runtime
+# error, everything else runs untouched.
+p8i = "cmssw/GeneratorInterface/Pythia8Interface"
+if os.path.exists(p8i):
+    STUB_COMMON = (
+        "#include <map>\n"
+        "#include <stdexcept>\n"
+        "#include <string>\n"
+    )
+    EVTGEN_STUB = STUB_COMMON + (
+        "// stub for the EvtGen adapter (external not built): fails at\n"
+        "// construction, i.e. when a configuration sets useEvtGen\n"
+        "class EvtGenDecays {\n"
+        "public:\n"
+        "  EvtGenDecays(Pythia8::Pythia*, const std::string&, const std::string&) {\n"
+        "    throw std::runtime_error(\"EvtGen is not available in this CMSSW build\");\n"
+        "  }\n"
+        "  void readDecayFile(const std::string&) {}\n"
+        "  void decay() {}\n"
+        "};\n"
+    )
+    SHOWER_STUB = STUB_COMMON + (
+        "// stubs for the DIRE and VINCIA shower plugins (externals not\n"
+        "// built): they fail at construction, i.e. when a configuration\n"
+        "// sets DirePlugin/VinciaPlugin\n"
+        "namespace Vincia {\n"
+        "  struct VinciaPlugin {\n"
+        "    VinciaPlugin(Pythia8::Pythia*) {\n"
+        "      throw std::runtime_error(\"VINCIA is not available in this CMSSW build\");\n"
+        "    }\n"
+        "    void init() {}\n"
+        "    int nWeights() const { return 0; }\n"
+        "    double weight(int) const { return 1.; }\n"
+        "    std::string weightLabel(int) const { return std::string(); }\n"
+        "  };\n"
+        "}\n"
+        "namespace Pythia8 {\n"
+        "  struct DireStubWeights {\n"
+        "    void setup() {}\n"
+        "    void calcWeight(double) {}\n"
+        "    void reset() {}\n"
+        "    double getShowerWeight(const std::string&) { return 1.; }\n"
+        "    std::map<std::string, double>* getShowerWeights() { return nullptr; }\n"
+        "  };\n"
+        "  struct Dire {\n"
+        "    Dire() { throw std::runtime_error(\"DIRE is not available in this CMSSW build\"); }\n"
+        "    void initSettings(Pythia&) {}\n"
+        "    void initShowersAndWeights(Pythia&, void*, void*) {}\n"
+        "    void setup(Pythia&) {}\n"
+        "    DireStubWeights* weightsPtr = nullptr;\n"
+        "  };\n"
+        "}\n"
+    )
+
+    # the header includes Dire without using any of its types
+    edit(p8i + "/interface/Py8InterfaceBase.h",
+         lambda src: src.replace("#include <Dire/Dire.h>\n", ""))
+
+    edit(p8i + "/src/Py8GunBase.cc",
+         lambda src: src.replace('#include "Pythia8Plugins/EvtGen.h"\n', EVTGEN_STUB))
+
+    def _stub_hadronizer(src):
+        src = src.replace('#include "Vincia/Vincia.h"\n#include "Dire/Dire.h"\n',
+                          SHOWER_STUB)
+        src = src.replace('#include "Pythia8Plugins/EvtGen.h"\n', EVTGEN_STUB)
+        return src
+    edit(p8i + "/plugins/Pythia8Hadronizer.cc", _stub_hadronizer)
+
+    for bf in [p8i + "/BuildFile.xml", p8i + "/plugins/BuildFile.xml"]:
+        drop_tool_deps(bf, ["evtgen", "dire", "vincia"])
+
+    # the LHE reader's mcdb:// support and the HepML metadata need externals
+    # that are not packaged; the deps are only used by those code paths
+    lhe = "cmssw/GeneratorInterface/LHEInterface"
+    for bf in [lhe + "/BuildFile.xml", lhe + "/plugins/BuildFile.xml"]:
+        drop_tool_deps(bf, ["mcdb", "libhepml"])
+
+    # base-classes-only decay interfaces (the concrete implementations in
+    # plugins/ link the externals; no_plugins in the configuration)
+    drop_tool_deps("cmssw/GeneratorInterface/EvtGenInterface/BuildFile.xml", ["evtgen"])
+    drop_tool_deps("cmssw/GeneratorInterface/TauolaInterface/BuildFile.xml", ["tauolapp"])
+
+    # LHAPDF 6.4 no longer carries the PDFLIB-era pdfset_ glue symbol this
+    # linker-bait references (it exists only to force the archive lhapdf
+    # library in; ours is shared)
+    edit("cmssw/GeneratorInterface/Core/src/FortranInstance.cc",
+         lambda src: src.replace(
+             'extern "C" void pdfset_(void);\n'
+             '__attribute__((visibility("hidden"))) void dummy()\n'
+             '{\n'
+             '  pdfset_();\n'
+             '}\n', ""))
+
+    # PhysicsTools/NanoAOD: the flat-table producers (NanoGen and, later,
+    # nanoAOD production). Two plugins are pruned: the nano DQM module (the
+    # DQM subsystem is not built) and the b-jet energy-regression MVA (its
+    # base template lives in PhysicsTools/PatAlgos, not built yet). The
+    # TensorFlow dependency of the plugins BuildFile is stale in 10_6 -
+    # nothing in the package includes it.
+    nano = "cmssw/PhysicsTools/NanoAOD"
+    if os.path.exists(nano):
+        for f in ["/plugins/NanoAODDQM.cc", "/plugins/BJetEnergyRegressionMVA.cc"]:
+            if os.path.exists(nano + f):
+                os.remove(nano + f)
+        drop_tool_deps(nano + "/plugins/BuildFile.xml",
+                       ["DQMServices/Core", "PhysicsTools/TensorFlow"])
+
+    # GeneratorInterface/PartonShowerVeto: keep only the fastjet-based MLM
+    # matching (JetMatchingMGFastJet, the production scheme for
+    # Madgraph+Pythia8). The classic Madgraph/Alpgen matchers drive fortran
+    # code (ME2pythia.f, alpg_match.F) and the pythia6/alpgen externals.
+    psv = "cmssw/GeneratorInterface/PartonShowerVeto"
+    if os.path.exists(psv):
+        for f in ["/src/JetMatchingMadgraph.cc", "/src/JetMatchingAlpgen.cc"]:
+            if os.path.exists(psv + f):
+                os.remove(psv + f)
+        drop_tool_deps(psv + "/BuildFile.xml",
+                       ["GeneratorInterface/Pythia6Interface",
+                        "GeneratorInterface/AlpgenInterface", "f77compiler"])
+
+        def _prune_matchers(src):
+            # the base-class header used to come in through the matcher headers
+            src = src.replace(
+                '#include "GeneratorInterface/PartonShowerVeto/interface/JetMatchingMadgraph.h"\n',
+                '#include "GeneratorInterface/PartonShowerVeto/interface/JetMatching.h"\n')
+            src = src.replace(
+                '#include "GeneratorInterface/PartonShowerVeto/interface/JetMatchingAlpgen.h"\n', "")
+            src = src.replace(
+                "matching.reset(new JetMatchingMadgraph(params));",
+                'throw cms::Exception("InvalidJetMatching")\n'
+                '            << "The fortran-based Madgraph matching is not available in this build";')
+            src = src.replace(
+                "matching.reset(new JetMatchingAlpgen(params));",
+                'throw cms::Exception("InvalidJetMatching")\n'
+                '            << "Alpgen matching is not available in this build";')
+            return src
+        edit(psv + "/src/JetMatching.cc", _prune_matchers)
+
+        def _prune_hook(src):
+            src = src.replace(
+                '#include "GeneratorInterface/PartonShowerVeto/interface/JetMatchingMadgraph.h"\n', "")
+            src = src.replace(
+                "fJetMatching = new JetMatchingMadgraph(ps);",
+                'throw cms::Exception("InvalidJetMatching")\n'
+                '         << "The fortran-based Madgraph matching is not available in this build; "\n'
+                '         << "use scheme = MadgraphFastJet";')
+            return src
+        edit("cmssw/GeneratorInterface/Pythia8Interface/plugins/JetMatchingHook.cc", _prune_hook)
+
+    # boost >= 1.75 no longer includes the date_time posix_time headers
+    # transitively from boost/interprocess; FWCore/SharedMemory uses
+    # boost::posix_time without including them itself
+    edit("cmssw/FWCore/SharedMemory/interface/ControllerChannel.h",
+         lambda src: src.replace(
+             '#include "boost/interprocess/managed_shared_memory.hpp"',
+             '#include "boost/date_time/posix_time/posix_time_types.hpp"\n'
+             '#include "boost/interprocess/managed_shared_memory.hpp"'))
+
+    # gcc 11's libstdc++ does not provide std::optional transitively here
+    edit("cmssw/GeneratorInterface/Core/plugins/ExternalGeneratorFilter.cc",
+         lambda src: src.replace(
+             '#include "FWCore/Framework/interface/global/EDFilter.h"',
+             '#include <optional>\n'
+             '#include "FWCore/Framework/interface/global/EDFilter.h"'))
+
+    # JetMatchingMGFastJet declares the MEMAIN/UPPRIV/OUTTREE fortran common
+    # blocks extern; their definitions lived in the fortran files we do not
+    # compile. The fortran side is gone, so define them here instead.
+    edit(psv + "/src/JetMatchingMGFastJet.cc",
+         lambda src: src.replace("extern struct", "struct"))
+
+    # The HEPEVT fortran common block, used through HepMC's HEPEVT_Wrapper by
+    # the legacy jet-matching input converter (Py8toJetInput). In a scram
+    # build the fortran generator objects allocate it; this build compiles no
+    # fortran, so define the symbol here. The size must match the
+    # HEPEVT_EntriesAllocation (200000) that HepMC itself was compiled with.
+    with open(p8i + "/src/HepevtCommonBlock.cc", "w") as f:
+        f.write(
+            "// see prepare_sources.py: the HEPEVT/HEPRUP/HEPEUP fortran common\n"
+            "// blocks, normally allocated by fortran generator objects that this\n"
+            "// build does not have\n"
+            "#include <cstddef>\n"
+            "#include \"SimDataFormats/GeneratorProducts/interface/LHECommonBlocks.h\"\n"
+            "namespace {\n"
+            "  constexpr std::size_t kEntries = 200000;  // HepMC's HEPEVT_EntriesAllocation\n"
+            "}\n"
+            "extern \"C\" {\n"
+            "  alignas(16) char hepevt_[sizeof(long int) * (2 + 6 * kEntries) +\n"
+            "                           sizeof(double) * (9 * kEntries)];\n"
+            "  HEPRUP_ heprup_;\n"
+            "  HEPEUP_ hepeup_;\n"
+            "}\n")
+
+    # ... and the fio half of HepMC 2 is linked only here, where the fortran
+    # commons it references are defined (see the hepmcfio tool note in
+    # gen/CMakeLists.txt)
+    edit(p8i + "/plugins/BuildFile.xml",
+         lambda xml: xml if "hepmcfio" in xml else xml.replace(
+             '<use   name="GeneratorInterface/Pythia8Interface"/>',
+             '<use   name="GeneratorInterface/Pythia8Interface"/>\n<use   name="hepmcfio"/>'))
+
+    # the nanoAOD plugins use GenEventInfoProduct but the BuildFile misses
+    # the link dependency (scram resolved it transitively)
+    edit(nano + "/plugins/BuildFile.xml",
+         lambda xml: xml if "SimDataFormats/GeneratorProducts" in xml else xml.replace(
+             '<use   name="FWCore/Framework"/>',
+             '<use   name="FWCore/Framework"/>\n<use   name="SimDataFormats/GeneratorProducts"/>'))

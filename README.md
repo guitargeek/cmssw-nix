@@ -123,6 +123,21 @@ yoke, back to −1.29 T inside the barrel yoke iron — is validated in
 carries all six table sets, about 480 MB, of which only the 3.8 T set is used
 by default.)
 
+**Event generation with Pythia 8** is the newest stage — the first step of
+the road towards full event simulation up to nanoAOD. Pythia 8.240 (the
+version of the 10_6 release era, from CMS's fork) is packaged in
+[pkgs/pythia8.nix](pkgs/pythia8.nix), with LHAPDF and libsigc++ from
+nixpkgs; `GeneratorInterface` is built with the DIRE/VINCIA/EvtGen hooks
+replaced by stubs that fail clearly at runtime if configured, and with the
+fastjet-based MLM matching kept (the fortran-based Madgraph/Alpgen matchers
+are pruned). On top of it sit the **nanoAOD flat-table producers**
+(`PhysicsTools/NanoAOD`), so the build can go from a physics process to an
+analysis-ready file: [examples/NanoGen](examples/NanoGen) generates
+Z → μμ, runs the standard GenParticle pruning, AK4 gen-jet clustering and
+the GenPart/GenJet/weights tables, and writes a real NanoAOD file — which
+the example then re-opens with plain ROOT (no CMSSW) and re-finds the Z
+peak in.
+
 With the real field in place, **standalone muon reconstruction** works: a
 50 GeV muon stepped out of the origin through that field leaves DT digis in
 four barrel chambers, and the standard chain (rec hits → 4D segments →

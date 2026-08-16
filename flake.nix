@@ -61,6 +61,12 @@
       url = "github:cms-externals/heppdt/cms/3.04.01";
       flake = false;
     };
+    # event generation: the Pythia 8.240 the 10_6 release era was built with
+    # (the 8.3 series changed the API the 10_6 Pythia8Interface uses)
+    pythia8-src = {
+      url = "github:cms-externals/pythia8/cms/240";
+      flake = false;
+    };
     lwtnn-src = {
       url = "github:lwtnn/lwtnn/v2.9";
       flake = false;
@@ -80,7 +86,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, lwtnn-src, dd4hep-src, hls-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -134,6 +140,11 @@
         src = heppdt-src;
       };
 
+      pythia8_2205 = pkgs2205.callPackage ./pkgs/pythia8.nix {
+        src = pythia8-src;
+        lhapdf = pkgs2205.lhapdf;
+      };
+
       lwtnn_2205 = pkgs2205.callPackage ./pkgs/lwtnn.nix {
         src = lwtnn-src;
       };
@@ -183,6 +194,11 @@
         hepmc3 = pkgs.hepmc3;
         onnxruntime = pkgs.onnxruntime;
         xgboost = pkgs.xgboost;
+        # 10_6-only externals for now (callPackage would auto-fill lhapdf and
+        # libsigcxx from the unstable package set just because the names exist)
+        pythia8 = null;
+        lhapdf = null;
+        libsigcxx = null;
       };
 
       # ROOT 6.24 from nixos-22.05 is already built with C++17 (the gcc 11
@@ -207,6 +223,9 @@
         lwtnn = lwtnn_2205;
         openblas = pkgs2205.openblas;
         coral = coral_2205;
+        pythia8 = pythia8_2205;
+        lhapdf = pkgs2205.lhapdf;
+        libsigcxx = pkgs2205.libsigcxx;
         extraData = [
           { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
           { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
@@ -246,14 +265,16 @@
     in
     {
       packages.${system} = {
-        inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205;
+        inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205 pythia8_2205;
         default = cmssw;
       };
 
       devShells.${system} = {
         default = makeUserShell pkgs cmssw root [ pkgs.onetbb pkgs.fmt coral ];
 
-        cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root [ pkgs2205.tbb coral_2205 ];
+        # pythia8 comes along for its setup hook: PYTHIA8DATA must point at
+        # the xmldoc directory for the generator to start
+        cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root [ pkgs2205.tbb coral_2205 pythia8_2205 ];
 
         # Environments for hacking on the CMSSW build itself: all the
         # dependencies, so the generator + cmake can be run by hand against a
