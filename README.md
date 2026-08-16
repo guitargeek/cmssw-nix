@@ -225,6 +225,62 @@ geometries and fake/hardcoded conditions, and
 [examples/MagneticFieldMap](examples/MagneticFieldMap) for the volume-based
 magnetic field.
 
+## Testing
+
+```bash
+nix flake check          # builds and runs every example, both releases
+```
+
+(If the releases themselves are not built yet this builds them first, which is
+hours — see *Keeping rebuilds cheap* below.)
+
+Each example directory is a check of its own, so they build in parallel and a
+failure names the example that broke. Two further checks (`libsweep-10_6`,
+`libsweep-20_1`) `dlopen` every library in a release: the cmake build links
+each one, but a library that links cleanly can still be unusable at runtime —
+a pruned source file, a missing external or an unallocated Fortran common
+block only shows up when something tries to load the plugin.
+
+The jobs the checks run are listed in [examples/jobs.json](examples/jobs.json),
+which `examples/run_all.sh` reads too, so the hermetic and the interactive
+runner cannot drift apart:
+
+```bash
+nix develop .#cmssw_10_6_30 -c ./examples/run_all.sh 10_6
+```
+
+`run_all.sh` builds in the working tree, so an edit to an example is one
+`cmake --build` away from being tested; `nix flake check` builds from the
+store and is what to trust.
+
+## Keeping rebuilds cheap
+
+A full CMSSW build is hours, and anything that changes a file under `gen/`
+changes the derivation, so it is worth not losing the result:
+
+```bash
+./scripts/build.sh              # build both releases and pin them
+./scripts/build.sh 10_6         # just one
+```
+
+The `result-*` out-links this creates are indirect gcroots. It also roots the
+CMSSW checkouts (~500 MB each), which are *not* part of any output's runtime
+closure and are therefore the first thing a `nix-collect-garbage` takes and
+among the slowest to fetch again.
+
+To move the binaries to another machine, push them to a
+[cachix](https://cachix.org) cache:
+
+```bash
+export CACHIX_CACHE=my-cmssw-cache
+./scripts/push-cache.sh         # runtime *and* build-time closures
+```
+
+The cache is deliberately not declared in `flake.nix`'s `nixConfig`: a
+substituter baked into a flake is a trust decision for whoever clones it, and
+an unreachable one makes every build print warnings. Consumers opt in with
+`cachix use $CACHIX_CACHE`.
+
 ## Layout
 
 * `flake.nix` — inputs (nixpkgs, cmssw, alpaka, cms-md5 sources) and outputs
@@ -235,6 +291,11 @@ magnetic field.
 * `gen/` — the BuildFile→CMake generator, the build configuration
   (`config.yml`), the top-level `CMakeLists.txt`, and the environment setup
   hook
+* `gen/sweep_libs.py` — `dlopen`s every library in a build and reports the
+  ones that fail; run by the `libsweep-*` flake checks
+* `scripts/` — build and pin the releases, push them to a binary cache
+* `examples/jobs.json` — the example jobs, shared by `nix flake check` and
+  `examples/run_all.sh`
 * `gen/plan_packages.py` — works out *which* packages a release can build:
   it walks the `BuildFile.xml` dependency graph to a fixpoint (a package is
   buildable when none of its externals are missing and all its dependencies
@@ -256,6 +317,15 @@ magnetic field.
   shipped it as `cmsRunPython3`): the pybind11-based config parsing is simply
   built against python 3 instead of python 2, which no longer exists in
   nixpkgs.
+* The setup hook raises glibc's static-TLS surplus
+  (`GLIBC_TUNABLES=glibc.rtld.optional_static_tls`). nixpkgs builds Geant4
+  multi-threaded, which compiles the toolkit with `-ftls-model=initial-exec`
+  and leaves `libG4processes_hadronic.so` with a 1.2 MB `PT_TLS` segment that
+  has to come out of a surplus whose default is 512 bytes. Without the bump,
+  the 78 libraries of the 20_1 build that pull in Geant4 link fine but fail to
+  `dlopen`. Rebuilding Geant4 with `-DGEANT4_BUILD_TLS_MODEL=global-dynamic`
+  would fix it at the source, at the price of never substituting the stock
+  Geant4 — or anything built on it — from a binary cache again.
 * The Geometry/HLT/Sim/RecoLocal... subsystems of the old Arch config are not
   included, but extending `gen/config.yml` (and the dependency list in
   `pkgs/cmssw.nix` + `gen/CMakeLists.txt`) is all it should take.

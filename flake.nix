@@ -247,21 +247,110 @@
         extraPythonPackages = ps: [ ps.six ps.future ];
       };
 
+      # What a user of a release needs on top of the release itself, to build
+      # an analyzer against it and run it. Shared by the dev shells and the
+      # example checks so the two environments cannot drift apart.
+      userPackages = ps: cmsswPkg: rootPkg: extraPackages: [
+        cmsswPkg
+        ps.cmake
+        ps.ninja
+        rootPkg
+        cmsswPkg.pythonEnv
+        # headers reachable from CMSSW headers when compiling user code
+        ps.boost
+        ps.clhep
+        ps.eigen
+      ] ++ extraPackages;
+
+      # 20_1 wants fmt and the oneAPI TBB; 10_6 the classic TBB, and pythia8
+      # for its setup hook (PYTHIA8DATA must point at the xmldoc directory for
+      # the generator to start).
+      extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral ];
+      extraPackages_10_6 = [ pkgs2205.tbb coral_2205 pythia8_2205 ];
+
       # Environment for using a CMSSW package: build analyzers against it with
       # cmake and run them with cmsRun (see examples/MyAnalyzer).
       makeUserShell = ps: cmsswPkg: rootPkg: extraPackages: ps.mkShell {
-        packages = [
-          cmsswPkg
-          ps.cmake
-          ps.ninja
-          rootPkg
-          cmsswPkg.pythonEnv
-          # headers reachable from CMSSW headers when compiling user code
-          ps.boost
-          ps.clhep
-          ps.eigen
-        ] ++ extraPackages;
+        packages = userPackages ps cmsswPkg rootPkg extraPackages;
       };
+
+      # The example jobs, read from the same file examples/run_all.sh reads.
+      exampleJobs = builtins.fromJSON (builtins.readFile ./examples/jobs.json);
+
+      # Build one example directory against a release and run its configs.
+      # This is examples/run_all.sh done hermetically: the sources come from
+      # the store, the environment is exactly the dev shell's, and a failure
+      # is a failed derivation rather than a line in a log.
+      makeExampleCheck = ps: cmsswPkg: rootPkg: extraPackages: era: job:
+        ps.stdenv.mkDerivation {
+          name = "cmssw-example-${era}-${job.dir}";
+          src = ./examples + "/${job.dir}";
+
+          nativeBuildInputs = [ ps.cmake ps.ninja ];
+          buildInputs = userPackages ps cmsswPkg rootPkg extraPackages;
+
+          # The examples drive cmake themselves (they need CMSSW_BASE from the
+          # setup hook, which is only set once buildInputs have been sourced).
+          dontUseCmakeConfigure = true;
+
+          buildPhase = ''
+            runHook preBuild
+            # ROOT writes into $HOME on startup
+            export HOME=$TMPDIR
+            cmake -B build -S . -G Ninja
+            cmake --build build
+            runHook postBuild
+          '';
+
+          doCheck = true;
+          checkPhase = ''
+            runHook preCheck
+            # without this a failing cmsRun is hidden by the tee that follows
+            set -o pipefail
+            export LD_LIBRARY_PATH=$PWD/build''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+            edmPluginRefresh $PWD/build
+            for cfg in ${ps.lib.escapeShellArgs job.cfgs}; do
+              echo "=== $cfg"
+              log=$(basename "''${cfg%.py}").log
+              cmsRun "$cfg" 2>&1 | tee "$log"
+              # an optional <cfg>_check.py validates the job output from
+              # outside CMSSW (e.g. reading a produced nanoAOD file with
+              # plain ROOT)
+              if [ -f "''${cfg%.py}_check.py" ]; then
+                python3 "''${cfg%.py}_check.py" 2>&1 | tee -a "$log"
+              fi
+            done
+            runHook postCheck
+          '';
+
+          installPhase = ''
+            runHook preInstall
+            mkdir -p $out
+            cp -- *.log $out/
+            runHook postInstall
+          '';
+        };
+
+      # dlopen every library in a release. Catches the unresolved symbols that
+      # linking does not: a pruned source file, a missing external, a Fortran
+      # common block nobody allocates.
+      makeSweepCheck = ps: cmsswPkg: era:
+        ps.runCommand "cmssw-libsweep-${era}"
+          { buildInputs = [ cmsswPkg cmsswPkg.pythonEnv ]; }
+          ''
+            # ROOT's rootmap autoloading complains on stderr about every
+            # header it cannot find while loading the dictionaries - hundreds
+            # of kilobytes of noise that has nothing to do with whether the
+            # library loaded. Keep it, but only show it if something failed.
+            python3 ${./gen/sweep_libs.py} ${cmsswPkg}/lib > sweep.log 2> sweep.err || {
+              cat sweep.log
+              echo "--- stderr ---"
+              tail -50 sweep.err
+              exit 1
+            }
+            cat sweep.log
+            cp sweep.log $out
+          '';
     in
     {
       packages.${system} = {
@@ -269,12 +358,28 @@
         default = cmssw;
       };
 
-      devShells.${system} = {
-        default = makeUserShell pkgs cmssw root [ pkgs.onetbb pkgs.fmt coral ];
+      # `nix flake check` builds and runs the whole example suite for both
+      # releases, plus a dlopen sweep over every library. Each example
+      # directory is a check of its own, so they build in parallel and a
+      # failure names the example that broke.
+      checks.${system} =
+        let
+          check_10_6 = makeExampleCheck pkgs2205 cmssw_10_6_30 pkgs2205.root extraPackages_10_6 "10_6";
+          check_201 = makeExampleCheck pkgs cmssw root extraPackages_201 "20_1";
+          named = era: mk: map (job: {
+            name = "example-${era}-${job.dir}";
+            value = mk job;
+          }) exampleJobs.${era};
+        in
+        builtins.listToAttrs (named "10_6" check_10_6 ++ named "20_1" check_201) // {
+          libsweep-10_6 = makeSweepCheck pkgs2205 cmssw_10_6_30 "10_6";
+          libsweep-20_1 = makeSweepCheck pkgs cmssw "20_1";
+        };
 
-        # pythia8 comes along for its setup hook: PYTHIA8DATA must point at
-        # the xmldoc directory for the generator to start
-        cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root [ pkgs2205.tbb coral_2205 pythia8_2205 ];
+      devShells.${system} = {
+        default = makeUserShell pkgs cmssw root extraPackages_201;
+
+        cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root extraPackages_10_6;
 
         # Environments for hacking on the CMSSW build itself: all the
         # dependencies, so the generator + cmake can be run by hand against a

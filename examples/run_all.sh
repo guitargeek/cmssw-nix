@@ -4,8 +4,11 @@
 #   ./examples/run_all.sh 10_6     # the CMSSW_10_6_30 package
 #   ./examples/run_all.sh 20_1     # the CMSSW_20_1_0_pre2 package
 #
-# Only the examples that need no external data are run; MiniAODReader needs a
-# CMS Open Data file and is left out.
+# Run this from inside the matching dev shell. The job list lives in
+# examples/jobs.json, which `nix flake check` reads too - see the checks in
+# flake.nix, which run the same jobs hermetically. This script is the
+# interactive counterpart: it builds in the working tree, so an edit to an
+# example is one `cmake --build` away from being tested.
 set -u
 
 era=${1:-20_1}
@@ -17,28 +20,16 @@ esac
 
 here=$(cd "$(dirname "$0")" && pwd)
 
-# example directory : config to run (relative to the example directory)
-if [ "$era" = 10_6 ]; then
-  jobs=(
-    "MyAnalyzer:python/write_cfg.py"
-    "MyAnalyzer:python/read_cfg.py"
-    "TrackerLocalReco:python/tracker_localreco_cfg.py"
-    "CaloLocalReco:python/calo_localreco_cfg.py"
-    "MuonLocalReco:python/muon_localreco_cfg.py"
-    "TrackingChain:python/tracking_chain_cfg.py"
-    "TrackingChain:python/ckf_chain_cfg.py"
-    "MagneticFieldMap:python/magfield_cfg.py"
-    "MuonChain:python/muon_sta_cfg.py"
-    "NanoGen:python/nanogen_cfg.py"
-  )
-else
-  jobs=(
-    "MyAnalyzer:python/write_cfg.py"
-    "MyAnalyzer:python/read_cfg.py"
-    # not working yet - see examples/TrackerLocalReco/python/tracker_localreco_20_1_cfg.py
-    # "TrackerLocalReco:python/tracker_localreco_20_1_cfg.py"
-  )
-fi
+# "<dir>:<cfg>" per line, in the order jobs.json lists them
+mapfile -t jobs < <(python3 -c '
+import json, sys
+era = sys.argv[1]
+with open(sys.argv[2]) as f:
+    spec = json.load(f)
+for job in spec[era]:
+    for cfg in job["cfgs"]:
+        print(job["dir"] + ":" + cfg)
+' "$era" "$here/jobs.json") || { echo "cannot read $here/jobs.json" >&2; exit 2; }
 
 # A build directory of its own per release: the two eras have different
 # compilers and a different TBB, and a CMakeCache left behind by the other

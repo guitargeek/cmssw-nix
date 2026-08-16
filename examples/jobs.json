@@ -1,0 +1,21 @@
+{
+  "10_6": [
+    { "dir": "MyAnalyzer",       "cfgs": ["python/write_cfg.py", "python/read_cfg.py"] },
+    { "dir": "TrackerLocalReco", "cfgs": ["python/tracker_localreco_cfg.py"] },
+    { "dir": "CaloLocalReco",    "cfgs": ["python/calo_localreco_cfg.py"] },
+    { "dir": "MuonLocalReco",    "cfgs": ["python/muon_localreco_cfg.py"] },
+    { "dir": "TrackingChain",    "cfgs": ["python/tracking_chain_cfg.py", "python/ckf_chain_cfg.py"] },
+    { "dir": "MagneticFieldMap", "cfgs": ["python/magfield_cfg.py"] },
+    { "dir": "MuonChain",        "cfgs": ["python/muon_sta_cfg.py"] },
+    { "dir": "NanoGen",          "cfgs": ["python/nanogen_cfg.py"] }
+  ],
+
+  "20_1": [
+    { "dir": "MyAnalyzer",       "cfgs": ["python/write_cfg.py", "python/read_cfg.py"] }
+  ],
+
+  "_excluded": {
+    "MiniAODReader": "needs a CMS Open Data file that is not in the store",
+    "TrackerLocalReco/python/tracker_localreco_20_1_cfg.py": "not working yet - see the header of the config"
+  }
+}

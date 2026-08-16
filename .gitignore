@@ -10,3 +10,4 @@ examples/MyAnalyzer/myelectrons.root
 examples/MiniAODReader/miniaod.root
 *.pyc
 __pycache__/
+build-*.log
