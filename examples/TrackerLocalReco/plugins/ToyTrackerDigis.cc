@@ -22,7 +22,9 @@
 
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-#include "Geometry/CommonDetUnit/interface/GeomDet.h"
+// GeomDet comes in through TrackerGeometry.h; including it directly would
+// have to name a package that moved between the two releases
+// (Geometry/CommonDetUnit in 10_6, Geometry/CommonTopologies in 20_1)
 #include "DataFormats/DetId/interface/DetId.h"
 #include "DataFormats/SiStripDetId/interface/StripSubdetector.h"
 #include "DataFormats/SiPixelDetId/interface/PixelSubdetector.h"

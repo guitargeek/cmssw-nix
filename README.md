@@ -143,9 +143,13 @@ nix develop --command ./examples/run_all.sh 20_1
 
 The install also generates scram's "cfipython" configuration fragments:
 `edmWriteConfigs` is run over every built library at install time (via a
-library→package manifest emitted by the generator) and the resulting
-`*_cfi.py` files are merged into the package python directories, so the
-standard configuration files that import them work unchanged.
+library→package manifest emitted by the generator) and everything it writes
+is merged into the package python directories, so the standard configuration
+files that import them work unchanged. Note that this is more than the
+`*_cfi.py` files: a modern module also gets a `<ModuleType>.py` builder
+alongside its `<label>_cfi.py`, and the cfi imports it — keeping only the
+`_cfi.py` files leaves those unimportable, which surfaces much later as a
+`ModuleNotFoundError` inside a `process.load()`.
 
 Still out of scope: the DNN-based producers that need the TensorFlow C++
 or ONNXRuntime externals (DeepMET, DeepTau, DeepJet — pruned at prepare

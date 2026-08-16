@@ -34,7 +34,8 @@ else
   jobs=(
     "MyAnalyzer:python/write_cfg.py"
     "MyAnalyzer:python/read_cfg.py"
-    "TrackerLocalReco:python/tracker_localreco_20_1_cfg.py"
+    # not working yet - see examples/TrackerLocalReco/python/tracker_localreco_20_1_cfg.py
+    # "TrackerLocalReco:python/tracker_localreco_20_1_cfg.py"
   )
 fi
 

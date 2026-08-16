@@ -267,9 +267,13 @@ stdenv.mkDerivation {
           [ -f "$so" ] || continue
           tmp=$(mktemp -d)
           ( cd $tmp && $out/bin/edmWriteConfigs -p "$so" > /dev/null 2>&1 ) || true
-          if ls $tmp/*_cfi.py > /dev/null 2>&1; then
+          # Everything it writes is needed, not only the *_cfi.py: modern
+          # modules get a <ModuleType>.py builder next to the <label>_cfi.py,
+          # and the cfi imports it. Dropping those makes the generated cfi
+          # unimportable (ModuleNotFoundError at cmsRun time).
+          if ls $tmp/*.py > /dev/null 2>&1; then
             mkdir -p $out/src/$pkg/python
-            for f in $tmp/*_cfi.py; do
+            for f in $tmp/*.py; do
               # handwritten files win over generated ones
               [ -e $out/src/$pkg/python/$(basename $f) ] || cp $f $out/src/$pkg/python/
             done

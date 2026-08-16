@@ -20,6 +20,10 @@ cluster and one rec hit per subdetector come out.
 
 This example needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`).
 
+A port to `CMSSW_20_1_0_pre2` is drafted in
+`python/tracker_localreco_20_1_cfg.py` but **does not work yet** — see the
+header of that file for the open issues.
+
 ## Building and running
 
 From this directory, inside `nix develop .#cmssw_10_6_30`:

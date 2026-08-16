@@ -14,7 +14,6 @@ bins:
 subsystems:
     CalibCalorimetry:
         no_plugins:
-          - EcalLaserAnalyzer
           - EcalTPGTools
         whitelist:
           - CaloMiscalibTools
@@ -33,15 +32,12 @@ subsystems:
           - SiPixelObjects
           - SiStripObjects
     CalibMuon:
-        no_plugins:
-          - DTDigiSync
         whitelist:
           - CSCCalibration
           - DTDigiSync
     CalibTracker:
         no_plugins:
           - SiStripCommon
-          - SiStripESProducers
         whitelist:
           - Records
           - SiPixelESProducers
@@ -49,13 +45,9 @@ subsystems:
           - SiStripESProducers
           - StandaloneTrackerTopology
     Calibration:
-        no_plugins:
-          - Tools
         whitelist:
           - Tools
     CommonTools:
-        no_plugins:
-          - MVAUtils
         whitelist:
           - BaseParticlePropagator
           - CandAlgos
@@ -77,10 +69,6 @@ subsystems:
           - PluginSystem
           - PopCon
     CondFormats:
-        no_plugins:
-          - Common
-          - MFObjects
-          - PCLConfig
         whitelist:
           - Alignment
           - AlignmentRecord
@@ -276,10 +264,6 @@ subsystems:
           - StorageFactory
           - TFileAdaptor
     Geometry:
-        no_plugins:
-          - CaloEventSetup
-          - EcalMapping
-          - GlobalTrackingGeometryBuilder
         whitelist:
           - CMSCommonData
           - CSCGeometry
@@ -338,10 +322,6 @@ subsystems:
           - Output
           - Provenance
     JetMETCorrections:
-        no_plugins:
-          - Modules
-          - TauJet
-          - Type1MET
         whitelist:
           - Algorithms
           - JetCorrector
@@ -352,9 +332,6 @@ subsystems:
           - TauJet
           - Type1MET
     MagneticField:
-        no_plugins:
-          - GeomBuilder
-          - ParametrizedEngine
         whitelist:
           - Engine
           - GeomBuilder
@@ -369,8 +346,6 @@ subsystems:
         whitelist:
           - Base
     PhysicsTools:
-        no_plugins:
-          - IsolationAlgos
         whitelist:
           - FWLite
           - HepMCCandAlgos
@@ -384,10 +359,6 @@ subsystems:
           - Utilities
           - XGBoost
     RecoBTag:
-        no_plugins:
-          - ImpactParameter
-          - SecondaryVertex
-          - SoftLepton
         whitelist:
           - BTagTools
           - CTagging
@@ -411,14 +382,6 @@ subsystems:
           - EgammaClusterProducers
           - EgammaCoreTools
     RecoEgamma:
-        no_plugins:
-          - EgammaElectronProducers
-          - EgammaHFProducers
-          - EgammaHLTProducers
-          - EgammaMCTools
-          - EgammaTools
-          - ElectronIdentification
-          - PhotonIdentification
         whitelist:
           - EgammaElectronAlgos
           - EgammaElectronProducers
@@ -432,8 +395,6 @@ subsystems:
           - ElectronIdentification
           - PhotonIdentification
     RecoJets:
-        no_plugins:
-          - JetPlusTracks
         whitelist:
           - JetAlgorithms
           - JetAssociationAlgorithms
@@ -442,7 +403,6 @@ subsystems:
           - JetProducers
     RecoLocalCalo:
         no_plugins:
-          - EcalRecProducers
           - HGCalRecAlgos
         whitelist:
           - CaloTowersCreator
@@ -462,9 +422,6 @@ subsystems:
           - GEMSegment
           - RPCRecHit
     RecoLocalTracker:
-        no_plugins:
-          - SiPixelClusterizer
-          - SiStripClusterizer
         whitelist:
           - ClusterParameterEstimator
           - Phase2TrackerRecHits
@@ -482,8 +439,6 @@ subsystems:
           - METPUSubtraction
           - METProducers
     RecoMTD:
-        no_plugins:
-          - TrackExtender
         whitelist:
           - DetLayers
           - MeasurementDet
@@ -492,16 +447,6 @@ subsystems:
           - TrackExtender
           - TransientTrackingRecHit
     RecoMuon:
-        no_plugins:
-          - GlobalMuonProducer
-          - L2MuonIsolationProducer
-          - L2MuonProducer
-          - L2MuonSeedGenerator
-          - L3MuonProducer
-          - MuonIdentification
-          - MuonIsolation
-          - MuonIsolationProducers
-          - StandAloneMuonProducer
         whitelist:
           - DetLayers
           - GlobalMuonProducer
@@ -535,13 +480,8 @@ subsystems:
           - RecoTau
     RecoTracker:
         no_plugins:
-          - ConversionSeedGenerators
           - FinalTrackSelectors
-          - GeometryESProducer
-          - TkNavigation
           - TkSeedGenerator
-          - TkTrackingRegions
-          - TrackProducer
         whitelist:
           - CkfPattern
           - ConversionSeedGenerators
@@ -565,9 +505,6 @@ subsystems:
           - TrackProducer
           - TransientTrackingRecHit
     RecoVertex:
-        no_plugins:
-          - AdaptiveVertexFinder
-          - BeamSpotProducer
         whitelist:
           - AdaptiveVertexFinder
           - AdaptiveVertexFit
@@ -608,9 +545,6 @@ subsystems:
           - TrackingHit
           - Vertex
     SimGeneral:
-        no_plugins:
-          - MixingModule
-          - PreMixingModule
         whitelist:
           - HepPDTRecord
           - MixingModule
