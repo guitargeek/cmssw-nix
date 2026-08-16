@@ -11,3 +11,4 @@ examples/MiniAODReader/miniaod.root
 *.pyc
 __pycache__/
 build-*.log
+examples/ConditionsSqlite/beamspot.db

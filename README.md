@@ -223,7 +223,11 @@ reading a real CMS Open Data miniAOD file with the 10_6_30 package, and
 calorimeter and muon local reconstruction on toy digis with the XML-built
 geometries and fake/hardcoded conditions, and
 [examples/MagneticFieldMap](examples/MagneticFieldMap) for the volume-based
-magnetic field.
+magnetic field. [examples/NanoGen](examples/NanoGen) generates Z → μμ with
+Pythia 8 and writes gen-level nanoAOD, and
+[examples/ConditionsSqlite](examples/ConditionsSqlite) writes a conditions
+payload to a local sqlite database and reads it back through
+`PoolDBESSource`.
 
 ## Testing
 

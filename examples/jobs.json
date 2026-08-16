@@ -7,7 +7,8 @@
     { "dir": "TrackingChain",    "cfgs": ["python/tracking_chain_cfg.py", "python/ckf_chain_cfg.py"] },
     { "dir": "MagneticFieldMap", "cfgs": ["python/magfield_cfg.py"] },
     { "dir": "MuonChain",        "cfgs": ["python/muon_sta_cfg.py"] },
-    { "dir": "NanoGen",          "cfgs": ["python/nanogen_cfg.py"] }
+    { "dir": "NanoGen",          "cfgs": ["python/nanogen_cfg.py"] },
+    { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] }
   ],
 
   "20_1": [
