@@ -134,6 +134,23 @@
         "type": "github"
       }
     },
+    "frontier-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1576876228,
+        "narHash": "sha256-iD9kdX0VT2uiBlzzqqBorzGojaopdqPTO4vUrtolfWs=",
+        "owner": "fermitools",
+        "repo": "frontier",
+        "rev": "3c378557de9a61a38ebf91117d2049ade14f8b7e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "fermitools",
+        "ref": "v2_8_21",
+        "repo": "frontier",
+        "type": "github"
+      }
+    },
     "heppdt-src": {
       "flake": false,
       "locked": {
@@ -259,6 +276,7 @@
         "dd4hep-src": "dd4hep-src",
         "ecal-deadchannel-data": "ecal-deadchannel-data",
         "ecal-trivialcond-data": "ecal-trivialcond-data",
+        "frontier-src": "frontier-src",
         "heppdt-src": "heppdt-src",
         "hls-src": "hls-src",
         "lwtnn-src": "lwtnn-src",

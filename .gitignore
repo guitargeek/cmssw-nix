@@ -12,3 +12,6 @@ examples/MiniAODReader/miniaod.root
 __pycache__/
 build-*.log
 examples/ConditionsSqlite/beamspot.db
+examples/ConditionsFrontier/frontier_port.txt
+examples/ConditionsFrontier/frontier_requests.log
+rebuild-status.log

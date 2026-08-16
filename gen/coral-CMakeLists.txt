@@ -1,7 +1,7 @@
 # Build the subset of CORAL that CMSSW's CondCore needs: the core libraries
-# plus the dynamically loaded services (SQLite backend, connection/lookup/
-# authentication/monitoring services). Oracle, MySQL, Frontier and the CORAL
-# server are left out.
+# plus the dynamically loaded services (SQLite and Frontier backends,
+# connection/lookup/authentication/monitoring services). Oracle, MySQL and
+# the CORAL server are left out.
 #
 # All libraries are installed as liblcg_<Package>.so: CoralKernel's
 # PluginManager dlopens the service libraries under exactly that name.
@@ -25,11 +25,26 @@ find_path(SQLITE_INCLUDE_DIR NAMES sqlite3.h REQUIRED)
 find_library(UUID_LIBRARY NAMES uuid REQUIRED)
 find_path(UUID_INCLUDE_DIR NAMES uuid/uuid.h REQUIRED)
 
+# The frontier backend is optional. CMSSW never links it - CoralKernel
+# dlopens liblcg_FrontierAccess.so the first time a frontier:// connect
+# string shows up - so a build without it is still a working build, just one
+# that can only reach local sqlite files.
+find_library(FRONTIER_LIBRARY NAMES frontier_client)
+find_path(FRONTIER_INCLUDE_DIR NAMES frontier_client/frontier-cpp.h)
+
 set(CORAL_PACKAGES
   CoralBase CoralKernel RelationalAccess CoralCommon
   ConnectionService RelationalService XMLLookupService
   XMLAuthenticationService EnvironmentAuthenticationService
   MonitoringService SQLiteAccess)
+
+if(FRONTIER_LIBRARY AND FRONTIER_INCLUDE_DIR)
+  list(APPEND CORAL_PACKAGES FrontierAccess)
+  include_directories(${FRONTIER_INCLUDE_DIR})
+  message(STATUS "CORAL: building the Frontier backend against ${FRONTIER_LIBRARY}")
+else()
+  message(STATUS "CORAL: no frontier client found, building without the Frontier backend")
+endif()
 
 # public headers live at <pkg>/<pkg>/*.h, so adding every package directory
 # to the include path resolves both '#include "CoralBase/..."' style includes
@@ -62,6 +77,10 @@ coral_library(XMLAuthenticationService lcg_CoralCommon ${XERCESC_LIBRARY})
 coral_library(EnvironmentAuthenticationService lcg_CoralCommon)
 coral_library(MonitoringService lcg_CoralCommon)
 coral_library(SQLiteAccess lcg_CoralCommon ${SQLITE_LIBRARY})
+
+if(FRONTIER_LIBRARY AND FRONTIER_INCLUDE_DIR)
+  coral_library(FrontierAccess lcg_CoralCommon ${FRONTIER_LIBRARY})
+endif()
 
 # public headers of the packages CMSSW compiles against
 foreach(pkg CoralBase CoralKernel RelationalAccess CoralCommon)

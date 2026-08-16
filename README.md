@@ -227,7 +227,9 @@ magnetic field. [examples/NanoGen](examples/NanoGen) generates Z → μμ with
 Pythia 8 and writes gen-level nanoAOD, and
 [examples/ConditionsSqlite](examples/ConditionsSqlite) writes a conditions
 payload to a local sqlite database and reads it back through
-`PoolDBESSource`.
+`PoolDBESSource`. [examples/ConditionsFrontier](examples/ConditionsFrontier)
+reaches a Frontier server over HTTP — the transport a real global tag uses —
+against a local stand-in servlet.
 
 ## Testing
 

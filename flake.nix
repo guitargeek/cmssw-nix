@@ -39,6 +39,13 @@
       flake = false;
     };
 
+    # the HTTP transport CORAL's FrontierAccess backend sits on: what CMS
+    # conditions use to reach a global tag through the squid hierarchy
+    frontier-src = {
+      url = "github:fermitools/frontier/v2_8_21";
+      flake = false;
+    };
+
     # cms-data externals: BDT weights for the Ecal dead-channel recovery,
     # amplitude/pedestal/time weights for the trivial Ecal conditions
     ecal-deadchannel-data = {
@@ -86,7 +93,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -121,13 +128,26 @@
         llvmPackages = pkgs2205.llvmPackages_14;
       };
 
+      # The frontier client, once per release era: CORAL's FrontierAccess
+      # backend links it, and it is what turns a frontier:// connect string
+      # into an HTTP request to the conditions squid hierarchy.
+      frontier-client = pkgs.callPackage ./pkgs/frontier-client.nix {
+        src = frontier-src;
+      };
+
+      frontier-client_2205 = pkgs2205.callPackage ./pkgs/frontier-client.nix {
+        src = frontier-src;
+      };
+
       # CORAL for CondCore, once per release era
       coral = pkgs.callPackage ./pkgs/coral.nix {
         src = coral-src;
+        frontier = frontier-client;
       };
 
       coral_2205 = pkgs2205.callPackage ./pkgs/coral.nix {
         src = coral-src;
+        frontier = frontier-client_2205;
       };
 
       # standalone Minuit2 from the ROOT 6.24 sources: the 22.05 ROOT was
@@ -355,6 +375,7 @@
     {
       packages.${system} = {
         inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205 pythia8_2205;
+        inherit frontier-client frontier-client_2205;
         default = cmssw;
       };
 

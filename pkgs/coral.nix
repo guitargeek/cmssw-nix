@@ -7,6 +7,9 @@
 , xercesc
 , sqlite
 , libuuid
+  # optional: without it CORAL is built without the Frontier backend, and a
+  # CondCore job can only reach a local sqlite file
+, frontier ? null
 , cxxStandard ? "17"
 }:
 
@@ -19,7 +22,7 @@ stdenv.mkDerivation {
   inherit src;
 
   nativeBuildInputs = [ cmake ninja ];
-  buildInputs = [ boost xercesc sqlite libuuid ];
+  buildInputs = [ boost xercesc sqlite libuuid ] ++ lib.optional (frontier != null) frontier;
 
   postPatch = ''
     cp ${../gen/coral-CMakeLists.txt} CMakeLists.txt

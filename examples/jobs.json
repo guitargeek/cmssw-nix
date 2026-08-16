@@ -16,6 +16,7 @@
   ],
 
   "_excluded": {
+    "ConditionsFrontier": "the transport works, but cmsRun aborts at exit - see that example's README",
     "MiniAODReader": "needs a CMS Open Data file that is not in the store",
     "TrackerLocalReco/python/tracker_localreco_20_1_cfg.py": "not working yet - see the header of the config"
   }
