@@ -8,6 +8,7 @@ examples/*/check.log
 examples/NanoGen/nanogen.root
 examples/MyAnalyzer/myelectrons.root
 examples/MiniAODReader/miniaod.root
+examples/MuonGunSim/muon_gun_sim.root
 *.pyc
 __pycache__/
 build-*.log

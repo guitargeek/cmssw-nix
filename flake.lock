@@ -151,6 +151,23 @@
         "type": "github"
       }
     },
+    "geant4-10_4-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1550478937,
+        "narHash": "sha256-XduZUZaxeXI0COnazC1m4cAr12itUREvdyEiz3jVBb0=",
+        "owner": "cms-externals",
+        "repo": "geant4",
+        "rev": "922600305b80a2b23e97abd352b68508cf419540",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-externals",
+        "ref": "cms/v10.4.3",
+        "repo": "geant4",
+        "type": "github"
+      }
+    },
     "heppdt-src": {
       "flake": false,
       "locked": {
@@ -277,6 +294,7 @@
         "ecal-deadchannel-data": "ecal-deadchannel-data",
         "ecal-trivialcond-data": "ecal-trivialcond-data",
         "frontier-src": "frontier-src",
+        "geant4-10_4-src": "geant4-10_4-src",
         "heppdt-src": "heppdt-src",
         "hls-src": "hls-src",
         "lwtnn-src": "lwtnn-src",

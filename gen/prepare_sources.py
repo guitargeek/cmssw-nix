@@ -1015,3 +1015,31 @@ if os.path.exists(p8i):
          lambda xml: xml if "SimDataFormats/GeneratorProducts" in xml else xml.replace(
              '<use   name="FWCore/Framework"/>',
              '<use   name="FWCore/Framework"/>\n<use   name="SimDataFormats/GeneratorProducts"/>'))
+
+# CastorSD deletes a pointer it never initialised.
+#
+# CastorShowerLibrary* showerLibrary is a raw member that the constructor
+# assigns only inside `if (useShowerLibrary)`, and that the initialiser list -
+# which does cover numberingScheme, lvC3EF, lvC3HF, lvC4EF, lvC4HF and lvCAST -
+# leaves out. ~CastorSD then runs `delete showerLibrary` unconditionally, so a
+# job that switches the library off deletes an indeterminate pointer and
+# segfaults on the way out, after every event has been written.
+#
+# Production never sees it because production always has the Castor shower
+# library. We cannot: the file is distributed separately and the download stub
+# points at a host that is now behind CERN SSO (see examples/MuonGunSim). So
+# switching it off is the only option here, and that path has to work.
+path = "cmssw/SimG4CMS/Forward/src/CastorSD.cc"
+if os.path.exists(path):
+    def fix_castor_shower_library(src):
+        if "lvCAST(nullptr), showerLibrary(nullptr)" in src:
+            return src
+        anchor = "lvC4HF(nullptr), lvCAST(nullptr) {"
+        if anchor not in src:
+            raise SystemExit(
+                "CastorSD.cc: initialiser list not where expected - the"
+                " uninitialised showerLibrary fix needs rechecking")
+        return src.replace(
+            "lvC4HF(nullptr), lvCAST(nullptr) {",
+            "lvC4HF(nullptr), lvCAST(nullptr), showerLibrary(nullptr) {")
+    edit(path, fix_castor_shower_library)

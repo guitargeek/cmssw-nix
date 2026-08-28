@@ -138,6 +138,22 @@ the GenPart/GenJet/weights tables, and writes a real NanoAOD file — which
 the example then re-opens with plain ROOT (no CMSSW) and re-finds the Z
 peak in.
 
+**Detector simulation with Geant4** is the newest stage, and the first one
+where a particle is actually transported rather than read from a file or
+built by hand. Geant4 10.4.p03 from CMS's fork is packaged in
+[pkgs/geant4.nix](pkgs/geant4.nix) — the version is fixed rather than a
+floor, since nothing in `SimG4Core` or `SimG4CMS` is guarded by
+`G4VERSION_NUMBER` — with its ten physics datasets pinned as fixed-output
+derivations in [pkgs/geant4-data.nix](pkgs/geant4-data.nix). On top of it sit
+`SimG4Core` (the MT run managers, the DDD→G4 geometry translation, the
+physics lists, the field integration) and `SimG4CMS` (the sensitive detectors
+that turn a Geant4 step into a `PSimHit`).
+[examples/MuonGunSim](examples/MuonGunSim) fires muons into the full 2018
+geometry in the volume-based field and reads back the hits they leave in the
+pixel barrel, the TIB, the TOB and all four DT stations. Its README is worth
+reading before packaging Geant4 anywhere else: three of the four ways this
+went wrong produced a build that looked entirely healthy.
+
 With the real field in place, **standalone muon reconstruction** works: a
 50 GeV muon stepped out of the origin through that field leaves DT digis in
 four barrel chambers, and the standard chain (rec hits → 4D segments →
@@ -230,6 +246,8 @@ payload to a local sqlite database and reads it back through
 `PoolDBESSource`. [examples/ConditionsFrontier](examples/ConditionsFrontier)
 reaches a Frontier server over HTTP — the transport a real global tag uses —
 against a local stand-in servlet.
+[examples/MuonGunSim](examples/MuonGunSim) transports muons through the
+full 2018 geometry with Geant4 and counts the SimHits they leave.
 
 ## Testing
 

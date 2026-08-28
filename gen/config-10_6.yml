@@ -107,6 +107,10 @@ subsystems:
         # cfi files import
         whitelist:
           - Eras
+          # GeometryExtended2018_cff and friends: the cff files that wire the
+          # XMLIdealGeometryESSource up to the full detector description the
+          # simulation needs
+          - Geometry
           - ProcessModifiers
     CondCore:
         # Utilities' plugins are the python payload-inspector modules
@@ -327,6 +331,14 @@ subsystems:
           # data-only: the ReadOutName spec-pars the Ecal geometry loader
           # filters on (ecalsens.xml)
           - EcalSimData
+          # data-only: the remaining XML the full 2018 geometry description
+          # (cmsExtendedGeometry2018XML_cfi) pulls in. The reco chain only
+          # ever loaded the sub-detector geometries it needed; a simulation
+          # builds the whole detector, beam pipe and forward region included,
+          # and a missing file is a fatal DDD parse error rather than a
+          # degraded geometry.
+          - ForwardCommonData
+          - ForwardSimData
           - ForwardGeometry
           - GEMGeometry
           - GEMGeometryBuilder
@@ -336,6 +348,7 @@ subsystems:
           - HcalAlgo
           - HcalCommonData
           - HcalEventSetup
+          - HcalSimData
           - HcalTowerAlgo
           # data-only: the muon chamber XML + numbering constants and the
           # sens spec-pars the geometry builders filter on
@@ -351,11 +364,17 @@ subsystems:
           - TrackerCommonData
           - TrackerGeometryBuilder
           - TrackerNumberingBuilder
+          - TrackerRecoData
+          - TrackerSimData
     GeometryReaders:
         whitelist:
           - XMLIdealGeometryESSource
     IOMC:
         whitelist:
+          # the particle guns that feed the simulation, and the beam-spot
+          # vertex smearing the standard sequence applies to them
+          - EventVertexGenerators
+          - ParticleGuns
           - RandomEngine
     IOPool:
         whitelist:
@@ -575,21 +594,56 @@ subsystems:
         whitelist:
           - Associations
           - CaloHit
+          - CaloTest
           - CrossingFrame
           - DigiSimLinks
           - EncodedEventId
+          - Forward
           - GeneratorProducts
           - HTXS
           - JetMatching
           - PileupSummaryInfo
           - RandomEngine
+          - SimHitMaker
           - Track
           - TrackerDigiSimLink
           - TrackingAnalysis
           - TrackingHit
           - Vertex
+    # The CMS sensitive detectors: the classes that turn a Geant4 step inside
+    # a sensitive volume into a PSimHit or a CaloG4Hit. Calo and Forward carry
+    # their data/ directories in the release itself rather than in a cms-data
+    # external, so they need no extra flake input.
+    SimG4CMS:
+        whitelist:
+          - Calo
+          - Forward
+          - Muon
+          - Tracker
+    # The simulation core: OscarMTProducer and the run managers (Application),
+    # the DDD -> G4 geometry translation (Geometry), the CMS physics lists,
+    # the HepMC -> G4 primary conversion (Generators) and the field
+    # integration (MagneticField).
+    SimG4Core:
+        whitelist:
+          - Application
+          # a dependency of Application, not an option: its plugin library is
+          # where the exotic-particle physics lists register
+          - CustomPhysics
+          - Generators
+          - Geometry
+          - GeometryProducer
+          - MagneticField
+          - Notification
+          - Physics
+          - PhysicsLists
+          - SensitiveDetector
+          - Watcher
     SimGeneral:
         whitelist:
+          # parameterised shower description, used by the calorimeter
+          # sensitive detectors
+          - GFlash
           # particle data table ES source + the .tbl data files (needed by
           # GenParticleProducer and the generator statistics)
           - HepPDTESSource

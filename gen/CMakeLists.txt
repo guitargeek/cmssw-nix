@@ -128,6 +128,44 @@ if(CMSSW_WITH_GEANT4)
   set(geant4core_INCLUDE_DIRECTORIES ${Geant4_INCLUDE_DIRS})
   set(geant4_LIBRARIES ${Geant4_LIBRARIES})
   set(geant4_INCLUDE_DIRECTORIES ${Geant4_INCLUDE_DIRS})
+
+  # Geant4_DEFINITIONS is not optional decoration: it carries
+  # -DG4MULTITHREADED, -DG4_STORE_TRAJECTORY and -DG4VERBOSE, and the first
+  # two change the layout of G4Event and G4TrackingManager. Code compiled
+  # without them against a toolkit built with them links cleanly and then
+  # reads the wrong offsets at run time. scram passes the same flags through
+  # its geant4 toolfile. Applied globally, like the include directories
+  # above, because the generated per-package targets have no place to hang
+  # tool-specific definitions.
+  # add_definitions, not add_compile_definitions: Geant4 ships these already
+  # -D-prefixed, which is what the older command expects verbatim.
+
+  # ... and Geant4_DEFINITIONS is still not all of them. -DG4USE_STD11 is
+  # shipped in Geant4_CXX_FLAGS instead, mixed in among -Wall and -pedantic,
+  # and it is every bit as load-bearing: tls.hh keys on it, so without it
+  # G4ThreadLocal expands to __thread where the toolkit's own build used
+  # thread_local. 238 installed headers declare variables with that macro -
+  # G4TransportationManager::fTransportationManager among them - so leaving
+  # it out means the toolkit and everything compiled against it disagree
+  # about how those variables are declared. It surfaces as a compile error
+  # only where the type has a non-trivial destructor, which __thread forbids:
+  # SimG4Core/CustomPhysics has a G4ThreadLocal std::unique_ptr and is the
+  # one place in the release that fails loudly rather than quietly.
+  #
+  # Take the -D options out of the flags variable and leave the rest: the
+  # warning options and -std are CMSSW's own business, and -ftls-model is
+  # deliberately not forced on CMSSW code (see gen/setup-hook.sh, which sizes
+  # the static-TLS surplus for the toolkit alone).
+  set(_g4_flag_definitions "")
+  separate_arguments(_g4_cxx_flags NATIVE_COMMAND "${Geant4_CXX_FLAGS}")
+  foreach(_flag IN LISTS _g4_cxx_flags)
+    if(_flag MATCHES "^-D")
+      list(APPEND _g4_flag_definitions "${_flag}")
+    endif()
+  endforeach()
+
+  add_definitions(${Geant4_DEFINITIONS} ${_g4_flag_definitions})
+  message(STATUS "Geant4: ${Geant4_VERSION}, definitions ${Geant4_DEFINITIONS} ${_g4_flag_definitions}")
 endif()
 if(CMSSW_WITH_HDF5)
   find_package(HDF5 REQUIRED COMPONENTS CXX)

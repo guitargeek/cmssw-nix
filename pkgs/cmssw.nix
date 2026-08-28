@@ -318,9 +318,30 @@ stdenv.mkDerivation {
       done
     fi
 
-    # Register the EDM plugins
+    # Register the EDM plugins.
     export LD_LIBRARY_PATH=$out/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-    $out/bin/edmPluginRefresh $out/lib
+
+    # edmPluginRefresh dlopens every plugin in order to index it, so it needs
+    # the same static-TLS surplus that gen/setup-hook.sh gives consumers of
+    # this package - the hook applies to people who use the release, not to
+    # our own build. Without it every plugin that pulls in Geant4 fails with
+    # "cannot allocate memory in static TLS block". Keep the value in step
+    # with the one in gen/setup-hook.sh, which explains where it comes from.
+    export GLIBC_TUNABLES=glibc.rtld.optional_static_tls=2097152
+
+    # ... and check the result, because edmPluginRefresh reports a plugin it
+    # could not load on stderr and then exits 0. That is how the whole of
+    # SimG4Core and SimG4CMS once ended up absent from the cache in a build
+    # that succeeded: the libraries were there, correct and complete, and
+    # cmsRun still said "Unable to find plugin 'OscarMTProducer'". A plugin
+    # that cannot be loaded here cannot be loaded by a job either, so it is a
+    # build failure and not a warning.
+    $out/bin/edmPluginRefresh $out/lib 2>&1 | tee plugin-refresh.log
+    if grep -q 'unable to load' plugin-refresh.log; then
+      echo "error: the plugin cache is incomplete - these did not load:" >&2
+      grep 'unable to load' plugin-refresh.log >&2
+      exit 1
+    fi
 
     # Minimal site configuration so that PoolSource works without a real CMS
     # site setup (the setup hook points SITECONFIG_PATH / CMS_PATH here).

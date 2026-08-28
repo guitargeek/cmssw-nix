@@ -91,9 +91,19 @@
       url = "github:Xilinx/HLS_arbitrary_Precision_Types";
       flake = false;
     };
+
+    # Geant4 10.4.p03, from CMS's fork - the exact version the 10_6 release
+    # was built against. This is not a version that can float: SimG4Core and
+    # SimG4CMS carry no G4VERSION_NUMBER guards anywhere, so they compile
+    # against one Geant4 API and no other. nixpkgs' geant4 is the 11 series,
+    # which moved enough of that API to be unusable here.
+    geant4-10_4-src = {
+      url = "github:cms-externals/geant4?ref=cms/v10.4.3";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -168,6 +178,16 @@
       lwtnn_2205 = pkgs2205.callPackage ./pkgs/lwtnn.nix {
         src = lwtnn-src;
       };
+
+      # Geant4 for the 10_6 simulation. Built against the same pkgs2205.clhep
+      # the release links, which callPackage fills in - see pkgs/geant4.nix
+      # for why one CLHEP matters.
+      geant4_10_4 = pkgs2205.callPackage ./pkgs/geant4.nix {
+        src = geant4-10_4-src;
+        cxxStandard = "17";
+      };
+
+      geant4-data = pkgs2205.callPackage ./pkgs/geant4-data.nix { };
 
       lwtnn_201 = pkgs.callPackage ./pkgs/lwtnn.nix {
         src = lwtnn-src;
@@ -251,9 +271,9 @@
           { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
           { path = "MagneticField/Interpolation"; src = magfield-data; }
         ];
+        geant4 = geant4_10_4;
         # 20_1-only externals: callPackage would otherwise auto-fill these
         # from the 22.05 package set just because the names exist there
-        geant4 = null;
         hdf5 = null;
         hepmc3 = null;
         dd4hep = null;
@@ -286,7 +306,12 @@
       # for its setup hook (PYTHIA8DATA must point at the xmldoc directory for
       # the generator to start).
       extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral ];
-      extraPackages_10_6 = [ pkgs2205.tbb coral_2205 pythia8_2205 ];
+      # geant4-data is here for its setup hook alone: the ten G4*DATA
+      # variables have to be in the environment of anything that runs the
+      # simulation. It deliberately does not go in gen/setup-hook.sh, which
+      # both releases share - putting it there would invalidate the 20_1
+      # build for a variable only 10_6 uses.
+      extraPackages_10_6 = [ pkgs2205.tbb coral_2205 pythia8_2205 geant4_10_4 geant4-data ];
 
       # Environment for using a CMSSW package: build analyzers against it with
       # cmake and run them with cmsRun (see examples/MyAnalyzer).
@@ -375,6 +400,7 @@
     {
       packages.${system} = {
         inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205 pythia8_2205;
+        inherit geant4_10_4 geant4-data;
         inherit frontier-client frontier-client_2205;
         default = cmssw;
       };
