@@ -111,15 +111,30 @@ cmd_push() {
   fi
 
   # nix copy reports success per path even when every write failed on a
-  # permission error, so the only honest check is whether the cache grew.
-  local after
-  after=$(find "$cache_dir" -name '*.narinfo' 2>/dev/null | wc -l)
-  if [ "$after" -le "$before" ]; then
-    echo "the push added nothing to $cache_dir (was $before narinfos, now $after)" >&2
+  # permission error, so the push has to be verified rather than trusted.
+  # Verify by presence, not by growth: a re-push of an unchanged tree
+  # legitimately adds nothing, and counting narinfos cannot tell that apart
+  # from a push where every write was denied.
+  local missing=()
+  for p in "${paths[@]}"; do
+    local hash=${p#/nix/store/}
+    hash=${hash%%-*}
+    [ -f "$cache_dir/$hash.narinfo" ] || missing+=("$p")
+  done
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "these paths are not in $cache_dir after the push:" >&2
+    printf '  %s\n' "${missing[@]}" >&2
     echo "check the directory is writable by $(id -un) all the way down" >&2
     exit 1
   fi
-  echo "==> $((after - before)) new paths in the cache"
+
+  local after
+  after=$(find "$cache_dir" -name '*.narinfo' 2>/dev/null | wc -l)
+  if [ "$after" -gt "$before" ]; then
+    echo "==> $((after - before)) new paths in the cache"
+  else
+    echo "==> cache already had everything"
+  fi
 
   cmd_status
 }

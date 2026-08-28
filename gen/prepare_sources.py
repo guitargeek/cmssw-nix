@@ -1029,17 +1029,23 @@ if os.path.exists(p8i):
 # library. We cannot: the file is distributed separately and the download stub
 # points at a host that is now behind CERN SSO (see examples/MuonGunSim). So
 # switching it off is the only option here, and that path has to work.
+#
+# Both releases have it - 10_6_30 on one line, 20_1_0_pre2 clang-formatted
+# onto several - so the anchor is the last initialiser rather than the run
+# of them, and a miss is a hard failure: the fix silently not applying
+# would only show up as a segfault at the end of a job that otherwise
+# looks perfect.
 path = "cmssw/SimG4CMS/Forward/src/CastorSD.cc"
 if os.path.exists(path):
     def fix_castor_shower_library(src):
         if "lvCAST(nullptr), showerLibrary(nullptr)" in src:
             return src
-        anchor = "lvC4HF(nullptr), lvCAST(nullptr) {"
+        anchor = "lvCAST(nullptr) {"
         if anchor not in src:
             raise SystemExit(
                 "CastorSD.cc: initialiser list not where expected - the"
                 " uninitialised showerLibrary fix needs rechecking")
         return src.replace(
-            "lvC4HF(nullptr), lvCAST(nullptr) {",
-            "lvC4HF(nullptr), lvCAST(nullptr), showerLibrary(nullptr) {")
+            "lvCAST(nullptr) {",
+            "lvCAST(nullptr), showerLibrary(nullptr) {")
     edit(path, fix_castor_shower_library)
