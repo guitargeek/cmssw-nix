@@ -46,6 +46,16 @@
 # the supporting PhysicsTools/CommonTools/Sim* layers. The DNN producers
 # that need TensorFlow/ONNXRuntime and the HLT/L1 tooling (utm external)
 # are excluded; see prepare_sources.py for the related prunes.
+#
+# Simulation: Geant4 detector simulation (SimG4Core, SimG4CMS - see
+# examples/MuonGunSim) and, on top of it, digitisation. The DIGI step
+# runs inside SimGeneral/MixingModule: the module owns the per-detector
+# digitisers and calls them, which is why a job with no pileup to mix
+# still goes through it. The digitisers are SimTracker (pixel, strip),
+# SimCalorimetry (Ecal, Hcal) and SimMuon (DT, CSC, RPC), and they turn
+# the PSimHits and CaloG4Hits the simulation wrote into the same digi
+# types the detector reads out - which is what makes the existing local
+# reco examples runnable on simulated data instead of toy digis.
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
@@ -122,6 +132,15 @@ subsystems:
           - DBOutputService
           - ESSources
           - PluginSystem
+          - PopCon
+          # registers the conditions proxies for the SiStrip payloads
+          # (REGISTER_PLUGIN in plugins/plugin.cc). Without it a
+          # PoolDBESSource that is asked for a SiStrip record fails with
+          # "Unable to find plugin 'SiStripLorentzAngleSimRcd@NewProxy'".
+          # same job for the pixel payloads; this one is src/ only, with
+          # no payload inspectors to prune
+          - SiPixelPlugins
+          - SiStripPlugins
           - Utilities
     CondFormats:
         whitelist:
@@ -267,6 +286,8 @@ subsystems:
     DetectorDescription:
         whitelist:
           - Core
+          # pulled in by SimCalorimetry/HGCalSimProducers below
+          - OfflineDBLoader
           - Parser
     EventFilter:
         whitelist:
@@ -405,6 +426,12 @@ subsystems:
           - UniformEngine
           - VolumeBasedEngine
           - VolumeGeometry
+    # The base class the mixing module and the digitisers share:
+    # PileUpEventPrincipal, which is how a digitiser sees the signal
+    # event and the pileup events through one interface.
+    Mixing:
+        whitelist:
+          - Base
     PhysicsTools:
         whitelist:
           # python-only package: cmstools & friends, imported by
@@ -590,6 +617,16 @@ subsystems:
         whitelist:
           - CaloSimAlgos
           - EcalSimAlgos
+          # the digitisers proper: a SimHit becomes the same digi type
+          # the detector actually reads out
+          - EcalSimProducers
+          - HcalSimAlgos
+          - HcalSimProducers
+          # not built to be used either: SimGeneral/MixingModule/
+          # mixObjects_cfi imports hgcalDigitizer_cfi unconditionally, so
+          # the crossing-frame description cannot be loaded without it.
+          # HGCal is not in the 2018 geometry these examples simulate.
+          - HGCalSimProducers
     SimDataFormats:
         whitelist:
           - Associations
@@ -604,6 +641,7 @@ subsystems:
           - JetMatching
           - PileupSummaryInfo
           - RandomEngine
+          - RPCDigiSimLink
           - SimHitMaker
           - Track
           - TrackerDigiSimLink
@@ -649,12 +687,31 @@ subsystems:
           - HepPDTESSource
           - HepPDTRecord
           - NoiseGenerators
+          # MixingModule owns the digitisers and runs them: even with no
+          # pileup to mix in, the DIGI step goes through this module
+          - MixingModule
+          - PileupInformation
+          - PreMixingModule
     SimMuon:
         whitelist:
+          - CSCDigitizer
+          - DTDigitizer
           - MCTruth
+          # the neutron background generator that RPCDigitizer links
+          - Neutron
+          - RPCDigitizer
     SimTracker:
         whitelist:
+          - Common
           - Records
+          - SiPixelDigitizer
+          # not built to be used: SimGeneral/MixingModule/pixelDigitizer_cfi
+          # imports it unconditionally, to have something for
+          # phase2_tracker.toReplaceWith to swap in. Whitelisting it costs
+          # one package - everything it needs is here already - and keeps
+          # the standard digitiser configs loadable as written.
+          - SiPhase2Digitizer
+          - SiStripDigitizer
           - TrackAssociation
           - TrackerHitAssociation
     TrackPropagation:

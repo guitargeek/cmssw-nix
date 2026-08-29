@@ -154,6 +154,27 @@ pixel barrel, the TIB, the TOB and all four DT stations. Its README is worth
 reading before packaging Geant4 anywhere else: three of the four ways this
 went wrong produced a build that looked entirely healthy.
 
+On top of that, **digitisation**: `SimGeneral/MixingModule` and the
+per-detector digitisers, which turn those PSimHits into the ADC counts the
+readout produces — charge drift, Lorentz deflection, strip cross-talk, the
+APV pulse, noise and zero suppression.
+[examples/MuonGunDigi](examples/MuonGunDigi) runs the strip digitiser over
+the simulated hits and checks that every module the muon crossed produced a
+digi. It needs two conditions payloads that no fake ES source in the release
+can provide, so it writes them to a local sqlite database first — the same
+machinery as [examples/ConditionsSqlite](examples/ConditionsSqlite), used in
+anger. The pixel digitiser is not included: it reads a FED cabling map that
+has no non-database source here at all.
+
+Reconstructing those digis closes the loop: the same strip clusteriser and
+rec-hit converter that [examples/TrackerLocalReco](examples/TrackerLocalReco)
+runs on hand-built toy digis, pointed at digis that came out of a real
+simulation, puts the rec hits a median of 21 um from where the muon actually
+crossed the sensor — the strip pitch is 80 um, so that is pitch/sqrt(12), the
+resolution the digitisation is capable of. It is one number, and the
+geometry, the Lorentz drift, the charge sharing, the cluster weighting and
+the position estimator all have to agree for it to come out.
+
 With the real field in place, **standalone muon reconstruction** works: a
 50 GeV muon stepped out of the origin through that field leaves DT digis in
 four barrel chambers, and the standard chain (rec hits → 4D segments →
@@ -248,6 +269,10 @@ reaches a Frontier server over HTTP — the transport a real global tag uses —
 against a local stand-in servlet.
 [examples/MuonGunSim](examples/MuonGunSim) transports muons through the
 full 2018 geometry with Geant4 and counts the SimHits they leave.
+[examples/MuonGunDigi](examples/MuonGunDigi) digitises those hits into strip
+readout digis, reading its simulated conditions from a local sqlite database,
+and then reconstructs them back into rec hits that sit 21 um from the
+simulated impact points.
 
 ## Testing
 
