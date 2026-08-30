@@ -46,6 +46,9 @@ target_link_libraries(MuonGunDigiTestPlugins
   DataFormatsGeometryVector
   SimDataFormatsTrackingHit
   SimDataFormatsTrack
+  DataFormatsTrackReco
+  DataFormatsVertexReco
+  SimDataFormatsVertex
   ROOT::Core
   ${TBB_LIBS}
 )

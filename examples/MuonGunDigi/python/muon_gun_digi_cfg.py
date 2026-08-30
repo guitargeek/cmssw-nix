@@ -99,7 +99,15 @@ process.RandomNumberGeneratorService = cms.Service(
 process.generator = cms.EDProducer(
     "FlatRandomPtGunProducer",
     PGunParameters=cms.PSet(
-        PartID=cms.vint32(13),
+        # Four muons, in four independent random directions, rather than
+        # one back-to-back pair. This is for the vertex: two collinear
+        # tracks are a straight line through their production point, so
+        # its position along that line is degenerate and the transverse
+        # fit runs away - the unconstrained fit lands centimetres off the
+        # beam and gets rejected by maxDistanceToBeam. Four independent
+        # directions constrain it properly. examples/MuonGunSim keeps the
+        # back-to-back pair, which is all it needs.
+        PartID=cms.vint32(13, -13, 13, -13),
         MinPt=cms.double(10.0),
         MaxPt=cms.double(50.0),
         MinEta=cms.double(-0.8),
@@ -107,7 +115,7 @@ process.generator = cms.EDProducer(
         MinPhi=cms.double(-3.14159265359),
         MaxPhi=cms.double(3.14159265359),
     ),
-    AddAntiParticle=cms.bool(True),
+    AddAntiParticle=cms.bool(False),
     Verbosity=cms.untracked.int32(0),
     firstRun=cms.untracked.uint32(1),
     psethack=cms.string("single mu pt 10-50"),

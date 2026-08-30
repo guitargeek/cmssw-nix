@@ -139,6 +139,94 @@ except that it feeds the clusteriser from a hand-written
 `DigiProducersList`. Running the same reconstruction on digis that came
 out of a real simulation is what retires the "toy" in that example.
 
+## Tracking: the momentum, and the only test of the magnetic field
+
+`python/muon_gun_tracks_cfg.py` runs the standard tracking chain on the
+simulated rec hits — pixel triplets seed proto-tracks, those become
+trajectory seeds, the CKF extends them through the strip detector, and
+`ctfWithMaterialTracks` does the final Kalman fit with material effects.
+It is the same chain as [examples/TrackingChain](../TrackingChain), whose
+hits come from a hand-written `ToyTrackerDigiProducer` instead.
+
+```
+reconstructed 10/10 generated muons (100%), median |dpt|/pt = 0.69%, correct charge 10/10
+```
+
+0.69% is what CMS achieves for muons of this momentum, and it is a
+different kind of statement from the residuals above. A 9 um rec hit says
+a position is right; it says nothing about whether pattern recognition can
+assemble hits across nine layers into one trajectory, and nothing at all
+about the magnetic field. **Momentum is measured from curvature**, so this
+is the first number in the chain that depends on the field the fit uses
+being the field that bent the muon during simulation. A field wrong by a
+few percent puts every hit in exactly the right place and the momentum out
+by the same few percent.
+
+Charge is asserted separately rather than folded into the resolution. A
+sign error in the field or the fit produces a perfectly reasonable `|pt|`
+with the trajectory bending the wrong way, which a resolution number alone
+would never reveal.
+
+The truth comes from the SimTracks with `genpartIndex() >= 0`, which picks
+the generator muons out from the secondaries Geant4 produced along the way.
+
+Two configuration points are worth knowing, both learned the hard way:
+
+* The Kalman fitter reaches the muon system. `GlobalDetLayerGeometry`
+  spans tracker and muon layers, so `MuonRecoGeometryRecord` has to exist
+  even for a tracker-only fit.
+* `MeasurementTrackerESProducer_cff` **reloads the standard pixel CPE**,
+  silently reverting the no-conditions-database settings — including
+  `useLAWidthFromDB`, which touches the Lorentz-angle handling fixed above.
+  They have to be re-applied after that load, not before it.
+
+## Vertexing, and why the gun fires four muons
+
+The last step fits the reconstructed tracks back to a common origin and
+compares it with the point the gun fired from — the primary `SimVertex`.
+
+```
+found a primary vertex in 5/5 events (100%), median transverse offset 8.8 um, median |dz| 11.5 um
+```
+
+This tests something the residuals and the momentum cannot. A rec-hit
+residual says where a hit is; a momentum residual says how fast the
+particle was going. Neither says whether the trajectories **extrapolate
+back to a consistent point** — tracks with correct momenta can still be
+built from hits systematically displaced along the beam, or propagated
+with the wrong material budget, and the vertex is where that surfaces.
+
+Two configuration facts matter, and both were found the hard way.
+
+**The beam spot has to match the one the simulation used.** The vertex
+producer cuts tracks on impact-parameter significance with respect to the
+beam spot, and the 2018 beam spot sits 417 um off the origin in y. Track
+d0 errors here are tens of microns, so a beam spot left at the origin
+makes every track look wildly displaced and the producer discards them all.
+
+**The gun fires four muons in independent directions, not one
+back-to-back pair.** With `AddAntiParticle=True` the mu+ and mu- are
+exactly collinear, and two collinear tracks are a straight line through
+their production point: its position *along* that line is degenerate and
+the transverse fit runs away. The producer says so plainly with
+`verbose=True`:
+
+```
+clustering returned 1 clusters from 2 selected tracks
+x,y,z = 3.39, 0.96, -3.83   cluster size = 2
+PrimaryVertexProducerAlgorithm::vertices  candidates = 0
+```
+
+— a vertex three centimetres off the beam line, duly rejected by
+`maxDistanceToBeam`. The beam-spot-constrained collection copes better but
+still only succeeds in two events of five, since `minNdof = 2` is marginal
+for two tracks. Four independent directions constrain the vertex properly
+and it is found in every event. Loosening `maxDistanceToBeam` instead
+would have turned a real geometric degeneracy into a passing test.
+
+[examples/MuonGunSim](../MuonGunSim) keeps the back-to-back pair, which is
+all it needs.
+
 ## The pixel Lorentz angle, and a conditions bug the residuals caught
 
 The residual test earned its place here. With the pixel digitiser turned
@@ -241,4 +329,5 @@ cmsRun python/write_sim_conditions_cfg.py   # once, writes sim_conditions.db
 cmsRun python/muon_gun_digi_cfg.py
 python3 python/muon_gun_digi_cfg_check.py
 cmsRun python/muon_gun_reco_cfg.py
+cmsRun python/muon_gun_tracks_cfg.py
 ```

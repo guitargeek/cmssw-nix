@@ -175,6 +175,21 @@ resolution the digitisation is capable of. It is one number, and the
 geometry, the Lorentz drift, the charge sharing, the cluster weighting and
 the position estimator all have to agree for it to come out.
 
+Tracking closes it further. The same chain
+[examples/TrackingChain](examples/TrackingChain) runs on toy digis —
+pixel-triplet seeds, CKF pattern recognition through the strips, a Kalman
+fit with material effects — reconstructs all ten generated muons from the
+simulated hits and measures their momentum to **0.69%**, with the right
+charge every time. That is the first number in the chain that depends on
+the magnetic field: positions can all be right while the momentum is wrong,
+because momentum is measured from curvature.
+
+Finally the tracks are fitted back to a common origin and compared with the
+point the gun fired from: the primary vertex lands 9 um from it transversely
+and 12 um along the beam. That is a third kind of statement again — not
+where a hit is, nor how fast the particle was going, but whether the
+trajectories extrapolate back to a consistent point.
+
 With the real field in place, **standalone muon reconstruction** works: a
 50 GeV muon stepped out of the origin through that field leaves DT digis in
 four barrel chambers, and the standard chain (rec hits → 4D segments →
@@ -269,10 +284,10 @@ reaches a Frontier server over HTTP — the transport a real global tag uses —
 against a local stand-in servlet.
 [examples/MuonGunSim](examples/MuonGunSim) transports muons through the
 full 2018 geometry with Geant4 and counts the SimHits they leave.
-[examples/MuonGunDigi](examples/MuonGunDigi) digitises those hits into strip
+[examples/MuonGunDigi](examples/MuonGunDigi) digitises those hits into pixel and strip
 readout digis, reading its simulated conditions from a local sqlite database,
 and then reconstructs them back into rec hits that sit 21 um from the
-simulated impact points.
+simulated impact points, then tracks them, measures the momentum to 0.8%, and fits the primary vertex to within 9 um of where the gun fired.
 
 ## Testing
 
