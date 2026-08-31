@@ -49,6 +49,12 @@ private:
   const double maxDeltaR_;
   const double maxMedianPtResolution_;
   const double minEfficiency_;
+  // Charge agreement is not a constant of nature: it follows the momentum
+  // resolution, because the charge *is* the sign of the curvature. A
+  // tracker track measured to 0.8% has an unambiguous sign; a standalone
+  // muon measured to 20% in the yoke does not, and demanding perfection
+  // there would be asserting something untrue.
+  const double minChargeAgreement_;
 
   std::vector<double> ptResiduals_;
   // diagnostics: what the vertex producer's track filter would see
@@ -64,7 +70,8 @@ TrackResolution::TrackResolution(const edm::ParameterSet& ps)
       minPt_(ps.getParameter<double>("minPt")),
       maxDeltaR_(ps.getParameter<double>("maxDeltaR")),
       maxMedianPtResolution_(ps.getParameter<double>("maxMedianPtResolution")),
-      minEfficiency_(ps.getParameter<double>("minEfficiency")) {}
+      minEfficiency_(ps.getParameter<double>("minEfficiency")),
+      minChargeAgreement_(ps.getParameter<double>("minChargeAgreement")) {}
 
 void TrackResolution::analyze(const edm::Event& ev, const edm::EventSetup&) {
   edm::Handle<reco::TrackCollection> tracks;
@@ -163,9 +170,12 @@ void TrackResolution::endJob() {
     throw cms::Exception("LowEfficiency")
         << "only " << 100.0 * eff << "% of generated muons were reconstructed, required "
         << 100.0 * minEfficiency_ << "%";
-  if (rightCharge_ != matched_)
+  const double chargeAgreement = matched_ ? double(rightCharge_) / double(matched_) : 0.0;
+  if (chargeAgreement < minChargeAgreement_)
     throw cms::Exception("WrongCharge")
-        << rightCharge_ << " of " << matched_ << " tracks have the generated charge. A "
+        << rightCharge_ << " of " << matched_ << " tracks have the generated charge ("
+        << 100.0 * chargeAgreement << "%, required " << 100.0 * minChargeAgreement_
+        << "%). A "
         << "sign error in the field or the fit bends the trajectory the wrong way while "
         << "leaving |pt| perfectly reasonable.";
   if (median > maxMedianPtResolution_)

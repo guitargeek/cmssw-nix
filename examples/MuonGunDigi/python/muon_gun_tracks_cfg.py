@@ -534,6 +534,9 @@ process.tracks = cms.EDAnalyzer(
     # measure momentum rather than position.
     maxMedianPtResolution=cms.double(0.02),
     minEfficiency=cms.double(0.8),
+    # 0.8% momentum resolution leaves no ambiguity in the sign of the
+    # curvature, so every charge must be right
+    minChargeAgreement=cms.double(1.0),
 )
 
 process.vertex = cms.EDAnalyzer(

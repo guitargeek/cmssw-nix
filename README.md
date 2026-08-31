@@ -190,6 +190,13 @@ and 12 um along the beam. That is a third kind of statement again — not
 where a hit is, nor how fast the particle was going, but whether the
 trajectories extrapolate back to a consistent point.
 
+And the muon system measures the same muons a second time, on its own: DT
+digis, drift-time rec hits, 4D segments and a standalone fit in the return
+yoke give 23% on the momentum against the tracker's 0.8%. The gap is the
+physics — metres of calorimeter and iron between the two — and the
+standalone fit is a second, independent probe of the field map in a region
+the tracker never samples.
+
 With the real field in place, **standalone muon reconstruction** works: a
 50 GeV muon stepped out of the origin through that field leaves DT digis in
 four barrel chambers, and the standard chain (rec hits → 4D segments →
@@ -287,7 +294,7 @@ full 2018 geometry with Geant4 and counts the SimHits they leave.
 [examples/MuonGunDigi](examples/MuonGunDigi) digitises those hits into pixel and strip
 readout digis, reading its simulated conditions from a local sqlite database,
 and then reconstructs them back into rec hits that sit 21 um from the
-simulated impact points, then tracks them, measures the momentum to 0.8%, and fits the primary vertex to within 9 um of where the gun fired.
+simulated impact points, then tracks them, measures the momentum to 0.8%, fits the primary vertex to within 9 um of where the gun fired, and measures the same muons again in the muon chambers alone.
 
 ## Testing
 

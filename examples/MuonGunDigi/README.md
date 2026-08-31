@@ -180,6 +180,51 @@ Two configuration points are worth knowing, both learned the hard way:
   `useLAWidthFromDB`, which touches the Lorentz-angle handling fixed above.
   They have to be re-applied after that load, not before it.
 
+## Muon reconstruction: the same particle, measured twice
+
+`python/muon_gun_muons_cfg.py` reconstructs the muons again, this time
+using only the muon system: DT digis produced by the real digitiser,
+drift-time rec hits, 4D segments, seeds, and a standalone fit in the
+return yoke. It is the chain [examples/MuonChain](../MuonChain) runs on a
+hand-written `ToyMuonTrackDigiProducer` firing one straight 50 GeV muon
+through wheel 0, sector 1.
+
+```
+tracker:    18/20 muons (90%), median |dpt|/pt =  0.81%, correct charge 18/18
+standalone: 15/20 muons (75%), median |dpt|/pt = 23.0%,  correct charge 14/15
+```
+
+The standalone measurement is thirty times worse, and that is the physics.
+A muon reaching the chambers has crossed the calorimeters and several
+metres of yoke iron, and the multiple scattering in it dominates. What the
+muon system has instead is an enormous lever arm in a field that reverses
+sign inside the iron — which is why CMS measures muons with both systems
+and combines them, and why this is a second, independent test of the field
+map, in a region the tracker never samples.
+
+**Charge agreement is not a constant of nature.** The charge *is* the sign
+of the curvature, so how reliably it can be assigned follows the momentum
+resolution. `TrackResolution` therefore takes `minChargeAgreement` as a
+parameter: 1.0 for the tracker, where 0.8% leaves no ambiguity, and 0.8
+for the standalone muons, where at 23% the stiffest muons genuinely can
+come out with the wrong sign. Requiring perfection of both would have been
+asserting something untrue; requiring it of neither would have thrown away
+a real check on the tracker.
+
+Only DT is reconstructed. The gun fires into `|eta| < 0.8`, which is the
+barrel: CSC is endcap and sees nothing, and the RPC digitiser is packaged
+but not run. The DT digitiser is also not an accumulator inside the mixing
+module like the tracker ones — it is an ordinary producer that reads the
+crossing frame back out of `mix`, so it needs its own
+`RandomNumberGeneratorService` entry and its geometry under the
+`idealForDigi` label.
+
+One number here is not understood and is worth flagging rather than
+hiding: the standalone fits come out with chi2/ndof around 110. Standalone
+muon fits are expected to have poor chi2 — the material in the yoke is
+modelled coarsely — but that is high, and nothing in this example depends
+on it, so it has not been chased.
+
 ## Vertexing, and why the gun fires four muons
 
 The last step fits the reconstructed tracks back to a common origin and
@@ -330,4 +375,5 @@ cmsRun python/muon_gun_digi_cfg.py
 python3 python/muon_gun_digi_cfg_check.py
 cmsRun python/muon_gun_reco_cfg.py
 cmsRun python/muon_gun_tracks_cfg.py
+cmsRun python/muon_gun_muons_cfg.py
 ```

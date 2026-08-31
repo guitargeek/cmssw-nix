@@ -87,6 +87,13 @@ process.RandomNumberGeneratorService = cms.Service(
         initialSeed=cms.untracked.uint32(11),
         engineName=cms.untracked.string("HepJamesRandom"),
     ),
+    # the DT digitiser smears drift times, so it draws too - and it is an
+    # ordinary producer, so it needs an entry under its own label rather
+    # than under mix's
+    simMuonDTDigis=cms.PSet(
+        initialSeed=cms.untracked.uint32(54321),
+        engineName=cms.untracked.string("HepJamesRandom"),
+    ),
     mix=cms.PSet(
         initialSeed=cms.untracked.uint32(12345),
         engineName=cms.untracked.string("HepJamesRandom"),
@@ -250,6 +257,30 @@ process.siPixelQualityESProducer = cms.ESProducer(
     siPixelQualityLabel=cms.string(""),
 )
 
+# --- the muon system --------------------------------------------------------
+# The DT digitiser is not an accumulator inside the mixing module: it is an
+# ordinary producer that reads the crossing frame back out of `mix`. It
+# wants its geometry under the label idealForDigi, for the same reason the
+# tracker digitisers do - digitisation must use the geometry the simulation
+# ran in, not one with alignment corrections applied.
+#
+# Geometry/DTGeometryBuilder/idealForDigiDtGeometry_cff builds that from a
+# fake alignment producer in Alignment/CommonAlignmentProducer and then
+# switches alignment off anyway, so the import is avoidable here too.
+process.load("Geometry.MuonNumbering.muonNumberingInitialization_cfi")
+process.load("Geometry.DTGeometryBuilder.dtGeometry_cfi")
+process.DTGeometryESModule.applyAlignment = cms.bool(False)
+process.idealForDigiDTGeometry = process.DTGeometryESModule.clone(
+    applyAlignment=cms.bool(False),
+    alignmentsLabel=cms.string(""),
+    appendToDataLabel=cms.string("idealForDigi"),
+)
+
+# The drift-time synchronisation is DTDigiSyncTOFCorr with a fixed 500 ns
+# offset, which needs no conditions database - the same setting the DT
+# local reco uses to decode it again (see examples/MuonLocalReco).
+process.load("SimMuon.DTDigitizer.muonDTDigis_cfi")
+
 # --- the mixing module and the digitisers it owns --------------------------
 from SimGeneral.MixingModule.mixObjects_cfi import theMixObjects
 from SimGeneral.MixingModule.pixelDigitizer_cfi import pixelDigitizer
@@ -334,6 +365,7 @@ process.out = cms.OutputModule(
     fileName=cms.untracked.string("muon_gun_digi.root"),
     outputCommands=cms.untracked.vstring(
         "drop *",
+        "keep *_simMuonDTDigis_*_*",
         "keep *_simSiPixelDigis_*_*",
         "keep *_simSiStripDigis_*_*",
         "keep *_g4SimHits_*_*",
@@ -343,6 +375,8 @@ process.out = cms.OutputModule(
 
 process.p = cms.Path(
     process.generator * process.generatorSmeared * process.g4SimHits
-    * process.mix * process.digis
+    * process.mix
+    * process.simMuonDTDigis
+    * process.digis
 )
 process.e = cms.EndPath(process.out)
