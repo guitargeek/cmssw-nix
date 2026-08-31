@@ -537,6 +537,8 @@ process.tracks = cms.EDAnalyzer(
     # 0.8% momentum resolution leaves no ambiguity in the sign of the
     # curvature, so every charge must be right
     minChargeAgreement=cms.double(1.0),
+    # A tracker fit that describes its own hits. Measured: 1.0.
+    maxMedianChi2=cms.double(2.0),
 )
 
 process.vertex = cms.EDAnalyzer(

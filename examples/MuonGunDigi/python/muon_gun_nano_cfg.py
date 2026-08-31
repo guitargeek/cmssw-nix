@@ -542,14 +542,18 @@ process.load("RecoMuon.TransientTrackingRecHit.MuonTransientTrackingRecHitBuilde
 
 # --- DT local reconstruction ------------------------------------------------
 # The drift-time synchronisation has to undo exactly what the digitiser
-# applied: DTDigiSyncTOFCorr with the same 500 ns offset. Get this wrong and
-# every drift distance is displaced by a constant, the segments still fit, and
-# the muon comes out at the wrong angle.
+# applied: DTDigiSyncTOFCorr with the same 500 ns offset, and tofCorrType = 1
+# to cancel its TOFCorrection = 3. The DTLinearDriftAlgo_cfi default of 0
+# leaves every drift time short by the flight time to the superlayer, a bias
+# that grows with radius. See python/muon_gun_muons_cfg.py for the
+# arithmetic - it costs the standalone fit a factor 60 in chi2, and the
+# standalone track is half of what the global fit below is made of.
 from RecoLocalMuon.DTRecHit.dt1DRecHits_LinearDrift_cfi import dt1DRecHits as _dt1DRecHits
 
 process.dt1DRecHits = _dt1DRecHits.clone(dtDigiLabel=cms.InputTag("simMuonDTDigis"))
 process.dt1DRecHits.recAlgoConfig.tTrigMode = cms.string("DTTTrigSyncTOFCorr")
 process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tTrig = cms.double(500.0)
+process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tofCorrType = cms.int32(1)
 
 from RecoLocalMuon.DTSegment.dt4DSegments_CombPatternReco4D_LinearDrift_cfi import (
     dt4DSegments as _dt4DSegments,
@@ -562,6 +566,7 @@ for _cfg in (
 ):
     _cfg.tTrigMode = cms.string("DTTTrigSyncTOFCorr")
     _cfg.tTrigModeConfig.tTrig = cms.double(500.0)
+    _cfg.tTrigModeConfig.tofCorrType = cms.int32(1)
 
 # perform_delta_rejecting is required by DTSegmentUpdator and absent from
 # this cfi. It belongs to the pattern-recognition algo config, not to the
@@ -756,15 +761,19 @@ process.globalMuonResolution = cms.EDAnalyzer(
     minPt=cms.double(1.0),
     maxDeltaR=cms.double(0.1),
     maxMedianPtResolution=cms.double(0.02),
-    # a global muon needs both a tracker track and a standalone track, so the
-    # efficiency is the product of the two stages that made them. Measured:
-    # 15/20, which is the 75% of the standalone stage - every standalone muon
-    # found a tracker track.
-    minEfficiency=cms.double(0.5),
+    # A global muon needs both a tracker track and a standalone track, so the
+    # efficiency is the product of the two stages that made them, and the
+    # standalone stage is the limiting one. Measured: 17/20.
+    minEfficiency=cms.double(0.7),
     # 0.9% momentum resolution leaves no ambiguity in the sign of the
     # curvature, so every charge must be right - as it is for the tracker,
     # and unlike the standalone fit
     minChargeAgreement=cms.double(1.0),
+    # The global fit is dominated by the tracker hits, so its chi2 was the
+    # one number in this chain that stayed reasonable even while the muon
+    # hits feeding it were displaced - which is exactly why the standalone
+    # job, not this one, is where that bound has teeth.
+    maxMedianChi2=cms.double(2.0),
 )
 
 process.p = cms.Path(

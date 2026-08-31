@@ -86,14 +86,35 @@ process.offlineBeamSpot = cms.EDProducer("BeamSpotProducer")
 
 # --- DT local reconstruction ------------------------------------------------
 # The drift-time synchronisation has to undo exactly what the digitiser
-# applied: DTDigiSyncTOFCorr with the same 500 ns offset. Get this wrong and
-# every drift distance is displaced by a constant, the segments still fit, and
-# the muon comes out at the wrong angle.
+# applied - and that means the correction *type* as well as the 500 ns offset.
+# The digitiser runs DTDigiSyncTOFCorr with TOFCorrection = 3, which subtracts
+# the flight time to the superlayer centre. The reconstruction has to add the
+# same term back, and tofCorrType is what chooses it:
+#
+#   digi time   = t_drift + |r_hit|/c + prop + 500 - |r_superlayer|/c
+#   reco offset = 500 - f2i + prop - tofCorr
+#
+#   tofCorrType = 1  ->  tofCorr = (|r_chamber| - |r_hit|)/c, and the two
+#                        flight-time terms cancel to the few cm between the
+#                        chamber and superlayer centres: ~0.1 ns.
+#   tofCorrType = 0  ->  tofCorr = -|r_hit|/c, so the reco *adds* the flight
+#                        time the digitiser *subtracted*. Nothing cancels and
+#                        every drift time is short by |r_superlayer|/c: 15 ns
+#                        at MB1, 25 ns at MB4, which at 54.3 um/ns is a 0.8-1.3
+#                        mm bias against an assumed hit error of 200 um.
+#
+# DTLinearDriftAlgo_cfi defaults tofCorrType to 0, so this has to be set. The
+# failure is quiet in a way worth knowing about: the bias is nearly common to a
+# chamber, so the segment absorbs it into its own position and angle and still
+# fits. What it cannot absorb is that the bias grows with radius, so the
+# stations disagree with each other, and only the track fit across them sees
+# it - as chi2/ndof of 112 instead of 1.8.
 from RecoLocalMuon.DTRecHit.dt1DRecHits_LinearDrift_cfi import dt1DRecHits as _dt1DRecHits
 
 process.dt1DRecHits = _dt1DRecHits.clone(dtDigiLabel=cms.InputTag("simMuonDTDigis"))
 process.dt1DRecHits.recAlgoConfig.tTrigMode = cms.string("DTTTrigSyncTOFCorr")
 process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tTrig = cms.double(500.0)
+process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tofCorrType = cms.int32(1)
 
 from RecoLocalMuon.DTSegment.dt4DSegments_CombPatternReco4D_LinearDrift_cfi import (
     dt4DSegments as _dt4DSegments,
@@ -106,6 +127,7 @@ for _cfg in (
 ):
     _cfg.tTrigMode = cms.string("DTTTrigSyncTOFCorr")
     _cfg.tTrigModeConfig.tTrig = cms.double(500.0)
+    _cfg.tTrigModeConfig.tofCorrType = cms.int32(1)
 
 # perform_delta_rejecting is required by DTSegmentUpdator and absent from
 # this cfi. It belongs to the pattern-recognition algo config, not to the
@@ -151,11 +173,23 @@ process.muons = cms.EDAnalyzer(
     # a wider cone than the tracker's 0.1: a standalone muon is extrapolated
     # back through the yoke, so its direction at the beam line is coarse
     maxDeltaR=cms.double(0.3),
-    maxMedianPtResolution=cms.double(0.5),
-    minEfficiency=cms.double(0.5),
-    # At 20% momentum resolution the curvature sign is genuinely uncertain
-    # for the stiffest muons, so a wrong charge now and then is physics
-    minChargeAgreement=cms.double(0.8),
+    # Measured: 11.4%, which is the standalone barrel resolution CMS quotes
+    # for muons of this momentum. The bound is 20% - loose enough for twenty
+    # muons of statistics, tight enough to notice the chain degrading.
+    maxMedianPtResolution=cms.double(0.2),
+    # Measured: 19/20. Not 20/20 because a standalone track needs segments in
+    # at least two stations and one muon did not give them.
+    minEfficiency=cms.double(0.8),
+    # At 11% the curvature sign is no longer ambiguous for these muons and all
+    # 19 charges are right, but 20 muons is thin statistics for demanding
+    # perfection, so the bound is one mistake.
+    minChargeAgreement=cms.double(0.9),
+    # The bound that matters, and the one this example did not have. Measured:
+    # 1.8, against 112 when the drift times were decoded with the wrong
+    # time-of-flight convention. Nothing else here separated those two: the
+    # momentum was still 23% (inside a 50% bound) and the efficiency 75%
+    # (inside a 50% bound), so the job passed while the fit was nonsense.
+    maxMedianChi2=cms.double(5.0),
 )
 
 process.p = cms.Path(

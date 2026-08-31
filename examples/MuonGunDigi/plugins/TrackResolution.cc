@@ -55,6 +55,12 @@ private:
   // muon measured to 20% in the yoke does not, and demanding perfection
   // there would be asserting something untrue.
   const double minChargeAgreement_;
+  // The fit chi2 is the only number here that is about the fit rather than
+  // about the muon. Everything else can look reasonable while the hits the
+  // fit is given are systematically displaced: a bias common to a chamber is
+  // absorbed by the segment, and what is left shows up as stations that
+  // disagree with each other - which is chi2, and nothing else.
+  const double maxMedianChi2_;
 
   std::vector<double> ptResiduals_;
   // diagnostics: what the vertex producer's track filter would see
@@ -71,7 +77,8 @@ TrackResolution::TrackResolution(const edm::ParameterSet& ps)
       maxDeltaR_(ps.getParameter<double>("maxDeltaR")),
       maxMedianPtResolution_(ps.getParameter<double>("maxMedianPtResolution")),
       minEfficiency_(ps.getParameter<double>("minEfficiency")),
-      minChargeAgreement_(ps.getParameter<double>("minChargeAgreement")) {}
+      minChargeAgreement_(ps.getParameter<double>("minChargeAgreement")),
+      maxMedianChi2_(ps.getParameter<double>("maxMedianChi2")) {}
 
 void TrackResolution::analyze(const edm::Event& ev, const edm::EventSetup&) {
   edm::Handle<reco::TrackCollection> tracks;
@@ -147,10 +154,11 @@ void TrackResolution::endJob() {
     std::sort(v.begin(), v.end());
     return v[v.size() / 2];
   };
+  const double medianChi2 = med(chi2_);
   edm::LogWarning("TrackResolution")
       << "  track quality: median |d0| " << 1e4 * med(d0_) << " um, |dz| "
       << 1e4 * med(dz_) << " um, tracker layers " << med(layers_) << ", pixel layers "
-      << med(pixelLayers_) << ", chi2/ndof " << med(chi2_);
+      << med(pixelLayers_) << ", chi2/ndof " << medianChi2;
 
   edm::LogWarning("TrackResolution")
       << "reconstructed " << matched_ << "/" << generated_ << " generated muons ("
@@ -184,6 +192,19 @@ void TrackResolution::endJob() {
         << 100.0 * maxMedianPtResolution_ << "%. The hits are in the right places, so "
         << "this is the momentum measurement itself - most likely the magnetic field "
         << "the fit uses is not the field the muon was bent by.";
+
+  // Checked last, and deliberately after the momentum: if the drift times are
+  // decoded with the wrong time-of-flight convention the momentum degrades
+  // too, but the momentum bound is loose here on purpose (the yoke really
+  // does scatter) and would not catch it. The chi2 does.
+  if (medianChi2 > maxMedianChi2_)
+    throw cms::Exception("BadFitQuality")
+        << "median chi2/ndof is " << medianChi2 << ", required below " << maxMedianChi2_
+        << ". The fit does not describe its own hits. A chi2 this large is not a "
+        << "resolution problem - it means the hits are displaced from where the "
+        << "trajectory says they should be, so look at what was done to them before "
+        << "the fit saw them: the drift-time synchronisation has to undo exactly what "
+        << "the digitiser applied, correction *type* as well as offset.";
 
   edm::LogWarning("TrackResolution") << "track momentum OK";
 }

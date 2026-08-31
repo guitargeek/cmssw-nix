@@ -74,6 +74,15 @@ from RecoLocalMuon.DTRecHit.dt1DRecHits_LinearDrift_cfi import dt1DRecHits as _d
 process.dt1DRecHits = _dt1DRecHits.clone(dtDigiLabel=cms.InputTag("toyDigis"))
 process.dt1DRecHits.recAlgoConfig.tTrigMode = cms.string("DTTTrigSyncTOFCorr")
 process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tTrig = cms.double(500.0)
+# Set explicitly rather than left to the DTLinearDriftAlgo_cfi default, which
+# happens to be this value: tofCorrType picks which flight time the decoding
+# assumes was already taken out of the digi, and it has to match whatever wrote
+# the digi. Type 0 means "the digi still carries the full flight time from the
+# IP", which is what the toy producer in plugins/ puts there by hand. The real
+# DTDigitizer uses a different convention and so needs tofCorrType = 1 - see
+# examples/MuonGunDigi/python/muon_gun_muons_cfg.py, where inheriting this
+# default instead of stating it cost the standalone fit a factor 60 in chi2.
+process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tofCorrType = cms.int32(0)
 
 from RecoLocalMuon.DTSegment.dt4DSegments_CombPatternReco4D_LinearDrift_cfi import (
     dt4DSegments as _dt4DSegments,
@@ -83,9 +92,12 @@ process.dt4DSegments.Reco4DAlgoConfig.Reco2DAlgoConfig.recAlgoConfig.tTrigMode =
     cms.string("DTTTrigSyncTOFCorr")
 process.dt4DSegments.Reco4DAlgoConfig.Reco2DAlgoConfig.recAlgoConfig.tTrigModeConfig.tTrig = \
     cms.double(500.0)
+process.dt4DSegments.Reco4DAlgoConfig.Reco2DAlgoConfig.recAlgoConfig.tTrigModeConfig.tofCorrType = \
+    cms.int32(0)
 process.dt4DSegments.Reco4DAlgoConfig.recAlgoConfig.tTrigMode = \
     cms.string("DTTTrigSyncTOFCorr")
 process.dt4DSegments.Reco4DAlgoConfig.recAlgoConfig.tTrigModeConfig.tTrig = cms.double(500.0)
+process.dt4DSegments.Reco4DAlgoConfig.recAlgoConfig.tTrigModeConfig.tofCorrType = cms.int32(0)
 # present in the maintained FromDB cfi variants but missing in the
 # LinearDrift ones
 process.dt4DSegments.Reco4DAlgoConfig.perform_delta_rejecting = cms.bool(False)

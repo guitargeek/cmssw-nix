@@ -72,10 +72,14 @@ print("  median |dpt|/pt = %.3f%%, correct charge %d/%d"
       % (100 * median, n_charge, n_matched))
 
 failures = []
-if efficiency < 0.5:
+# Measured: 19/20 reconstructed, 17 of them global. Both bounds were 0.5
+# while the muon system was decoding its drift times with the wrong
+# time-of-flight convention, which is generous enough that the flat table
+# could have been built from badly mismeasured muons and still passed.
+if efficiency < 0.8:
     failures.append("only %.0f%% of the generated muons were reconstructed"
                     % (100 * efficiency))
-if n_global < 0.5 * n_matched:
+if n_global < 0.7 * n_matched:
     failures.append("%d of %d matched muons are global - the tracker and the "
                     "muon system are not being combined" % (n_global, n_matched))
 if median > 0.02:

@@ -22,7 +22,7 @@ jobs, each measuring something with a known right answer:
 | `muon_gun_digi_cfg.py` | GEN + SIM + DIGI | every hit module digitises |
 | `muon_gun_reco_cfg.py` | local reco | rec-hit residuals: 9 um pixel, 24 um strip |
 | `muon_gun_tracks_cfg.py` | tracking + vertexing | 0.81% momentum, 8.8 um vertex |
-| `muon_gun_muons_cfg.py` | muon system | 23% momentum, standalone |
+| `muon_gun_muons_cfg.py` | muon system | 11% momentum, standalone |
 | `muon_gun_calo_cfg.py` | calorimeter DIGI + reco | energy response 1.03, MIP 0.34 GeV |
 | `muon_gun_nano_cfg.py` | global muons + NanoAOD | 0.87% momentum, in a flat table |
 
@@ -204,10 +204,10 @@ through wheel 0, sector 1.
 
 ```
 tracker:    18/20 muons (90%), median |dpt|/pt =  0.81%, correct charge 18/18
-standalone: 15/20 muons (75%), median |dpt|/pt = 23.0%,  correct charge 14/15
+standalone: 19/20 muons (95%), median |dpt|/pt = 11.4%,  correct charge 19/19
 ```
 
-The standalone measurement is thirty times worse, and that is the physics.
+The standalone measurement is fourteen times worse, and that is the physics.
 A muon reaching the chambers has crossed the calorimeters and several
 metres of yoke iron, and the multiple scattering in it dominates. What the
 muon system has instead is an enormous lever arm in a field that reverses
@@ -218,9 +218,9 @@ map, in a region the tracker never samples.
 **Charge agreement is not a constant of nature.** The charge *is* the sign
 of the curvature, so how reliably it can be assigned follows the momentum
 resolution. `TrackResolution` therefore takes `minChargeAgreement` as a
-parameter: 1.0 for the tracker, where 0.8% leaves no ambiguity, and 0.8
-for the standalone muons, where at 23% the stiffest muons genuinely can
-come out with the wrong sign. Requiring perfection of both would have been
+parameter: 1.0 for the tracker, where 0.8% leaves no ambiguity, and 0.9
+for the standalone muons, where at 11% the stiffest muons can still come
+out with the wrong sign. Requiring perfection of both would have been
 asserting something untrue; requiring it of neither would have thrown away
 a real check on the tracker.
 
@@ -232,11 +232,63 @@ crossing frame back out of `mix`, so it needs its own
 `RandomNumberGeneratorService` entry and its geometry under the
 `idealForDigi` label.
 
-One number here is not understood and is worth flagging rather than
-hiding: the standalone fits come out with chi2/ndof around 110. Standalone
-muon fits are expected to have poor chi2 — the material in the yoke is
-modelled coarsely — but that is high, and nothing in this example depends
-on it, so it has not been chased.
+### The correction type, not just the offset
+
+The standalone fits used to come out with chi2/ndof around **110**, and
+this example passed anyway. That was a real bug, and the shape of it is
+worth keeping.
+
+Decoding a DT digi means undoing what the digitiser did to the time. The
+digitiser runs `DTDigiSyncTOFCorr` with `TOFCorrection = 3`, which
+subtracts the flight time from the interaction point to the **superlayer
+centre**. The reconstruction has to put the same term back, and
+`tofCorrType` is what selects it:
+
+```
+digi time   = t_drift + |r_hit|/c + prop + 500 - |r_superlayer|/c
+reco offset = 500 - f2i + prop - tofCorr
+```
+
+`tofCorrType = 1` sets `tofCorr = (|r_chamber| - |r_hit|)/c`, and the two
+flight-time terms cancel down to the few centimetres between the chamber
+and superlayer centres — about 0.1 ns. `tofCorrType = 0` sets
+`tofCorr = -|r_hit|/c`, so the reconstruction **adds** the flight time the
+digitiser **subtracted**. Nothing cancels, and every drift time comes out
+short by `|r_superlayer|/c`: 15 ns at MB1, 25 ns at MB4. At 54.3 um/ns
+that is a 0.8–1.3 mm bias, against an assumed hit error of 200 um.
+
+`DTLinearDriftAlgo_cfi` defaults `tofCorrType` to 0, and the configuration
+here set the 500 ns offset without ever setting the type. Fixing it:
+
+| | chi2/ndof | efficiency | median |dpt|/pt | charge |
+|---|---|---|---|---|
+| `tofCorrType = 0` | 111.8 | 15/20 | 23.0% | 14/15 |
+| `tofCorrType = 1` | **1.8** | 19/20 | **11.4%** | 19/19 |
+| `tofCorrType = 2` | 1.7 | 19/20 | 11.6% | 19/19 |
+
+Type 2 references the wire rather than the chamber and agrees with type 1
+to well under a nanosecond, which is the consistency check that the
+cancellation is the real effect and not a tuning.
+
+**Why it stayed hidden.** The bias is nearly common to a chamber, so the
+4D segment absorbs it into its own position and angle and still fits
+perfectly well — every check up to and including
+[examples/MuonLocalReco](../MuonLocalReco) passed. What a segment cannot
+absorb is that the bias *grows with radius*, so the stations disagree with
+each other, and only a fit across them can see that. That fit reports it
+as chi2, and nothing else: the momentum was still 23%, inside a 50% bound
+chosen because the yoke really does scatter, and the efficiency still 75%,
+inside a 50% bound. `TrackResolution` was already computing the median
+chi2/ndof and printing it — it simply had no `maxMedianChi2` to compare it
+against. It does now.
+
+The two toy examples were the other half of the reason. Their digis are
+written by hand, and `ToyMuonTrackDigiProducer` puts the full flight time
+from the vertex into the digi — the `tofCorrType = 0` convention — so they
+were self-consistent with the setting the real chain was getting wrong.
+Both now state `tofCorrType` explicitly rather than inheriting it, which
+is the actual lesson: this is a parameter whose default is a convention,
+and a convention has to be matched to whatever wrote the digi.
 
 ## Vertexing, and why the gun fires four muons
 
@@ -370,22 +422,25 @@ tracking job and the muon job in one — everything up to the primary vertex is
 
 ```
 tracker:    18/20 muons (90%), median |dpt|/pt =  0.81%
-standalone: 15/20 muons (75%), median |dpt|/pt = 23.0%
-global:     15/20 muons (75%), median |dpt|/pt =  0.87%,  chi2/ndof 0.87
+standalone: 19/20 muons (95%), median |dpt|/pt = 11.4%
+global:     17/20 muons (85%), median |dpt|/pt =  0.89%,  chi2/ndof 1.17
 ```
 
 The global fit lands next to the tracker, which is the right answer at these
-momenta: adding a 23% measurement to a 0.8% one cannot improve it much. CMS
+momenta: adding an 11% measurement to a 0.8% one cannot improve it much. CMS
 combines them anyway because above a few hundred GeV the tracker curvature
 gets small and the muon system's lever arm starts to win — this gun does not
-reach there. The efficiency is the standalone stage's 75%: **every standalone
-muon found its tracker track**. And the quality line reports 14 tracker layers
-and 4 pixel layers in the fit, so the tracker hits really are in it.
+reach there. The efficiency follows the standalone stage, which is the
+limiting one. And the quality line reports 14 tracker layers and 4 pixel
+layers in the fit, so the tracker hits really are in it.
 
-That last number is also a partial answer to the open question above. The
-standalone fits give chi2/ndof around 110; the global fit of the same muons,
-over the same muon hits plus the tracker's, gives 0.87. Whatever is wrong in
-the standalone fit does not survive the combination.
+This job is also where the drift-time bug above hid best. The global fit is
+dominated by the tracker hits — far more of them, and far more precise — so
+its chi2/ndof stayed at 0.87 while the muon hits going into it were displaced
+by a millimetre. That is why `maxMedianChi2` has teeth in the standalone job
+and almost none here: a chi2 is only a test of the measurements that dominate
+it. Fixing the decoding still moved this job, though, because the standalone
+stage feeds it: 15/20 global muons became 17/20.
 
 Then it writes **NanoAOD** — not a POOL file of C++ objects that only CMSSW
 can open, but a flat `TTree` of plain branches, `Muon_pt` next to
@@ -403,8 +458,8 @@ nearest `Muon` and compares their momenta:
 
 ```
 muon_gun_nano.root: 5 events, 20 generated muons
-  reconstructed 15 (75%), 15 of them global
-  median |dpt|/pt = 0.900%, correct charge 15/15
+  reconstructed 19 (95%), 17 of them global
+  median |dpt|/pt = 0.704%, correct charge 19/19
 ```
 
 Which closes the loop these examples opened: a muon is generated, transported

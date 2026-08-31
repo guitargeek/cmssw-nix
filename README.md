@@ -192,10 +192,17 @@ trajectories extrapolate back to a consistent point.
 
 And the muon system measures the same muons a second time, on its own: DT
 digis, drift-time rec hits, 4D segments and a standalone fit in the return
-yoke give 23% on the momentum against the tracker's 0.8%. The gap is the
+yoke give 11% on the momentum against the tracker's 0.8%. The gap is the
 physics — metres of calorimeter and iron between the two — and the
 standalone fit is a second, independent probe of the field map in a region
 the tracker never samples.
+
+That number was 23%, with chi2/ndof of 110, until the drift-time decoding
+was fixed: the reconstruction was undoing the digitiser's 500 ns offset but
+not its time-of-flight *correction type*, so every drift time came out short
+by the flight time to the superlayer — a bias growing with radius, which a
+segment absorbs and only a fit across stations can see. The example now
+asserts the fit chi2, which is the only number that separated the two.
 
 **The calorimeters are reconstructed too**, from the ECAL and HCAL SimHits
 Geant4 had been leaving all along. That is a different kind of measurement:
@@ -214,9 +221,9 @@ NanoAOD.** `GlobalMuonProducer` matches each standalone track to its tracker
 track and refits the hits of both as one trajectory; `MuonIdProducer` turns
 that into the `reco::Muon` an analysis asks for; and a flat-table producer
 over `reco::Muon` writes `Muon_pt` next to `GenPart_pdgId` into a real
-NanoAOD file. The global fit gives 0.87%, next to the tracker's 0.81% — the
-right answer at these momenta, since adding a 23% measurement to a 0.8% one
-cannot improve it much. Every standalone muon found its tracker track.
+NanoAOD file. The global fit gives 0.89%, next to the tracker's 0.81% — the
+right answer at these momenta, since adding an 11% measurement to a 0.8% one
+cannot improve it much.
 
 That file is then read the way an analysis reads it — plain ROOT, no CMSSW,
 no dictionaries — and every generated muon is matched back to a
