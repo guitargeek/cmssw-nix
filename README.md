@@ -197,7 +197,19 @@ physics — metres of calorimeter and iron between the two — and the
 standalone fit is a second, independent probe of the field map in a region
 the tracker never samples.
 
-**The two measurements are then combined, and the result written as
+**The calorimeters are reconstructed too**, from the ECAL and HCAL SimHits
+Geant4 had been leaving all along. That is a different kind of measurement:
+a tracker rec hit is a position, a calorimeter rec hit is an energy, and the
+question is whether the number that comes out is the number that went in.
+ECAL gives back what it absorbed — response 1.03, because the crystal is both
+absorber and detector — while HCAL gives back 113 times what its scintillator
+saw, which is the sampling factor of the barrel appearing as a reconstruction
+constant. Two calorimeters, two different right answers, from one analyzer.
+The muons deposit 0.34 GeV in ECAL and 2.4 GeV in HCAL, the textbook MIP
+figures, and **E/p = 0.9%** — the statement that the calorimeter is seeing a
+muon rather than something that showers.
+
+**The two muon measurements are then combined, and the result written as
 NanoAOD.** `GlobalMuonProducer` matches each standalone track to its tracker
 track and refits the hits of both as one trajectory; `MuonIdProducer` turns
 that into the `reco::Muon` an analysis asks for; and a flat-table producer
@@ -312,9 +324,10 @@ readout digis, reading its simulated conditions from a local sqlite database,
 and then reconstructs them back into rec hits that sit 21 um from the
 simulated impact points, then tracks them, measures the momentum to 0.8%, fits
 the primary vertex to within 9 um of where the gun fired, measures the same
-muons again in the muon chambers alone, combines the two measurements into
-`reco::Muon`s, and writes them to a NanoAOD file that plain ROOT reads back
-and matches to the generated muons.
+muons again in the muon chambers alone, reconstructs the energy they left in
+the calorimeters, combines the two momentum measurements into `reco::Muon`s,
+and writes them to a NanoAOD file that plain ROOT reads back and matches to
+the generated muons.
 
 ## Testing
 

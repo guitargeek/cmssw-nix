@@ -23,6 +23,7 @@ jobs, each measuring something with a known right answer:
 | `muon_gun_reco_cfg.py` | local reco | rec-hit residuals: 9 um pixel, 24 um strip |
 | `muon_gun_tracks_cfg.py` | tracking + vertexing | 0.81% momentum, 8.8 um vertex |
 | `muon_gun_muons_cfg.py` | muon system | 23% momentum, standalone |
+| `muon_gun_calo_cfg.py` | calorimeter DIGI + reco | energy response 1.03, MIP 0.34 GeV |
 | `muon_gun_nano_cfg.py` | global muons + NanoAOD | 0.87% momentum, in a flat table |
 
 Needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`).
@@ -284,6 +285,75 @@ would have turned a real geometric degeneracy into a passing test.
 [examples/MuonGunSim](../MuonGunSim) keeps the back-to-back pair, which is
 all it needs.
 
+## The calorimeters, where the measurement is an energy
+
+Geant4 has been depositing energy in ECAL and HCAL all along — `EcalHitsEB`
+and `HcalHits` sit in `muon_gun_digi.root` next to the tracker SimHits — and
+until `python/muon_gun_calo_cfg.py` nothing read them. It digitises those hits
+with the real ECAL and HCAL digitisers and reconstructs them back, which makes
+it a different kind of measurement from every stage before it. A tracker rec
+hit is a *position*, and the question was whether it lands where the particle
+crossed. A calorimeter rec hit is an *amplitude*, and the question is whether
+the number that comes out is the number Geant4 put in — through the
+photostatistics, the preamplifier pulse, the ten digitised samples, and the
+weights that fit an amplitude back out of them.
+
+```
+ECAL barrel: 32/32 cells with a deposit reconstructed (100%), median E_reco/E_sim = 1.03
+HCAL barrel: 31/31 cells (100%),                              median E_reco/E_sim = 113  (the sampling factor)
+per muon: 0.34 GeV in ECAL, 2.37 GeV in HCAL, over 20 muons
+E(ECAL)/p = 0.0093
+```
+
+**ECAL should give back exactly what went in, and does.** The crystal is both
+the absorber and the detector, so the reconstructed energy is the deposited
+energy and the response is one — measured 1.03. That comparison is only fair
+because the digitiser and the reconstruction read their pedestals, gains and
+ADC-to-GeV constant out of the *same* ES source here, so unity is a statement
+about the chain rather than about how well two sets of constants happen to
+agree. The bound is ±20%: wide enough for the noise on a 300 MeV signal,
+narrow enough that a wrong calibration constant or pulse shape cannot pass,
+since those get it wrong by factors.
+
+**HCAL should not**, and the number it gives instead is the point. A sampling
+calorimeter's scintillator sees a small fixed fraction of what the brass
+absorbs, so the reconstruction multiplies by a sampling factor to recover the
+incident energy — measured 113, which is the brass-to-scintillator ratio of
+the barrel showing up as a reconstruction constant. Two calorimeters, two
+completely different right answers, from the same analyzer.
+
+Muons make this the sharpest available version of the test. A
+minimum-ionising particle does not shower: it crosses one crystal and leaves a
+couple of hundred MeV, which is the smallest signal ECAL is ever asked to
+reconstruct — a few times the 40 MeV per-crystal noise. The measured 0.34 GeV
+in ECAL and 2.4 GeV in HCAL are the textbook MIP deposits. And **E/p = 0.0093
+is the statement that the calorimeter is seeing a muon at all**: an electron
+of the same momentum would have deposited essentially all of it.
+
+Two things are worth recording about how this job is put together.
+
+The calorimeter digitisers are run here rather than in
+`muon_gun_digi_cfg.py`, where the tracker ones live. They would share that
+job's mixing module, and the digitisers inside one `MixingModule` draw their
+noise from one random engine, so adding them would move every tracker digi and
+shift the measured residuals of four downstream jobs. Nothing is lost by the
+split: `mix` reads the SimHits out of the event it is given, and they are in
+the file.
+
+And `plugins/PreshowerTrivialConditions.cc` exists for a reason that will look
+familiar. `EcalDigiProducer` constructs its preshower digitiser
+unconditionally — both variants are built in the initialiser list, before
+anything looks at `doES` — and then fetches `ESGain`, `ESMIPToGeVConstant`,
+`ESPedestals` and `ESIntercalibConstants` every time the geometry changes.
+Only the *use* of those payloads is behind the switch. Nothing in the release
+provides them without a conditions database: `EcalTrivialConditionRetriever`
+covers the barrel and the endcap but not the preshower, and grepping for
+producers of `ESGainRcd` finds only consumers. So four nominal values are
+supplied to make four fetches succeed, for a subdetector at `|eta| > 1.65`
+that this gun never points at. It is the same shape as the three things
+`MuonIdProducer` does below, and by now it is clearly a pattern rather than a
+coincidence: **work that happens before the switch meant to control it.**
+
 ## reco::Muon, and the end of the chain
 
 `python/muon_gun_nano_cfg.py` does the two things that turn reconstructed
@@ -480,6 +550,7 @@ python3 python/muon_gun_digi_cfg_check.py
 cmsRun python/muon_gun_reco_cfg.py
 cmsRun python/muon_gun_tracks_cfg.py
 cmsRun python/muon_gun_muons_cfg.py
+cmsRun python/muon_gun_calo_cfg.py
 cmsRun python/muon_gun_nano_cfg.py
 python3 python/muon_gun_nano_cfg_check.py
 ```

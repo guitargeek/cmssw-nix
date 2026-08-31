@@ -56,6 +56,15 @@ target_link_libraries(MuonGunDigiTestPlugins
   # the empty CSC/RPC collections (plugins/EmptyMuonCollectionProducers.cc)
   DataFormatsCSCRecHit
   DataFormatsRPCRecHit
+  # the calorimeter energy response (plugins/CaloEnergyResponse.cc)
+  DataFormatsEcalRecHit
+  DataFormatsHcalRecHit
+  DataFormatsEcalDetId
+  DataFormatsHcalDetId
+  SimDataFormatsCaloHit
+  # nominal preshower conditions (plugins/PreshowerTrivialConditions.cc)
+  CondFormatsESObjects
+  CondFormatsDataRecord
   ROOT::Core
   ${TBB_LIBS}
 )
