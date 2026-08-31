@@ -1,7 +1,14 @@
 # Tracker local reco validation: toy digis -> clusters -> rec hits, with the
 # TrackerGeometry built from the tracker-only DDD XML geometry and all
 # conditions coming from the fake (from-parameters) ES sources.
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+# Runs on both releases. Everything that differs is behind `_is_10_6` and
+# commented where it appears: the geometry ES modules, the strip fake
+# conditions, the pixel Lorentz angle and the strip clusteriser conditions.
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("LOCALRECO")
 
@@ -27,10 +34,26 @@ process.XMLIdealGeometryESSource.geomXMLFiles = cms.vstring(
     ]
 )
 
-process.TrackerGeometricDetESModule = cms.ESProducer(
-    "TrackerGeometricDetESModule", fromDDD=cms.bool(True)
-)
-process.TrackerParametersESModule = cms.ESProducer("TrackerParametersESModule")
+# The classic DDD geometry path is still there in 20_1, but the ES modules
+# have to be told which of the two descriptions to read, and the digi geometry
+# gained a dependency on a per-det additional-parameters record.
+if _is_10_6:
+    process.TrackerGeometricDetESModule = cms.ESProducer(
+        "TrackerGeometricDetESModule", fromDDD=cms.bool(True)
+    )
+    process.TrackerParametersESModule = cms.ESProducer("TrackerParametersESModule")
+else:
+    process.TrackerGeometricDetESModule = cms.ESProducer(
+        "TrackerGeometricDetESModule",
+        fromDDD=cms.bool(True),
+        fromDD4hep=cms.bool(False),
+    )
+    process.TrackerParametersESModule = cms.ESProducer(
+        "TrackerParametersESModule", fromDD4hep=cms.bool(False)
+    )
+    process.TrackerAdditionalParametersPerDetESModule = cms.ESProducer(
+        "TrackerAdditionalParametersPerDetESModule"
+    )
 process.trackerTopology = cms.ESProducer("TrackerTopologyEP")
 process.TrackerDigiGeometryESModule = cms.ESProducer(
     "TrackerDigiGeometryESModule",
@@ -55,38 +78,57 @@ process.UniformMagneticFieldESProducer = cms.ESProducer(
 
 # --- fake strip conditions: noise (random mode, ~4 ADC), unit gain, no bad
 # channels; Lorentz angle / back-plane correction / conf object for the CPE
-process.siStripNoisesFakeESSource = cms.ESSource(
-    "SiStripNoisesFakeESSource",
-    appendToDataLabel=cms.string(""),
-    printDebug=cms.untracked.uint32(5),
-    StripLengthMode=cms.bool(False),
-    NoiseStripLengthSlopeTIB=cms.vdouble(51.0, 51.0, 51.0, 51.0),
-    NoiseStripLengthQuoteTIB=cms.vdouble(630.0, 630.0, 630.0, 630.0),
-    NoiseStripLengthSlopeTID=cms.vdouble(51.0, 51.0, 51.0),
-    NoiseStripLengthQuoteTID=cms.vdouble(630.0, 630.0, 630.0),
-    NoiseStripLengthSlopeTOB=cms.vdouble(51.0, 51.0, 51.0, 51.0, 51.0, 51.0),
-    NoiseStripLengthQuoteTOB=cms.vdouble(630.0, 630.0, 630.0, 630.0, 630.0, 630.0),
-    NoiseStripLengthSlopeTEC=cms.vdouble(51.0, 51.0, 51.0, 51.0, 51.0, 51.0, 51.0),
-    NoiseStripLengthQuoteTEC=cms.vdouble(630.0, 630.0, 630.0, 630.0, 630.0, 630.0, 630.0),
-    electronPerAdc=cms.double(247.0),
-    MeanNoiseTIB=cms.vdouble(4.0, 4.0, 4.0, 4.0),
-    SigmaNoiseTIB=cms.vdouble(0.5, 0.5, 0.5, 0.5),
-    MeanNoiseTID=cms.vdouble(4.0, 4.0, 4.0),
-    SigmaNoiseTID=cms.vdouble(0.5, 0.5, 0.5),
-    MeanNoiseTOB=cms.vdouble(4.0, 4.0, 4.0, 4.0, 4.0, 4.0),
-    SigmaNoiseTOB=cms.vdouble(0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
-    MeanNoiseTEC=cms.vdouble(4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0),
-    SigmaNoiseTEC=cms.vdouble(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
-    MinPositiveNoise=cms.double(0.1),
-)
-process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
-# FED cabling + connectivity: the clusterizer resolves its input by det
-# cabling, so provide the fake full-detector cabling
-process.siStripFedCabling = cms.ESSource(
-    "SiStripFedCablingFakeESSource",
-    FedIdsFile=cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripFedIdList.dat"),
-    PopulateAllFeds=cms.bool(True),
-)
+#
+# The two releases differ in where the fake sources get the module list from.
+# In 10_6 it comes from the SiStripDetInfoFileReader *service*, and the
+# parameters are spelled out here; in 20_1 that service no longer exists and
+# each fake source reads a FileInPath of its own, so the shipped fragments are
+# cloned and only the two values this example cares about are overridden.
+if _is_10_6:
+    process.siStripNoisesFakeESSource = cms.ESSource(
+        "SiStripNoisesFakeESSource",
+        appendToDataLabel=cms.string(""),
+        printDebug=cms.untracked.uint32(5),
+        StripLengthMode=cms.bool(False),
+        NoiseStripLengthSlopeTIB=cms.vdouble(51.0, 51.0, 51.0, 51.0),
+        NoiseStripLengthQuoteTIB=cms.vdouble(630.0, 630.0, 630.0, 630.0),
+        NoiseStripLengthSlopeTID=cms.vdouble(51.0, 51.0, 51.0),
+        NoiseStripLengthQuoteTID=cms.vdouble(630.0, 630.0, 630.0),
+        NoiseStripLengthSlopeTOB=cms.vdouble(51.0, 51.0, 51.0, 51.0, 51.0, 51.0),
+        NoiseStripLengthQuoteTOB=cms.vdouble(630.0, 630.0, 630.0, 630.0, 630.0, 630.0),
+        NoiseStripLengthSlopeTEC=cms.vdouble(51.0, 51.0, 51.0, 51.0, 51.0, 51.0, 51.0),
+        NoiseStripLengthQuoteTEC=cms.vdouble(630.0, 630.0, 630.0, 630.0, 630.0, 630.0, 630.0),
+        electronPerAdc=cms.double(247.0),
+        MeanNoiseTIB=cms.vdouble(4.0, 4.0, 4.0, 4.0),
+        SigmaNoiseTIB=cms.vdouble(0.5, 0.5, 0.5, 0.5),
+        MeanNoiseTID=cms.vdouble(4.0, 4.0, 4.0),
+        SigmaNoiseTID=cms.vdouble(0.5, 0.5, 0.5),
+        MeanNoiseTOB=cms.vdouble(4.0, 4.0, 4.0, 4.0, 4.0, 4.0),
+        SigmaNoiseTOB=cms.vdouble(0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+        MeanNoiseTEC=cms.vdouble(4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0),
+        SigmaNoiseTEC=cms.vdouble(0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5),
+        MinPositiveNoise=cms.double(0.1),
+    )
+    process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
+    # FED cabling + connectivity: the clusterizer resolves its input by det
+    # cabling, so provide the fake full-detector cabling
+    process.siStripFedCabling = cms.ESSource(
+        "SiStripFedCablingFakeESSource",
+        FedIdsFile=cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripFedIdList.dat"),
+        PopulateAllFeds=cms.bool(True),
+    )
+else:
+    from CalibTracker.SiStripESProducers.fake.SiStripNoisesFakeESSource_cfi import (
+        siStripNoisesFakeESSource as _noiseFake,
+    )
+    from CalibTracker.SiStripESProducers.fake.SiStripFedCablingFakeESSource_cfi import (
+        siStripFedCabling as _cablingFake,
+    )
+
+    process.siStripNoisesFakeESSource = _noiseFake.clone(
+        StripLengthMode=False, electronPerAdc=247.0
+    )
+    process.siStripFedCabling = _cablingFake.clone(PopulateAllFeds=True)
 process.SiStripConnectivity = cms.ESProducer("SiStripConnectivity")
 process.load("CalibTracker.SiStripESProducers.fake.SiStripApvGainFakeESSource_cfi")
 # conf object with the cross-talk constants the strip CPE requires (one pair
@@ -160,11 +202,40 @@ process.siStripGainESProducer = cms.ESProducer(
 
 # --- fake pixel conditions
 process.load("CalibTracker.SiPixelESProducers.SiPixelFakeGainOfflineESSource_cfi")
-process.load("CalibTracker.SiPixelESProducers.SiPixelFakeLorentzAngleESSource_cfi")
+# In 20_1 the fake Lorentz angle source cannot be used at all: its
+# fillDescriptions default is a FileInPath into SLHCUpgradeSimulations, a
+# data-only package that is not in this build, and the FileInPath constructor
+# runs when the *description* is built - during validation, whatever this
+# configuration sets. The payload is written instead by
+# python/write_pixel_la_20_1_cfg.py over the DetIds of the geometry actually
+# loaded; run that first.
+if _is_10_6:
+    process.load("CalibTracker.SiPixelESProducers.SiPixelFakeLorentzAngleESSource_cfi")
+else:
+    process.load("CondCore.CondDB.CondDB_cfi")
+    process.CondDB.connect = cms.string("sqlite_file:pixel_la.db")
+    process.pixelConditions = cms.ESSource(
+        "PoolDBESSource",
+        process.CondDB,
+        toGet=cms.VPSet(
+            cms.PSet(
+                record=cms.string("SiPixelLorentzAngleRcd"),
+                tag=cms.string("SiPixelLorentzAngle_ideal"),
+            ),
+        ),
+    )
 
 # --- the toy digis
 
 # --- strip clusterizer (standard three-threshold algorithm)
+# New in 20_1: the strip clusteriser takes its conditions from one bundled
+# record instead of reaching for SiStripGain, SiStripNoises and SiStripQuality
+# individually.
+if not _is_10_6:
+    process.load(
+        "RecoLocalTracker.SiStripClusterizer.SiStripClusterizerConditionsESProducer_cfi"
+    )
+
 process.siStripClusters = cms.EDProducer(
     "SiStripClusterizer",
     Clusterizer=cms.PSet(
@@ -175,9 +246,13 @@ process.siStripClusters = cms.EDProducer(
         MaxSequentialHoles=cms.uint32(0),
         MaxSequentialBad=cms.uint32(1),
         MaxAdjacentBad=cms.uint32(0),
-        QualityLabel=cms.string(""),
         RemoveApvShots=cms.bool(True),
         clusterChargeCut=cms.PSet(value=cms.double(-1.0)),
+        # QualityLabel in 10_6 named the SiStripQuality record to consult;
+        # in 20_1 the clusteriser reads one bundled conditions record and the
+        # label names that instead
+        **({"QualityLabel": cms.string("")} if _is_10_6
+           else {"ConditionsLabel": cms.string(""), "setDetId": cms.bool(True)}),
     ),
     DigiProducersList=cms.VInputTag(cms.InputTag("toyDigis")),
 )
@@ -225,37 +300,58 @@ process.siStripMatchedRecHits = cms.EDProducer(
 )
 
 # --- pixel rec hits (generic CPE without template payloads)
-process.PixelCPEGenericESProducer = cms.ESProducer(
-    "PixelCPEGenericESProducer",
-    ComponentName=cms.string("PixelCPEGeneric"),
-    Alpha2Order=cms.bool(True),
-    PixelErrorParametrization=cms.string("NOTcmsim"),
-    eff_charge_cut_lowX=cms.double(0.0),
-    eff_charge_cut_lowY=cms.double(0.0),
-    eff_charge_cut_highX=cms.double(1.0),
-    eff_charge_cut_highY=cms.double(1.0),
-    size_cutX=cms.double(3.0),
-    size_cutY=cms.double(3.0),
-    EdgeClusterErrorX=cms.double(50.0),
-    EdgeClusterErrorY=cms.double(85.0),
-    inflate_errors=cms.bool(False),
-    inflate_all_errors_no_trk_angle=cms.bool(False),
-    UseErrorsFromTemplates=cms.bool(False),
-    TruncatePixelCharge=cms.bool(False),
-    IrradiationBiasCorrection=cms.bool(False),
-    DoCosmics=cms.bool(False),
-    LoadTemplatesFromDB=cms.bool(False),
-    ClusterProbComputationFlag=cms.int32(0),
-    useLAWidthFromDB=cms.bool(False),
-    useLAAlignmentOffsets=cms.bool(False),
-    MagneticFieldRecord=cms.ESInputTag(""),
-)
+# The parameter set of the generic CPE changed between the releases -
+# PixelErrorParametrization and useLAAlignmentOffsets are gone in 20_1, and
+# passing them is a validation error - so there the producer is cloned from
+# the fragment the release generates out of its own parameter description and
+# only the switches this example needs are overridden.
+if not _is_10_6:
+    from RecoLocalTracker.SiPixelRecHits._generic_default_cfi import _generic_default
+
+    process.PixelCPEGenericESProducer = _generic_default.clone(
+        ComponentName="PixelCPEGeneric",
+        UseErrorsFromTemplates=False,
+        LoadTemplatesFromDB=False,
+        TruncatePixelCharge=False,
+        useLAWidthFromDB=False,
+        IrradiationBiasCorrection=False,
+        DoCosmics=False,
+        MagneticFieldRecord=cms.ESInputTag(""),
+    )
+else:
+    process.PixelCPEGenericESProducer = cms.ESProducer(
+        "PixelCPEGenericESProducer",
+        ComponentName=cms.string("PixelCPEGeneric"),
+        Alpha2Order=cms.bool(True),
+        PixelErrorParametrization=cms.string("NOTcmsim"),
+        eff_charge_cut_lowX=cms.double(0.0),
+        eff_charge_cut_lowY=cms.double(0.0),
+        eff_charge_cut_highX=cms.double(1.0),
+        eff_charge_cut_highY=cms.double(1.0),
+        size_cutX=cms.double(3.0),
+        size_cutY=cms.double(3.0),
+        EdgeClusterErrorX=cms.double(50.0),
+        EdgeClusterErrorY=cms.double(85.0),
+        inflate_errors=cms.bool(False),
+        inflate_all_errors_no_trk_angle=cms.bool(False),
+        UseErrorsFromTemplates=cms.bool(False),
+        TruncatePixelCharge=cms.bool(False),
+        IrradiationBiasCorrection=cms.bool(False),
+        DoCosmics=cms.bool(False),
+        LoadTemplatesFromDB=cms.bool(False),
+        ClusterProbComputationFlag=cms.int32(0),
+        useLAWidthFromDB=cms.bool(False),
+        useLAAlignmentOffsets=cms.bool(False),
+        MagneticFieldRecord=cms.ESInputTag(""),
+    )
+# SiPixelRecHitConverter no longer accepts VerboseLevel in 20_1.
 process.siPixelRecHits = cms.EDProducer(
     "SiPixelRecHitConverter",
     src=cms.InputTag("siPixelClusters"),
     CPE=cms.string("PixelCPEGeneric"),
-    VerboseLevel=cms.untracked.int32(0),
 )
+if _is_10_6:
+    process.siPixelRecHits.VerboseLevel = cms.untracked.int32(0)
 
 # --- check the outcome
 
@@ -328,11 +424,21 @@ process.pixelTracksTrackingRegions = cms.EDProducer(
     RegionPSet=_regionBlock.RegionPSet.clone(),
 )
 
+# New in 20_1: the hit-pair generator asks for the multiple-scattering
+# parametrisation through an EventSetup record of its own.
+if not _is_10_6:
+    process.load(
+        "RecoTracker.TkMSParametrization."
+        "multipleScatteringParametrisationMakerESProducer_cfi"
+    )
+
 # cluster multiplicity sanity check (off for the toy)
 process.trackerClusterCheck = cms.EDProducer(
     "ClusterCheckerEDProducer",
     doClusterCheck=cms.bool(False),
-    MaxNumberOfCosmicClusters=cms.uint32(400000),
+    # MaxNumberOfCosmicClusters was renamed MaxNumberOfStripClusters in 20_1
+    **({"MaxNumberOfCosmicClusters": cms.uint32(400000)} if _is_10_6
+       else {"MaxNumberOfStripClusters": cms.uint32(400000)}),
     ClusterCollectionLabel=cms.InputTag("siStripClusters"),
     MaxNumberOfPixelClusters=cms.uint32(40000),
     PixelClusterCollectionLabel=cms.InputTag("siPixelClusters"),

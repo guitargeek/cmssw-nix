@@ -239,6 +239,16 @@
         pythia8 = null;
         lhapdf = null;
         libsigcxx = null;
+        # The same cms-data externals the 10_6 build carries. These are data
+        # files distributed separately from the release - the magnetic field
+        # interpolation tables are the ones with teeth, since without them
+        # the volume-based field engine cannot be built at all and every
+        # example that reconstructs a momentum is stuck with a uniform field.
+        extraData = [
+          { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
+          { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
+          { path = "MagneticField/Interpolation"; src = magfield-data; }
+        ];
       };
 
       # ROOT 6.24 from nixos-22.05 is already built with C++17 (the gcc 11

@@ -416,6 +416,18 @@ if os.path.isdir(rtau):
             edit(bf, lambda xml: re.sub(
                 r'<use\s+name="PhysicsTools/TensorFlow"\s*/>\n?', "", xml))
 
+# DeepCore is the jet-core seeding DNN, and it is the only TensorFlow user in
+# RecoTracker/TkSeedGenerator/plugins - a library of fifteen other seeding
+# producers, including the one that turns pixel proto-tracks into trajectory
+# seeds. Without this prune the whole library is unbuildable and the CKF
+# seeding chain has no seed producer at all.
+path = "cmssw/RecoTracker/TkSeedGenerator/plugins"
+if os.path.isdir(path):
+    for f in glob.glob(path + "/DeepCoreSeedGenerator.*"):
+        os.remove(f)
+    edit(path + "/BuildFile.xml", lambda xml: re.sub(
+        r'<use\s+name="PhysicsTools/TensorFlow"\s*/>\n?', "", xml))
+
 # The two-body-decay constrained-refit producers are alignment tools that
 # would pull in the Alignment subsystem.
 path = "cmssw/RecoTracker/TrackProducer/plugins"

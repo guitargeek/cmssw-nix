@@ -28,9 +28,15 @@
 #include "Geometry/RPCGeometry/interface/RPCGeometry.h"
 #include "Geometry/Records/interface/MuonGeometryRecord.h"
 
+// The muon geometries, through EventSetup tokens. The legacy form -
+// setup.get<MuonGeometryRecord>().get(handle) - is gone in 20_1; the token
+// form below works in both releases.
 class ToyMuonDigiProducer : public edm::stream::EDProducer<> {
 public:
-  explicit ToyMuonDigiProducer(const edm::ParameterSet&) {
+  explicit ToyMuonDigiProducer(const edm::ParameterSet&)
+      : dtToken_(esConsumes<DTGeometry, MuonGeometryRecord>()),
+        cscToken_(esConsumes<CSCGeometry, MuonGeometryRecord>()),
+        rpcToken_(esConsumes<RPCGeometry, MuonGeometryRecord>()) {
     produces<DTDigiCollection>();
     produces<CSCStripDigiCollection>("MuonCSCStripDigi");
     produces<CSCWireDigiCollection>("MuonCSCWireDigi");
@@ -38,16 +44,13 @@ public:
   }
 
   void produce(edm::Event& event, const edm::EventSetup& setup) override {
-    edm::ESHandle<DTGeometry> dtGeom;
-    edm::ESHandle<CSCGeometry> cscGeom;
-    edm::ESHandle<RPCGeometry> rpcGeom;
-    setup.get<MuonGeometryRecord>().get(dtGeom);
-    setup.get<MuonGeometryRecord>().get(cscGeom);
-    setup.get<MuonGeometryRecord>().get(rpcGeom);
+    const DTGeometry& dtGeom = setup.getData(dtToken_);
+    const CSCGeometry& cscGeom = setup.getData(cscToken_);
+    const RPCGeometry& rpcGeom = setup.getData(rpcToken_);
     edm::LogPrint("ToyMuonDigiProducer")
-        << "geometry: " << dtGeom->chambers().size() << " DT chambers, "
-        << cscGeom->chambers().size() << " CSC chambers, "
-        << rpcGeom->rolls().size() << " RPC rolls";
+        << "geometry: " << dtGeom.chambers().size() << " DT chambers, "
+        << cscGeom.chambers().size() << " CSC chambers, "
+        << rpcGeom.rolls().size() << " RPC rolls";
 
     // DT: one digi in each of the 4 layers of the two phi superlayers of
     // chamber wheel 0, station 1, sector 1. TDC counts ~ (tTrig 500 ns +
@@ -73,7 +76,12 @@ public:
       const std::vector<int> adcSide = {600, 600, 705, 800, 750, 675, 630, 610};
       cscStripDigis->insertDigi(id, CSCStripDigi(31, adcSide));
       cscStripDigis->insertDigi(id, CSCStripDigi(33, adcSide));
-      CSCWireDigi wireDigi(20, 6);
+      // The second argument is a bit mask of time bins, not a bin number.
+      // Bins 6 and 7, which is where a wire signal in time with the bunch
+      // crossing lands: 20_1's cscRecHitD_cfi restricts the wire time window
+      // to bins 5-11 (CSCUseReducedWireTimeWindow, off in the 10_6 era), and
+      // the mask 0x6 used before put this hit in bins 1-2, outside it.
+      CSCWireDigi wireDigi(20, (1 << 6) | (1 << 7));
       cscWireDigis->insertDigi(id, wireDigi);
     }
 
@@ -81,7 +89,7 @@ public:
     // with enough strips
     auto rpcDigis = std::make_unique<RPCDigiCollection>();
     RPCDetId rpcId;
-    for (const auto* roll : rpcGeom->rolls())
+    for (const auto* roll : rpcGeom.rolls())
       if (roll->id().region() == 0 && roll->nstrips() >= 45) {
         rpcId = roll->id();
         break;
@@ -98,6 +106,11 @@ public:
     event.put(std::move(cscWireDigis), "MuonCSCWireDigi");
     event.put(std::move(rpcDigis));
   }
+
+private:
+  const edm::ESGetToken<DTGeometry, MuonGeometryRecord> dtToken_;
+  const edm::ESGetToken<CSCGeometry, MuonGeometryRecord> cscToken_;
+  const edm::ESGetToken<RPCGeometry, MuonGeometryRecord> rpcToken_;
 };
 
 class MuonLocalRecoChecker : public edm::one::EDAnalyzer<> {
@@ -107,19 +120,19 @@ public:
         dtSegsToken_(consumes<DTRecSegment4DCollection>(conf.getParameter<edm::InputTag>("dtSegments"))),
         cscHitsToken_(consumes<CSCRecHit2DCollection>(conf.getParameter<edm::InputTag>("cscRecHits"))),
         cscSegsToken_(consumes<CSCSegmentCollection>(conf.getParameter<edm::InputTag>("cscSegments"))),
-        rpcHitsToken_(consumes<RPCRecHitCollection>(conf.getParameter<edm::InputTag>("rpcRecHits"))) {}
+        rpcHitsToken_(consumes<RPCRecHitCollection>(conf.getParameter<edm::InputTag>("rpcRecHits"))),
+        dtToken_(esConsumes<DTGeometry, MuonGeometryRecord>()),
+        cscToken_(esConsumes<CSCGeometry, MuonGeometryRecord>()),
+        rpcToken_(esConsumes<RPCGeometry, MuonGeometryRecord>()) {}
 
   void analyze(const edm::Event& event, const edm::EventSetup& setup) override {
-    edm::ESHandle<DTGeometry> dtGeom;
-    edm::ESHandle<CSCGeometry> cscGeom;
-    edm::ESHandle<RPCGeometry> rpcGeom;
-    setup.get<MuonGeometryRecord>().get(dtGeom);
-    setup.get<MuonGeometryRecord>().get(cscGeom);
-    setup.get<MuonGeometryRecord>().get(rpcGeom);
+    const DTGeometry& dtGeom = setup.getData(dtToken_);
+    const CSCGeometry& cscGeom = setup.getData(cscToken_);
+    const RPCGeometry& rpcGeom = setup.getData(rpcToken_);
     edm::LogPrint("MuonLocalRecoChecker")
-        << "geometry: " << dtGeom->chambers().size() << " DT chambers, "
-        << cscGeom->chambers().size() << " CSC chambers, "
-        << rpcGeom->rolls().size() << " RPC rolls";
+        << "geometry: " << dtGeom.chambers().size() << " DT chambers, "
+        << cscGeom.chambers().size() << " CSC chambers, "
+        << rpcGeom.rolls().size() << " RPC rolls";
 
     const auto& dtHits = event.get(dtHitsToken_);
     const auto& dtSegs = event.get(dtSegsToken_);
@@ -162,6 +175,9 @@ private:
   edm::EDGetTokenT<CSCRecHit2DCollection> cscHitsToken_;
   edm::EDGetTokenT<CSCSegmentCollection> cscSegsToken_;
   edm::EDGetTokenT<RPCRecHitCollection> rpcHitsToken_;
+  const edm::ESGetToken<DTGeometry, MuonGeometryRecord> dtToken_;
+  const edm::ESGetToken<CSCGeometry, MuonGeometryRecord> cscToken_;
+  const edm::ESGetToken<RPCGeometry, MuonGeometryRecord> rpcToken_;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"

@@ -1,7 +1,13 @@
 # Muon local reco validation: toy DT/CSC/RPC digis -> rec hits -> segments,
 # with the muon geometries built from the DDD XML detector description and
 # fake/parameter-based conditions everywhere.
+#
+# Runs on both releases; the one difference is the muon numbering, below.
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("MUONRECO")
 
@@ -38,6 +44,12 @@ process.XMLIdealGeometryESSource.geomXMLFiles = cms.vstring(
 
 # muon numbering constants + the DT/CSC/RPC geometry builders
 process.load("Geometry.MuonNumbering.muonNumberingInitialization_cfi")
+# 20_1 splits the numbering in two: MuonNumberingInitialization still fills
+# MuonNumberingRecord, but the geometry builders additionally want
+# MuonGeometryConstants in the IdealGeometryRecord, which is a separate ES
+# module that did not exist in the 10_6 era.
+if not _is_10_6:
+    process.load("Geometry.MuonNumbering.muonGeometryConstants_cff")
 process.load("Geometry.DTGeometryBuilder.dtGeometry_cfi")
 process.DTGeometryESModule.applyAlignment = cms.bool(False)
 process.load("Geometry.CSCGeometryBuilder.cscGeometry_cfi")
@@ -81,6 +93,9 @@ process.dt4DSegments.Reco4DAlgoConfig.Reco2DAlgoConfig.perform_delta_rejecting =
 
 # --- CSC: rec hits + segments
 from RecoLocalMuon.CSCRecHitD.cscRecHitD_cfi import csc2DRecHits as _csc2DRecHits
+from RecoLocalMuon.CSCSegment.cscSegments_cfi import cscSegments as _cscSegments
+from RecoLocalMuon.RPCRecHit.rpcRecHits_cfi import rpcRecHits as _rpcRecHits
+
 process.csc2DRecHits = _csc2DRecHits.clone(
     stripDigiTag=cms.InputTag("toyDigis", "MuonCSCStripDigi"),
     wireDigiTag=cms.InputTag("toyDigis", "MuonCSCWireDigi"),
@@ -91,11 +106,9 @@ process.csc2DRecHits = _csc2DRecHits.clone(
     CSCUseTimingCorrections=cms.bool(False),
     CSCUseGasGainCorrections=cms.bool(False),
 )
-from RecoLocalMuon.CSCSegment.cscSegments_cfi import cscSegments as _cscSegments
 process.cscSegments = _cscSegments.clone(inputObjects=cms.InputTag("csc2DRecHits"))
 
 # --- RPC: rec hits (mask/dead lists from the packaged data files)
-from RecoLocalMuon.RPCRecHit.rpcRecHits_cfi import rpcRecHits as _rpcRecHits
 process.rpcRecHits = _rpcRecHits.clone(rpcDigiLabel=cms.InputTag("toyDigis"))
 
 # --- check the outcome

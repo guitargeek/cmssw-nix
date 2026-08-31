@@ -22,7 +22,14 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+// PixelGeomDetUnit.h moved package between the two releases -
+// Geometry/TrackerGeometryBuilder in 10_6, Geometry/CommonTopologies in 20_1 -
+// while StripGeomDetUnit.h, next to it in 10_6, did not move.
+#if __has_include("Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h")
 #include "Geometry/TrackerGeometryBuilder/interface/PixelGeomDetUnit.h"
+#else
+#include "Geometry/CommonTopologies/interface/PixelGeomDetUnit.h"
+#endif
 #include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
 #include "Geometry/CommonTopologies/interface/PixelTopology.h"
 #include "Geometry/CommonTopologies/interface/StripTopology.h"
@@ -48,7 +55,11 @@ namespace {
 class ToyTrackDigiProducer : public edm::stream::EDProducer<> {
 public:
   explicit ToyTrackDigiProducer(const edm::ParameterSet& conf)
-      : bField_(conf.getParameter<double>("bField")) {
+      : bField_(conf.getParameter<double>("bField")),
+        // the token form of EventSetup access: the legacy
+        // setup.get<Record>().get(handle) is gone in 20_1, and this works in
+        // both releases
+        geomToken_(esConsumes<TrackerGeometry, TrackerDigiGeometryRecord>()) {
     for (const auto& ps : conf.getParameter<std::vector<edm::ParameterSet>>("tracks"))
       tracks_.push_back(ToyTrack{ps.getParameter<double>("pt"),
                                  ps.getParameter<double>("phi"),
@@ -59,8 +70,7 @@ public:
   }
 
   void produce(edm::Event& event, const edm::EventSetup& setup) override {
-    edm::ESHandle<TrackerGeometry> geom;
-    setup.get<TrackerDigiGeometryRecord>().get(geom);
+    const TrackerGeometry& geom = setup.getData(geomToken_);
 
     std::map<uint32_t, std::vector<PixelDigi>> pixelsByDet;
     std::map<uint32_t, std::map<int, int>> stripsByDet;
@@ -69,7 +79,7 @@ public:
     for (const auto& track : tracks_) {
       // CMS convention: a positive charge in +Bz curves towards negative phi
       const double kappa = -track.charge * 0.3 * bField_ / (100. * track.pt);
-      for (const auto* det : geom->detUnits()) {
+      for (const auto* det : geom.detUnits()) {
         const double rDet = det->surface().position().perp();
         if (rDet < 2. || rDet > 115.)
           continue;
@@ -158,6 +168,7 @@ public:
 
 private:
   double bField_;
+  const edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> geomToken_;
   std::vector<ToyTrack> tracks_;
 };
 

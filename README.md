@@ -258,6 +258,43 @@ or ONNXRuntime externals (DeepMET, DeepTau, DeepJet — pruned at prepare
 time), the HLT/trigger tooling (would need the `utm` external), and the
 generator packages.
 
+### The examples run on both releases
+
+Eight of the eleven examples now run on **both** `CMSSW_10_6_30` and
+`CMSSW_20_1_0_pre2` from the *same* configuration file, with the handful of
+differences between the releases behind an `_is_10_6` switch and commented
+where they appear. That is deliberate: a separate 20_1 copy of a 300-line
+configuration is a copy that silently drifts, and the differences are far more
+useful written down next to the thing that differs. What actually changed
+between the two releases, in one list:
+
+* **Geometry.** The muon geometry builders want `MuonGeometryConstants` in the
+  `IdealGeometryRecord` on top of the old `MuonNumberingRecord`; the tracker
+  ES modules have to be told `fromDD4hep=False` (the classic DDD path is still
+  there); the tracker digi geometry gained
+  `PTrackerAdditionalParametersPerDetRcd`; `CaloTowerTopology_cfi` became a
+  shim over a generated cfi this build does not emit.
+* **Conditions consolidation.** The strip clusteriser and the HBHE
+  reconstructor each read one bundled record
+  (`SiStripClusterizerConditionsRcd`, `HcalChannelPropertiesRecord`) where
+  they used to fetch the individual payloads; the hardcoded HCAL
+  calibrations additionally want the ZDC topology.
+* **Parameter renames.** `siPixelQualityLabel` → `siPixelQualityFromDbLabel`,
+  the clusteriser's `QualityLabel` → `ConditionsLabel`,
+  `MaxNumberOfCosmicClusters` → `MaxNumberOfStripClusters`; the generic pixel
+  CPE dropped `PixelErrorParametrization` and `useLAAlignmentOffsets`, and
+  `SiPixelRecHitConverter` dropped `VerboseLevel`.
+* **New dependencies.** The hit-pair generator asks for the
+  multiple-scattering parametrisation through a record of its own.
+* **API.** The legacy `setup.get<Record>().get(handle)` is gone; the token
+  form works in both releases, so the plugins simply use it. `BeamSpotObjects`
+  renamed its accessors and `PoolDBOutputService::writeOne` became
+  `writeOneIOV` - the two places where a plugin needs `#ifdef CMSSW_10_6_ERA`.
+  `PixelGeomDetUnit.h` moved package, which `__has_include` sorts out.
+
+Three examples stay on 10_6: `MuonGunSim`, `MuonGunDigi` and `NanoGen` need
+Geant4 10 and Pythia 8, neither of which is built for the modern release.
+
 ### The same scope for `CMSSW_20_1_0_pre2`
 
 The modern release is built to the same scope (472 packages): the local

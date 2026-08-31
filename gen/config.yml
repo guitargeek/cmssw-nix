@@ -490,7 +490,6 @@ subsystems:
     RecoTracker:
         no_plugins:
           - FinalTrackSelectors
-          - TkSeedGenerator
         whitelist:
           - CkfPattern
           - ConversionSeedGenerators
@@ -570,6 +569,19 @@ subsystems:
           - Common
           - TrackAssociation
           - TrackerHitAssociation
+    TauAnalysis:
+        # Python only, and not because anything here embeds taus. The
+        # release's own local-reco cfis - ecalRecHit, cscRecHitD, cscSegments,
+        # rpcRecHits, dt1DRecHits_LinearDriftFromDB - all end with an
+        # unconditional module-level
+        #     from TauAnalysis.MCEmbeddingTools.Cleaning_RECO_cff import ...
+        # for a process modifier nothing turns on, so none of them can be
+        # imported at all unless this package's python is installed. The
+        # package has no src/, and its plugins need the PAT layer, so only the
+        # python and headers go in.
+        no_plugins: true
+        whitelist:
+          - MCEmbeddingTools
     TrackPropagation:
         whitelist:
           - RungeKutta

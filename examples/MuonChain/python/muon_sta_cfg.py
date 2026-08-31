@@ -8,7 +8,13 @@
 # propagation is wrong from the first station on and no track comes out. The
 # volume-based engine (see examples/MagneticFieldMap) gives the right field
 # there.
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+# Runs on both releases. 20_1 needs two extra ES modules that did not exist in
+# the 10_6 era - see the two `_is_10_6` guards below - and nothing else.
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("MUONSTA")
 
@@ -45,6 +51,12 @@ process.XMLIdealGeometryESSource.geomXMLFiles = cms.vstring(
 )
 process.TrackerParametersESModule = cms.ESProducer("TrackerParametersESModule")
 process.trackerTopology = cms.ESProducer("TrackerTopologyEP")
+# New in 20_1: the tracker digi geometry depends on a per-det additional
+# parameters record that did not exist in the 10_6 era.
+if not _is_10_6:
+    process.TrackerAdditionalParametersPerDetESModule = cms.ESProducer(
+        "TrackerAdditionalParametersPerDetESModule"
+    )
 # ... and the muon navigation is defined over tracker *and* muon layers, so
 # the tracker reco geometry has to be there as well (it stays empty of hits)
 process.TrackerGeometricDetESModule = cms.ESProducer(
@@ -62,6 +74,11 @@ process.load("RecoTracker.GeometryESProducer.TrackerRecoGeometryESProducer_cfi")
 process.load("TrackingTools.RecoGeometry.GlobalDetLayerGeometryESProducer_cfi")
 
 process.load("Geometry.MuonNumbering.muonNumberingInitialization_cfi")
+# 20_1 splits the muon numbering in two: MuonNumberingInitialization still
+# fills MuonNumberingRecord, but the geometry builders additionally want
+# MuonGeometryConstants in the IdealGeometryRecord.
+if not _is_10_6:
+    process.load("Geometry.MuonNumbering.muonGeometryConstants_cff")
 process.load("Geometry.DTGeometryBuilder.dtGeometry_cfi")
 process.DTGeometryESModule.applyAlignment = cms.bool(False)
 process.load("Geometry.CSCGeometryBuilder.cscGeometry_cfi")

@@ -2,7 +2,13 @@
 # calibrated rec hits -> calo towers, with the CaloGeometry built from the
 # DDD XML detector description and all conditions from the trivial (Ecal) /
 # fake (Hcal) conditions providers.
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+# Runs on both releases. Three cfi names differ; each is commented where it is
+# used, and nothing else about the configuration changes.
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("CALORECO")
 
@@ -67,7 +73,11 @@ process.hcalTopologyIdeal = cms.ESProducer(
 process.load("Geometry.EcalAlgo.EcalGeometry_cfi")
 process.load("Geometry.HcalEventSetup.HcalGeometry_cfi")
 process.load("Geometry.HcalEventSetup.CaloTowerGeometry_cfi")
-process.load("Geometry.HcalEventSetup.CaloTowerTopology_cfi")
+# Declared directly rather than loaded: in 20_1 the cfi of that name is a
+# backwards-compatibility shim that imports CaloTowerTopologyEP_cfi, which is
+# scram-generated and not part of this build. The module takes no parameters,
+# and this is exactly what the 10_6 cfi contains.
+process.CaloTowerTopologyEP = cms.ESProducer("CaloTowerTopologyEP")
 process.load("Geometry.CaloEventSetup.CaloGeometryBuilder_cfi")
 process.CaloGeometryBuilder.SelectedCalos = cms.vstring(
     "HCAL", "EcalBarrel", "EcalEndcap", "TOWER"
@@ -86,6 +96,16 @@ process.EcalTrivialConditionRetriever.EESimPulseShapeFile = cms.untracked.string
 process.EcalTrivialConditionRetriever.APDSimPulseShapeFile = cms.untracked.string("data/APD_SimPulseShape.txt")
 process.load("CalibCalorimetry.EcalLaserCorrection.ecalLaserCorrectionService_cfi")
 process.load("CalibCalorimetry.HcalPlugins.Hcal_Conditions_forGlobalTag_cff")
+# New in 20_1: HcalHardcodeCalibrations reaches for the ZDC topology as well,
+# through the same HcalRecNumberingRecord. Nothing here reconstructs the ZDC -
+# it is 140 m down the beam line - but the record has to be complete.
+if not _is_10_6:
+    process.zdcTopologyEP = cms.ESProducer("ZdcTopologyEP")
+    # Also new in 20_1: the HBHE reconstructor reads its per-channel
+    # calibrations through one bundled HcalChannelPropertiesRecord instead of
+    # fetching the individual payloads itself - the same consolidation the
+    # strip clusteriser went through (see examples/TrackerLocalReco).
+    process.hcalChannelPropertiesEP = cms.ESProducer("HcalChannelPropertiesEP")
 process.es_hardcode.toGet = cms.untracked.vstring(
     "GainWidths", "Gains", "Pedestals", "PedestalWidths",
     "EffectivePedestals", "EffectivePedestalWidths",
@@ -155,9 +175,20 @@ process.emptyHcalRecHits = cms.EDProducer("EmptyHcalRecHitProducer")
 
 # --- Ecal: weights-method uncalibrated rec hits, then calibrated rec hits
 # (no dead-channel recovery: that would need the trigger-primitive path)
-from RecoLocalCalo.EcalRecProducers.ecalWeightUncalibRecHit_cfi import (
-    ecalWeightUncalibRecHit as _ecalWeightUncalibRecHit,
-)
+# The 20_1 ecalWeightUncalibRecHit_cfi is a one-line shim over a generated
+# cfi (ecalWeightsUncalibRecHitProducer_cfi) that this build does not produce:
+# EcalUncalibRecHitProducer registers several named descriptions, one per
+# amplitude-reconstruction worker, and the generator emits only one of them.
+# The one it does emit, ecalUncalibRecHit, is byte for byte what the 10_6
+# hand-written cfi contains - the weights worker with an empty algoPSet.
+if _is_10_6:
+    from RecoLocalCalo.EcalRecProducers.ecalWeightUncalibRecHit_cfi import (
+        ecalWeightUncalibRecHit as _ecalWeightUncalibRecHit,
+    )
+else:
+    from RecoLocalCalo.EcalRecProducers.ecalUncalibRecHit_cfi import (
+        ecalUncalibRecHit as _ecalWeightUncalibRecHit,
+    )
 process.ecalWeightUncalibRecHit = _ecalWeightUncalibRecHit.clone(
     EBdigiCollection=cms.InputTag("toyDigis"),
     EEdigiCollection=cms.InputTag("toyDigis"),

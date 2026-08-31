@@ -12,6 +12,9 @@ set(CMSSW_BASE $ENV{CMSSW_BASE})
 # C++17 for the 10_6 era).
 if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
   set(CMAKE_CXX_STANDARD 17)
+  # BeamSpotObjects renamed its accessors and PoolDBOutputService its write
+  # method between the two releases; the plugins spell both through macros.
+  add_compile_definitions(CMSSW_10_6_ERA)
 else()
   set(CMAKE_CXX_STANDARD 20)
 endif()

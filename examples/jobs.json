@@ -14,8 +14,14 @@
   ],
 
   "20_1": [
-    { "dir": "TrackerLocalReco", "cfgs": ["python/write_pixel_la_20_1_cfg.py", "python/tracker_localreco_20_1_cfg.py"] },
-    { "dir": "MyAnalyzer",       "cfgs": ["python/write_cfg.py", "python/read_cfg.py"] }
+    { "dir": "MyAnalyzer",       "cfgs": ["python/write_cfg.py", "python/read_cfg.py"] },
+    { "dir": "TrackerLocalReco", "cfgs": ["python/write_pixel_la_20_1_cfg.py", "python/tracker_localreco_cfg.py"] },
+    { "dir": "CaloLocalReco",    "cfgs": ["python/calo_localreco_cfg.py"] },
+    { "dir": "MuonLocalReco",    "cfgs": ["python/muon_localreco_cfg.py"] },
+    { "dir": "TrackingChain",    "cfgs": ["python/write_pixel_la_20_1_cfg.py", "python/tracking_chain_cfg.py", "python/ckf_chain_cfg.py"] },
+    { "dir": "MagneticFieldMap", "cfgs": ["python/magfield_cfg.py"] },
+    { "dir": "MuonChain",        "cfgs": ["python/muon_sta_cfg.py"] },
+    { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] }
   ],
 
   "_excluded": {

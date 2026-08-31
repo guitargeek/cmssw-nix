@@ -17,6 +17,32 @@
 
 #include <iostream>
 
+// The two releases disagree about the names of everything this module
+// touches. CMSSW_10_6_ERA is defined by CMakeLists.txt for the old release;
+// the modern spellings are the default.
+//
+//   BeamSpotObjects   SetPosition/SetSigmaZ/SetType/SetCovariance
+//                  -> setPosition/setSigmaZ/setType/setCovariance
+//   PoolDBOutputService  writeOne(T*, ...) -> writeOneIOV(const T&, ...)
+//
+// The rename is not cosmetic in the second case: the old signature took a
+// pointer and the new one takes a const reference, so the ownership question
+// the old comment here had to answer ("writeOne copies the payload, so the
+// stack object is fine") no longer arises.
+#ifdef CMSSW_10_6_ERA
+#define BS_SET_POSITION SetPosition
+#define BS_SET_SIGMAZ SetSigmaZ
+#define BS_SET_TYPE SetType
+#define BS_SET_COVARIANCE SetCovariance
+#define BS_WRITE_ONE(db, payload, time, record) db->writeOne(&(payload), time, record)
+#else
+#define BS_SET_POSITION setPosition
+#define BS_SET_SIGMAZ setSigmaZ
+#define BS_SET_TYPE setType
+#define BS_SET_COVARIANCE setCovariance
+#define BS_WRITE_ONE(db, payload, time, record) db->writeOneIOV(payload, time, record)
+#endif
+
 class BeamSpotDBWriter : public edm::one::EDAnalyzer<edm::one::SharedResources> {
 public:
   explicit BeamSpotDBWriter(const edm::ParameterSet& ps)
@@ -40,13 +66,13 @@ void BeamSpotDBWriter::analyze(const edm::Event& event, const edm::EventSetup&) 
     return;
 
   BeamSpotObjects payload;
-  payload.SetPosition(x_, y_, z_);
-  payload.SetSigmaZ(sigmaZ_);
-  payload.SetType(1);
-  // a diagonal covariance, so the Get*Error() accessors have something to
-  // take the square root of on the way back
+  payload.BS_SET_POSITION(x_, y_, z_);
+  payload.BS_SET_SIGMAZ(sigmaZ_);
+  payload.BS_SET_TYPE(1);
+  // a diagonal covariance, so the error accessors have something to take the
+  // square root of on the way back
   for (int i = 0; i < 7; ++i) {
-    payload.SetCovariance(i, i, 1e-4);
+    payload.BS_SET_COVARIANCE(i, i, 1e-4);
   }
 
   edm::Service<cond::service::PoolDBOutputService> db;
@@ -54,9 +80,8 @@ void BeamSpotDBWriter::analyze(const edm::Event& event, const edm::EventSetup&) 
     throw cms::Exception("Configuration") << "PoolDBOutputService is not configured";
   }
 
-  // writeOne copies the payload (storePayload takes a const reference), so
-  // the stack object above is fine - it does not take ownership.
-  db->writeOne(&payload, db->beginOfTime(), record_);
+  // The service copies the payload; the stack object above is fine.
+  BS_WRITE_ONE(db, payload, db->beginOfTime(), record_);
   written_ = true;
 
   std::cout << "wrote " << record_ << " for run " << event.id().run() << ": "

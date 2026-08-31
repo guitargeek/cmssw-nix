@@ -98,15 +98,18 @@ public:
   explicit CaloLocalRecoChecker(const edm::ParameterSet& conf)
       : ebHitsToken_(consumes<EBRecHitCollection>(conf.getParameter<edm::InputTag>("ebRecHits"))),
         hbheHitsToken_(consumes<HBHERecHitCollection>(conf.getParameter<edm::InputTag>("hbheRecHits"))),
-        towersToken_(consumes<CaloTowerCollection>(conf.getParameter<edm::InputTag>("towers"))) {}
+        towersToken_(consumes<CaloTowerCollection>(conf.getParameter<edm::InputTag>("towers"))),
+        // the token form of EventSetup access: the legacy
+        // setup.get<Record>().get(handle) is gone in 20_1, and this works in
+        // both releases
+        geomToken_(esConsumes<CaloGeometry, CaloGeometryRecord>()) {}
 
   void analyze(const edm::Event& event, const edm::EventSetup& setup) override {
-    edm::ESHandle<CaloGeometry> geom;
-    setup.get<CaloGeometryRecord>().get(geom);
+    const CaloGeometry& geom = setup.getData(geomToken_);
     edm::LogPrint("CaloLocalRecoChecker")
-        << "geometry: " << geom->getValidDetIds(DetId::Ecal, EcalBarrel).size()
-        << " EB cells, " << geom->getValidDetIds(DetId::Hcal, HcalBarrel).size()
-        << " HB cells, " << geom->getValidDetIds(DetId::Calo, CaloTowerDetId::SubdetId).size()
+        << "geometry: " << geom.getValidDetIds(DetId::Ecal, EcalBarrel).size()
+        << " EB cells, " << geom.getValidDetIds(DetId::Hcal, HcalBarrel).size()
+        << " HB cells, " << geom.getValidDetIds(DetId::Calo, CaloTowerDetId::SubdetId).size()
         << " tower cells";
 
     const auto& ebHits = event.get(ebHitsToken_);
@@ -145,6 +148,7 @@ private:
   edm::EDGetTokenT<EBRecHitCollection> ebHitsToken_;
   edm::EDGetTokenT<HBHERecHitCollection> hbheHitsToken_;
   edm::EDGetTokenT<CaloTowerCollection> towersToken_;
+  const edm::ESGetToken<CaloGeometry, CaloGeometryRecord> geomToken_;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
