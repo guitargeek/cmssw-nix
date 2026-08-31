@@ -49,6 +49,13 @@ target_link_libraries(MuonGunDigiTestPlugins
   DataFormatsTrackReco
   DataFormatsVertexReco
   SimDataFormatsVertex
+  # the nanoAOD flat table over reco::Muon (plugins/RecoMuonFlatTableProducer.cc)
+  DataFormatsMuonReco
+  DataFormatsNanoAOD
+  CommonToolsUtils
+  # the empty CSC/RPC collections (plugins/EmptyMuonCollectionProducers.cc)
+  DataFormatsCSCRecHit
+  DataFormatsRPCRecHit
   ROOT::Core
   ${TBB_LIBS}
 )

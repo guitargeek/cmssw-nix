@@ -13,6 +13,18 @@ readable by the same reconstruction that runs on detector data — the chain
 [examples/TrackerLocalReco](../TrackerLocalReco) demonstrates on digis it
 builds by hand.
 
+The example did not stay at digitisation. It now runs the whole chain in six
+jobs, each measuring something with a known right answer:
+
+| job | stage | what it measures |
+| --- | --- | --- |
+| `write_sim_conditions_cfg.py` | conditions | writes the payloads the digitisers need |
+| `muon_gun_digi_cfg.py` | GEN + SIM + DIGI | every hit module digitises |
+| `muon_gun_reco_cfg.py` | local reco | rec-hit residuals: 9 um pixel, 24 um strip |
+| `muon_gun_tracks_cfg.py` | tracking + vertexing | 0.81% momentum, 8.8 um vertex |
+| `muon_gun_muons_cfg.py` | muon system | 23% momentum, standalone |
+| `muon_gun_nano_cfg.py` | global muons + NanoAOD | 0.87% momentum, in a flat table |
+
 Needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`).
 
 ## The digitisers live inside the mixing module
@@ -272,6 +284,98 @@ would have turned a real geometric degeneracy into a passing test.
 [examples/MuonGunSim](../MuonGunSim) keeps the back-to-back pair, which is
 all it needs.
 
+## reco::Muon, and the end of the chain
+
+`python/muon_gun_nano_cfg.py` does the two things that turn reconstructed
+objects into an analysis.
+
+First it combines the two independent measurements of the same muon.
+`GlobalMuonProducer` takes a standalone track, finds the tracker track
+compatible with it once both are propagated to a common surface, and refits
+the hits of both as one trajectory; `MuonIdProducer` collects the result into
+`reco::Muon`, the object an analysis actually asks for. Because the global fit
+needs the tracker and the muon system in the same process, this job is the
+tracking job and the muon job in one — everything up to the primary vertex is
+`muon_gun_tracks_cfg.py` verbatim.
+
+```
+tracker:    18/20 muons (90%), median |dpt|/pt =  0.81%
+standalone: 15/20 muons (75%), median |dpt|/pt = 23.0%
+global:     15/20 muons (75%), median |dpt|/pt =  0.87%,  chi2/ndof 0.87
+```
+
+The global fit lands next to the tracker, which is the right answer at these
+momenta: adding a 23% measurement to a 0.8% one cannot improve it much. CMS
+combines them anyway because above a few hundred GeV the tracker curvature
+gets small and the muon system's lever arm starts to win — this gun does not
+reach there. The efficiency is the standalone stage's 75%: **every standalone
+muon found its tracker track**. And the quality line reports 14 tracker layers
+and 4 pixel layers in the fit, so the tracker hits really are in it.
+
+That last number is also a partial answer to the open question above. The
+standalone fits give chi2/ndof around 110; the global fit of the same muons,
+over the same muon hits plus the tracker's, gives 0.87. Whatever is wrong in
+the standalone fit does not survive the combination.
+
+Then it writes **NanoAOD** — not a POOL file of C++ objects that only CMSSW
+can open, but a flat `TTree` of plain branches, `Muon_pt` next to
+`GenPart_pdgId`, readable by bare ROOT, uproot or pandas. The shipped nano
+muon table reads `pat::Muon` and fills some eighty columns of identification
+and isolation that do not exist here; `plugins/RecoMuonFlatTableProducer.cc`
+instantiates the same flat-table template over `reco::Muon` instead. (The
+generic `reco::Candidate` instantiation would accept a muon, but the
+variable expressions are parsed against the declared type, so through a
+`View<reco::Candidate>` only the four-momentum and the charge are reachable.)
+
+`python/muon_gun_nano_cfg_check.py` then reads that file the way an analysis
+would, with no CMSSW involved at all, matches every `GenPart` muon to the
+nearest `Muon` and compares their momenta:
+
+```
+muon_gun_nano.root: 5 events, 20 generated muons
+  reconstructed 15 (75%), 15 of them global
+  median |dpt|/pt = 0.900%, correct charge 15/15
+```
+
+Which closes the loop these examples opened: a muon is generated, transported
+through the detector by Geant4, digitised into detector readout, reconstructed
+from that readout alone, and comes out the far end as a number in a flat table
+that agrees with the one the gun was given.
+
+### Three things MuonIdProducer does whether or not it is asked to
+
+None of them is a bug; all three are the same shape, and all three cost a run
+to find. `MuonIdProducer` has a switch for each of its optional outputs, and
+the work happens before the switch is consulted.
+
+* **The calo-compatibility templates.** Two histogram files that live outside
+  the release — `RecoMuon/MuonIdentification/data` holds a `download.url`
+  pointing at `cmsdoc.cern.ch`, and this build does not fetch them. They are
+  opened only when `fillCaloCompatibility` is on, which it is not, but the
+  `edm::FileInPath` in the PSet resolves when the configuration is translated,
+  before any module is constructed. The whole block has to be deleted. This is
+  the fourth data file in this flake with exactly that shape.
+* **The tracker-muon loop.** It builds a candidate from every inner track and
+  calls the track-detector association on it *before* any fill flag is
+  consulted, which demands a calorimeter geometry this job does not have. The
+  fix is to not hand it `generalTracks` at all: with segment matching off,
+  tracker muons cannot be identified anyway, and a global muon carries its
+  inner track through the link that made it.
+* **The timing filler.** It runs unconditionally, and hands every muon to
+  `MuonSegmentMatcher`, which fetches the CSC segments and RPC rec hits before
+  it can know that a barrel muon will have neither. `UseCSC = False` only
+  affects how the measurements are *combined*, not whether they are fetched.
+  Nothing here reconstructs CSC or RPC — the gun fires into `|eta| < 0.8` and
+  there are no such digis in the file — so
+  `plugins/EmptyMuonCollectionProducers.cc` produces both collections empty,
+  which is what their local reconstruction would produce if it were run.
+
+A fourth, of a different kind: `globalMuons_cff` puts back every pixel-CPE
+default the tracking configuration had to turn off — Lorentz-angle widths,
+alignment offsets and templates read from payloads that do not exist here.
+`MeasurementTrackerESProducer_cff` does the same thing earlier in the same
+file. Each time they have to be turned off again *after* the load.
+
 ## The pixel Lorentz angle, and a conditions bug the residuals caught
 
 The residual test earned its place here. With the pixel digitiser turned
@@ -376,4 +480,6 @@ python3 python/muon_gun_digi_cfg_check.py
 cmsRun python/muon_gun_reco_cfg.py
 cmsRun python/muon_gun_tracks_cfg.py
 cmsRun python/muon_gun_muons_cfg.py
+cmsRun python/muon_gun_nano_cfg.py
+python3 python/muon_gun_nano_cfg_check.py
 ```

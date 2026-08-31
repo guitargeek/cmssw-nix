@@ -197,6 +197,22 @@ physics — metres of calorimeter and iron between the two — and the
 standalone fit is a second, independent probe of the field map in a region
 the tracker never samples.
 
+**The two measurements are then combined, and the result written as
+NanoAOD.** `GlobalMuonProducer` matches each standalone track to its tracker
+track and refits the hits of both as one trajectory; `MuonIdProducer` turns
+that into the `reco::Muon` an analysis asks for; and a flat-table producer
+over `reco::Muon` writes `Muon_pt` next to `GenPart_pdgId` into a real
+NanoAOD file. The global fit gives 0.87%, next to the tracker's 0.81% — the
+right answer at these momenta, since adding a 23% measurement to a 0.8% one
+cannot improve it much. Every standalone muon found its tracker track.
+
+That file is then read the way an analysis reads it — plain ROOT, no CMSSW,
+no dictionaries — and every generated muon is matched back to a
+reconstructed one. **This is the chain end to end**: a muon is generated,
+transported through the detector by Geant4, digitised into detector readout,
+reconstructed from that readout alone, and comes out the far end as a number
+in a flat table that agrees with the one the gun was given.
+
 With the real field in place, **standalone muon reconstruction** works: a
 50 GeV muon stepped out of the origin through that field leaves DT digis in
 four barrel chambers, and the standard chain (rec hits → 4D segments →
@@ -294,7 +310,11 @@ full 2018 geometry with Geant4 and counts the SimHits they leave.
 [examples/MuonGunDigi](examples/MuonGunDigi) digitises those hits into pixel and strip
 readout digis, reading its simulated conditions from a local sqlite database,
 and then reconstructs them back into rec hits that sit 21 um from the
-simulated impact points, then tracks them, measures the momentum to 0.8%, fits the primary vertex to within 9 um of where the gun fired, and measures the same muons again in the muon chambers alone.
+simulated impact points, then tracks them, measures the momentum to 0.8%, fits
+the primary vertex to within 9 um of where the gun fired, measures the same
+muons again in the muon chambers alone, combines the two measurements into
+`reco::Muon`s, and writes them to a NanoAOD file that plain ROOT reads back
+and matches to the generated muons.
 
 ## Testing
 

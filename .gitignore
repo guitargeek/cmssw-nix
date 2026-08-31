@@ -10,6 +10,7 @@ examples/MyAnalyzer/myelectrons.root
 examples/MiniAODReader/miniaod.root
 examples/MuonGunSim/muon_gun_sim.root
 examples/MuonGunDigi/muon_gun_digi.root
+examples/MuonGunDigi/muon_gun_nano.root
 examples/MuonGunDigi/sim_conditions.db
 *.pyc
 __pycache__/
