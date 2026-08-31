@@ -14,12 +14,12 @@
   ],
 
   "20_1": [
+    { "dir": "TrackerLocalReco", "cfgs": ["python/write_pixel_la_20_1_cfg.py", "python/tracker_localreco_20_1_cfg.py"] },
     { "dir": "MyAnalyzer",       "cfgs": ["python/write_cfg.py", "python/read_cfg.py"] }
   ],
 
   "_excluded": {
     "ConditionsFrontier": "the transport works, but cmsRun aborts at exit - see that example's README",
-    "MiniAODReader": "needs a CMS Open Data file that is not in the store",
-    "TrackerLocalReco/python/tracker_localreco_20_1_cfg.py": "not working yet - see the header of the config"
+    "MiniAODReader": "needs a CMS Open Data file that is not in the store"
   }
 }

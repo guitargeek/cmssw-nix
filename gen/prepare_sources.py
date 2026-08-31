@@ -205,18 +205,23 @@ for inspector in ["cmssw/CondCore/BeamSpotPlugins/plugins/BuildFile.xml"]:
     if os.path.exists(inspector):
         os.remove(inspector)
 
-# CondCore/SiStripPlugins is not all payload inspectors: plugins/plugin.cc is
-# the REGISTER_PLUGIN list that gives PoolDBESSource its record proxies for
-# the SiStrip payloads. Without it, reading any SiStrip record out of a
-# conditions database fails with
+# The CondCore/<Sub>Plugins packages are not all payload inspectors:
+# plugins/plugin.cc is the REGISTER_PLUGIN list that gives PoolDBESSource
+# its record proxies for that subsystem's payloads. Without it, reading any
+# such record out of a conditions database fails with
 #   Unable to find plugin 'SiStripLorentzAngleSimRcd@NewProxy'
-# which is what the strip digitiser needs (examples/MuonGunDigi). So keep that
-# one library and drop the eleven inspectors beside it - they are the web
-# display tool, they need boost_python, and dropping them also removes the
-# only reason this build would want CommonTools/TrackerMap and
+# which is what the strip digitiser needs (examples/MuonGunDigi), and the
+# same for the pixel payloads in 20_1 (examples/TrackerLocalReco).
+#
+# So keep that one library and drop the inspectors beside it. They are the
+# web display tool and they need python headers - boost_python in the 10_6
+# era, pybind11 in 20_1, neither of which this build provides. Dropping
+# them also removes the only reason to want CommonTools/TrackerMap and
 # CalibTracker/StandaloneTrackerTopology.
-path = "cmssw/CondCore/SiStripPlugins/plugins/BuildFile.xml"
-if os.path.exists(path):
+for _sub in ("SiStripPlugins", "SiPixelPlugins"):
+    path = "cmssw/CondCore/%s/plugins/BuildFile.xml" % _sub
+    if not os.path.exists(path):
+        continue
     edit(path, lambda xml: re.sub(
         r'<library\s+file="[^"]*_PayloadInspector\.cc"[^>]*>.*?</library>\n?',
         "", xml, flags=re.DOTALL))

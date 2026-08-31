@@ -33,7 +33,9 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Utilities/interface/Exception.h"
-#include "Geometry/CommonDetUnit/interface/GeomDet.h"
+// GeomDet comes in through TrackerGeometry.h. Including it directly would
+// need a release-dependent path: Geometry/CommonDetUnit in 10_6,
+// Geometry/CommonTopologies in 20_1.
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 

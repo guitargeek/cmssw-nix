@@ -25,6 +25,15 @@ find_package(Boost REQUIRED)
 find_library(TBB_LIBS NAMES tbb REQUIRED)
 
 file(GLOB PLUGIN_FILES plugins/*.cc)
+
+# PixelLorentzAngleWriter exists for the 20_1 configuration, which has no
+# usable SiPixelFakeLorentzAngleESSource (see the file's header). It uses
+# PoolDBOutputService::writeOneIOV, which 10_6 does not have - 10_6 still
+# has the separate createNewIOV/appendSinceTime pair - and the 10_6
+# configuration does not need the writer at all, so leave it out there.
+if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
+  list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/PixelLorentzAngleWriter.cc)
+endif()
 add_library(TrackerLocalRecoTestPlugins SHARED ${PLUGIN_FILES})
 set_target_properties(TrackerLocalRecoTestPlugins PROPERTIES PREFIX "plugin")
 
@@ -50,6 +59,9 @@ target_link_libraries(TrackerLocalRecoTestPlugins
   GeometryCommonTopologies
   ${GEOMETRY_COMMONDETUNIT}
   GeometryRecords
+  FWCoreServiceRegistry
+  CondFormatsSiPixelObjects
+  CondCoreDBOutputService
   ROOT::Core
   ${TBB_LIBS}
 )

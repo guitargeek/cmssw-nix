@@ -4,15 +4,29 @@
 # off the very same 2016 XML detector description; the ES modules just have to
 # be told which of the two descriptions to read (`fromDDD` / `fromDD4hep`).
 #
-# *** NOT WORKING YET *** Two open issues:
-#  * SiPixelFakeLorentzAngleESSource's generated defaults point at
-#    SLHCUpgradeSimulations/Geometry/data (a data-only package not in the
-#    build), and FileInPath defaults are resolved during validation even
-#    when overridden here;
-#  * with that file staged, building the TrackerGeometry from the DDD XML
-#    spins for >10 minutes without reaching the event loop (the identical
-#    XML list takes ~1 minute in 10_6) - not yet diagnosed.
+# Three things differ from the 10_6 configuration beyond fromDDD/fromDD4hep,
+# and none of them is obvious from the 10_6 version:
 #
+#  * SiPixelFakeLorentzAngleESSource cannot be used at all. Its
+#    fillDescriptions default is a FileInPath into
+#    SLHCUpgradeSimulations/Geometry, a data-only package that is not in
+#    this build, and edm::FileInPath resolves when the *description* is
+#    built - during validation, whatever this configuration sets. The
+#    payload is written instead by python/write_pixel_la_20_1_cfg.py, over
+#    the DetIds of the geometry actually loaded; run that first.
+#
+#  * The strip clusteriser takes its conditions from one bundled
+#    SiStripClusterizerConditionsRcd rather than reaching for SiStripGain,
+#    SiStripNoises and SiStripQuality separately.
+#
+#  * The tracker digi geometry depends on a new per-det record,
+#    PTrackerAdditionalParametersPerDetRcd.
+#
+# An earlier note here recorded that building the TrackerGeometry from the
+# DDD XML spun for over ten minutes in 20_1 against about a minute in 10_6.
+# That is no longer true - the same 198 XML files build in under three
+# seconds - and it was fixed by some other change to the build rather than
+# by anything here.
 # The other difference to the 10_6 configuration: the strip fake ES sources
 # read the module list from a FileInPath of their own instead of from the
 # SiStripDetInfoFileReader service, which no longer exists.
@@ -48,6 +62,11 @@ process.TrackerParametersESModule = cms.ESProducer(
     "TrackerParametersESModule", fromDD4hep=cms.bool(False)
 )
 # per-det additional parameters: a 20_1 addition, the digi geometry consumes it
+process.TrackerAdditionalParametersPerDetESModule = cms.ESProducer(
+    "TrackerAdditionalParametersPerDetESModule"
+)
+# New in 20_1: the tracker digi geometry depends on a per-det additional
+# parameters record that did not exist in the 10_6 era.
 process.TrackerAdditionalParametersPerDetESModule = cms.ESProducer(
     "TrackerAdditionalParametersPerDetESModule"
 )
@@ -162,12 +181,36 @@ process.siStripGainESProducer = cms.ESProducer(
 
 # --- fake pixel conditions
 process.load("CalibTracker.SiPixelESProducers.SiPixelFakeGainOfflineESSource_cfi")
-process.load("CalibTracker.SiPixelESProducers.SiPixelFakeLorentzAngleESSource_cfi")
+# NOT the fake Lorentz angle source. Its fillDescriptions default is
+#   edm::FileInPath("SLHCUpgradeSimulations/Geometry/data/PhaseI/
+#                    PixelSkimmedGeometry_phase1.txt")
+# and the FileInPath constructor runs when the description is built, during
+# validation, whatever this configuration sets - so the job dies before any
+# module exists, over a data-only package that is not in the build. The
+# payload is written instead by python/write_pixel_la_20_1_cfg.py; run that
+# first.
+process.load("CondCore.CondDB.CondDB_cfi")
+process.CondDB.connect = cms.string("sqlite_file:pixel_la.db")
+process.pixelConditions = cms.ESSource(
+    "PoolDBESSource",
+    process.CondDB,
+    toGet=cms.VPSet(
+        cms.PSet(
+            record=cms.string("SiPixelLorentzAngleRcd"),
+            tag=cms.string("SiPixelLorentzAngle_ideal"),
+        ),
+    ),
+)
 
 # --- the toy digis
 process.toyDigis = cms.EDProducer("ToyTrackerDigiProducer")
 
 # --- strip clusterizer (standard three-threshold algorithm)
+# New in 20_1: the strip clusteriser takes its conditions from one bundled
+# record instead of reaching for SiStripGain, SiStripNoises and
+# SiStripQuality individually.
+process.load("RecoLocalTracker.SiStripClusterizer.SiStripClusterizerConditionsESProducer_cfi")
+
 process.siStripClusters = cms.EDProducer(
     "SiStripClusterizer",
     Clusterizer=cms.PSet(
@@ -249,7 +292,6 @@ process.siPixelRecHits = cms.EDProducer(
     "SiPixelRecHitConverter",
     src=cms.InputTag("siPixelClusters"),
     CPE=cms.string("PixelCPEGeneric"),
-    VerboseLevel=cms.untracked.int32(0),
 )
 
 # --- check the outcome

@@ -67,6 +67,15 @@ subsystems:
           - DBOutputService
           - ESSources
           - PluginSystem
+          # the conditions proxies for the SiPixel payloads: without them a
+          # PoolDBESSource asked for a pixel record fails with
+          # "Unable to find plugin 'SiPixelLorentzAngleRcd@NewProxy'".
+          # Needed because SiPixelFakeLorentzAngleESSource cannot be used
+          # here - its generated default FileInPath points into
+          # SLHCUpgradeSimulations/Geometry, a data-only package that is not
+          # in the build, and defaults are resolved during validation even
+          # when the configuration overrides them.
+          - SiPixelPlugins
           - PopCon
     CondFormats:
         whitelist:
