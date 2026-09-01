@@ -101,9 +101,16 @@
       url = "github:cms-externals/geant4?ref=cms/v10.4.3";
       flake = false;
     };
+
+    # G4HepEm, for the 20_1 simulation: SimG4Core/PhysicsLists does not
+    # compile without it. Upstream tags by date. See pkgs/g4hepem.nix.
+    g4hepem-src = {
+      url = "github:mnovak42/g4hepem?ref=20251114";
+      flake = false;
+    };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -189,6 +196,44 @@
 
       geant4-data = pkgs2205.callPackage ./pkgs/geant4-data.nix { };
 
+      # nixpkgs builds Geant4 at C++17, which is Geant4's own default. The
+      # 20_1 release is C++20 throughout, and dd4hep refuses to build DDG4
+      # against a Geant4 whose recorded Geant4_CXX_STANDARD is lower than its
+      # own - correctly, since the two share types across that boundary. So
+      # the whole 20_1 side takes this one: the release, dd4hep and G4HepEm
+      # all compile against the same toolkit at the same standard.
+      geant4_201 = pkgs.geant4.overrideAttrs (old: {
+        cmakeFlags = (old.cmakeFlags or [ ]) ++ [
+          "-DCMAKE_CXX_STANDARD=20"
+          # nixpkgs only asks for global-dynamic when it also builds the
+          # Python bindings, so the default here is initial-exec. That is the
+          # wrong model for this build regardless of what dd4hep demands:
+          # initial-exec thread-locals are allocated from the static TLS block
+          # at program start, and every CMSSW plugin library - including all of
+          # SimG4Core - is dlopened long after that. Geant4 declares a great
+          # many G4ThreadLocal variables, so the failure mode is a plugin that
+          # loads fine until the block happens to be full and then cannot
+          # allocate memory in static TLS.
+          "-DGEANT4_BUILD_TLS_MODEL=global-dynamic"
+        ];
+      });
+
+      # The 11.x datasets for the 20_1 build. nixpkgs packages these, so this
+      # only gathers their exports into one hook - see pkgs/geant4-data-11.nix
+      # for why depending on them directly does not work.
+      geant4-data_201 = pkgs.callPackage ./pkgs/geant4-data-11.nix {
+        geant4 = geant4_201;
+      };
+
+      # G4HepEm for the 20_1 simulation. Built against the same nixpkgs
+      # Geant4 the release links - it compiles Geant4 headers into its own
+      # public interface, so the two must be the same toolkit.
+      g4hepem = pkgs.callPackage ./pkgs/g4hepem.nix {
+        src = g4hepem-src;
+        version = "20251114";
+        geant4 = geant4_201;
+      };
+
       lwtnn_201 = pkgs.callPackage ./pkgs/lwtnn.nix {
         src = lwtnn-src;
       };
@@ -206,6 +251,9 @@
         version = "01-31";
         inherit root;
         xercesc = pkgs.xercesc;
+        # explicit, not the callPackage default: DDG4 has to be built against
+        # the same C++20 toolkit as the release
+        geant4 = geant4_201;
       };
 
       cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
@@ -228,7 +276,8 @@
         lwtnn = lwtnn_201;
         openblas = pkgs.openblas;
         inherit dd4hep hls;
-        geant4 = pkgs.geant4;
+        geant4 = geant4_201;
+        inherit g4hepem;
         hdf5 = pkgs.hdf5-cpp;
         hepmc = pkgs.hepmc2;
         hepmc3 = pkgs.hepmc3;
@@ -314,8 +363,10 @@
 
       # 20_1 wants fmt and the oneAPI TBB; 10_6 the classic TBB, and pythia8
       # for its setup hook (PYTHIA8DATA must point at the xmldoc directory for
-      # the generator to start).
-      extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral ];
+      # the generator to start). Both carry a Geant4 and its datasets, but not
+      # the same ones: 10_6 links Geant4 10.4 (built here, against the CLHEP
+      # the release uses) and 20_1 the nixpkgs Geant4 11.
+      extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral geant4_201 geant4-data_201 ];
       # geant4-data is here for its setup hook alone: the ten G4*DATA
       # variables have to be in the environment of anything that runs the
       # simulation. It deliberately does not go in gen/setup-hook.sh, which
@@ -410,7 +461,7 @@
     {
       packages.${system} = {
         inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205 pythia8_2205;
-        inherit geant4_10_4 geant4-data;
+        inherit geant4_10_4 geant4-data geant4-data_201 g4hepem;
         inherit frontier-client frontier-client_2205;
         default = cmssw;
       };

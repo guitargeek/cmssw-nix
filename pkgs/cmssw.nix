@@ -52,6 +52,8 @@
 # (the HGCal geometry constants use G4 units)
 , hls ? null
 , geant4 ? null
+# G4HepEm: SimG4Core/PhysicsLists includes its headers unconditionally
+, g4hepem ? null
 # HDF5: the 20_1 EcalTrivialConditionRetriever reads its pulse shapes from it
 , hdf5 ? null
 # HepMC 3: the 20_1 generator products carry both the HepMC 2 and 3 formats
@@ -127,6 +129,7 @@ stdenv.mkDerivation {
     ++ lib.optional (dd4hep != null) dd4hep
     ++ lib.optional (hls != null) hls
     ++ lib.optional (geant4 != null) geant4
+    ++ lib.optional (g4hepem != null) g4hepem
     ++ lib.optional (hdf5 != null) hdf5
     ++ lib.optional (hepmc3 != null) hepmc3
     ++ lib.optionals (onnxruntime != null) [ onnxruntime onnxruntime.dev ]
@@ -209,6 +212,7 @@ stdenv.mkDerivation {
       ${lib.optionalString (dd4hep != null) "-DCMSSW_WITH_DD4HEP=ON"} \
       ${lib.optionalString (hls != null) "-DCMSSW_WITH_HLS=ON"} \
       ${lib.optionalString (geant4 != null) "-DCMSSW_WITH_GEANT4=ON"} \
+      ${lib.optionalString (g4hepem != null) "-DCMSSW_WITH_G4HEPEM=ON"} \
       ${lib.optionalString (hdf5 != null) "-DCMSSW_WITH_HDF5=ON"} \
       ${lib.optionalString (hepmc3 != null) "-DCMSSW_WITH_HEPMC3=ON"} \
       ${lib.optionalString (onnxruntime != null) "-DCMSSW_WITH_ONNXRUNTIME=ON"} \

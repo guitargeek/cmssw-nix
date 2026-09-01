@@ -1086,3 +1086,44 @@ if os.path.exists(path):
             "lvCAST(nullptr) {",
             "lvCAST(nullptr), showerLibrary(nullptr) {")
     edit(path, fix_castor_shower_library)
+
+# --- exotic physics without Pythia 8 (20_1 only in practice) ----------------
+# RHadronPythiaDecayer is the only Pythia 8 user in SimG4Core/CustomPhysics,
+# and CustomPhysics is not optional: its plugin library is where the exotic
+# physics lists register, so SimG4Core/Application will not load without it.
+# The file decays R-hadrons - long-lived coloured states from split SUSY -
+# which nothing in these examples produces, and Pythia 8 is not built for the
+# 20_1 package set. Dropping the file and its dependency leaves the rest of
+# CustomPhysics intact.
+#
+# Keyed on the decayer actually being present rather than on release_cycle:
+# the 10_6-era CustomPhysics has no RHadronPythiaDecayer at all, and its
+# CustomPhysicsList.cc has no R-hadron branch to remove, so the whole block
+# is skipped there.
+path = "cmssw/SimG4Core/CustomPhysics"
+decayer = glob.glob(path + "/src/RHadronPythiaDecayer.*") + glob.glob(
+    path + "/interface/RHadronPythiaDecayer.*"
+)
+if decayer:
+    for f in decayer:
+        os.remove(f)
+    edit(path + "/BuildFile.xml", lambda xml: re.sub(
+        r'<use\s+name="GeneratorInterface/Pythia8Interface"\s*/>\n?', "", xml))
+
+    # CustomPhysicsList is the only caller. Its R-hadron branch is a
+    # self-contained block between two GetParticleType() tests, so it comes
+    # out whole rather than being stubbed - a stub would have to substitute
+    # some other decay process and would change the physics silently.
+    def drop_rhadron_decay(src):
+        src = src.replace(
+            '#include "SimG4Core/CustomPhysics/interface/RHadronPythiaDecayer.h"\n', "")
+        src = re.sub(r"\n *bool extRHadronDecayerSet = false;", "", src)
+        src = re.sub(r"\n *G4Decay\* pythiaDecayProcess = nullptr;", "", src)
+        start = src.index('if ((particle->GetParticleType() == "rhadron"')
+        end = src.index('if (particle->GetParticleType() == "darkpho")')
+        return src[:start] + src[end:]
+
+    # .index() raises if a marker is gone, which is the point: a release that
+    # restructures this function should stop the build here rather than have
+    # the prune silently do nothing.
+    edit(path + "/src/CustomPhysicsList.cc", drop_rhadron_decay)

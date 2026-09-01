@@ -21,7 +21,8 @@
     { "dir": "TrackingChain",    "cfgs": ["python/write_pixel_la_20_1_cfg.py", "python/tracking_chain_cfg.py", "python/ckf_chain_cfg.py"] },
     { "dir": "MagneticFieldMap", "cfgs": ["python/magfield_cfg.py"] },
     { "dir": "MuonChain",        "cfgs": ["python/muon_sta_cfg.py"] },
-    { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] }
+    { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] },
+    { "dir": "MuonGunSim",       "cfgs": ["python/muon_gun_sim_cfg.py"] }
   ],
 
   "_excluded": {

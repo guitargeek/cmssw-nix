@@ -10,6 +10,7 @@
 # with the collection inside; reading those by hand through TTree::Draw
 # depends on the split level, while FWLite goes through the same dictionaries
 # CMSSW itself uses.
+import os
 import sys
 
 import ROOT
@@ -36,8 +37,15 @@ print(f"{FILENAME}: {n} events")
 if n == 0:
     sys.exit("the file has no events")
 
-handle = Handle("std::vector<PSimHit>")
-tracks = Handle("std::vector<SimTrack>")
+# CMSSW_20_1 puts the persistent data formats in versioned I/O namespaces:
+# the dictionary declares io_v1::PSimHit, not PSimHit, so the 10_6 spelling
+# fails here with "edm::Wrapper<std::vector<PSimHit>> is not a known C++
+# class" - the class the file was written with simply has another name. The
+# branch names are unchanged, so only the type handed to Handle moves.
+_ns = "" if os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_") else "io_v1::"
+
+handle = Handle(f"std::vector<{_ns}PSimHit>")
+tracks = Handle(f"std::vector<{_ns}SimTrack>")
 
 nonempty = {k: 0 for k in REQUIRED}
 totals = {k: 0 for k in REQUIRED}

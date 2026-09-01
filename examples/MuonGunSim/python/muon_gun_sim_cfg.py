@@ -8,9 +8,17 @@
 # volume-based magnetic field. The hits come out of the transport, not out of
 # a producer that was told what to write.
 #
-# Needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`), which is where
-# Geant4 10.4 and its datasets are.
+# Runs on both releases. They do not transport the muons through the same
+# Geant4: 10_6 links Geant4 10.4, built here against the CLHEP the release
+# uses, and 20_1 the nixpkgs Geant4 11 - so this is also the first example
+# where the two eras are doing genuinely different physics rather than the
+# same physics through a renamed interface. The `_is_10_6` guards below are
+# about where a data file is named, not about the simulation itself.
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("SIM")
 
@@ -96,8 +104,13 @@ process.generatorSmeared = process.VtxSmeared.clone()
 del process.VtxSmeared
 
 # --- Geant4 ----------------------------------------------------------------
-# The stock CMS simulation module: the FTFP_BERT_EMM physics list, the CMS
-# sensitive detectors, the CMS production cuts.
+# The stock CMS simulation module: the CMS sensitive detectors, the CMS
+# production cuts, and whichever physics list the release defaults to. That
+# default is not the same in the two eras - 10_6 picks FTFP_BERT_EMM, 20_1
+# FTFP_BERT_EMH - and the difference is real: the EMH variant hands electron,
+# positron and gamma transport to G4HepEm, a separate external this flake has
+# to build (see pkgs/g4hepem.nix). Both are left as the release ships them,
+# because a muon crossing the detector is a hadronic-list question either way.
 process.load("SimG4Core.Application.g4SimHits_cfi")
 
 # --- the two forward shower libraries we cannot ship ------------------------
@@ -129,9 +142,21 @@ _present = cms.FileInPath("SimG4CMS/Calo/data/responsTBpim50.dat")
 # wrong PSet leaves the library being built and the job dies on the first
 # event with "HFShowerLibrary Events tree absent".
 process.g4SimHits.HCalSD.UseShowerLibrary = cms.bool(False)
-process.g4SimHits.HFShowerLibrary.FileName = _present
 process.g4SimHits.CastorSD.useShowerLibrary = cms.bool(False)
 process.g4SimHits.CastorShowerLibrary.FileName = _present
+
+# The HF library path is in different places in the two releases. 10_6 spells
+# it inline in g4SimHits_cfi; 20_1 moved it to Geometry/HcalSimData, where
+# HFParameters_cff defines a top-level HFLibraryFileBlock that g4SimHits
+# reaches through refToPSet_. Loading g4SimHits_cfi brings that PSet into the
+# process along with the module, so it is process.HFLibraryFileBlock that has
+# to be redirected - setting it on process.g4SimHits.HFShowerLibrary there
+# would write to the PSet holding the reference, not the one holding the path,
+# and the job would still die resolving the original FileInPath.
+if _is_10_6:
+    process.g4SimHits.HFShowerLibrary.FileName = _present
+else:
+    process.HFLibraryFileBlock.FileName = _present
 
 # --- what has to be there afterwards ---------------------------------------
 process.simHits = cms.EDAnalyzer(

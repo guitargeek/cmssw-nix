@@ -10,6 +10,9 @@ set(CMSSW_BASE $ENV{CMSSW_BASE})
 
 if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
   set(CMAKE_CXX_STANDARD 17)
+  # PoolDBOutputService renamed its write method between the two releases;
+  # plugins/PixelLorentzAngleWriter.cc spells both through this macro.
+  add_compile_definitions(CMSSW_10_6_ERA)
 else()
   set(CMAKE_CXX_STANDARD 20)
 endif()

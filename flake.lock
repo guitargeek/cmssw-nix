@@ -151,6 +151,23 @@
         "type": "github"
       }
     },
+    "g4hepem-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1763128724,
+        "narHash": "sha256-6YBAOqzslJUQnGEY9PllcCbP/AST0p5WxQtbogHGNsA=",
+        "owner": "mnovak42",
+        "repo": "g4hepem",
+        "rev": "6051df3fa24547614b311f0fa1a159c8bc022ee7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "mnovak42",
+        "ref": "20251114",
+        "repo": "g4hepem",
+        "type": "github"
+      }
+    },
     "geant4-10_4-src": {
       "flake": false,
       "locked": {
@@ -294,6 +311,7 @@
         "ecal-deadchannel-data": "ecal-deadchannel-data",
         "ecal-trivialcond-data": "ecal-trivialcond-data",
         "frontier-src": "frontier-src",
+        "g4hepem-src": "g4hepem-src",
         "geant4-10_4-src": "geant4-10_4-src",
         "heppdt-src": "heppdt-src",
         "hls-src": "hls-src",

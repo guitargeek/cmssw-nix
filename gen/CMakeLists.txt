@@ -166,11 +166,50 @@ if(CMSSW_WITH_GEANT4)
 
   add_definitions(${Geant4_DEFINITIONS} ${_g4_flag_definitions})
   message(STATUS "Geant4: ${Geant4_VERSION}, definitions ${Geant4_DEFINITIONS} ${_g4_flag_definitions}")
+
+  # scram's geant4 toolfile defines G4VERSION_NUMBER; CMake's Geant4Config
+  # does not, and the CMSSW sources that test it do not include G4Version.hh
+  # themselves. Undefined, `#if G4VERSION_NUMBER >= 1130` is `0 >= 1130` -
+  # false, silently - so the 20_1-era guards all take their pre-11.3 branch:
+  #
+  #   RunManagerMT.cc / GeometryProducer.cc  RequestParallelOptimisation(false)
+  #   FieldStepper.h / CMSTDormandPrince45.h  which Dormand-Prince stepper
+  #
+  # The first of those is not cosmetic. Without it Geant4 keeps parallel
+  # geometry voxelisation on, and CMSSW's threading model - master finishes
+  # initialisation and parks, then workers initialise - leaves the worker
+  # sleeping in G4VoxelisationHelper::WaitForVoxelisationFinish for help that
+  # is never coming. The job hangs after building the geometry, with no error.
+  #
+  # Read out of the installed header rather than computed from Geant4_VERSION,
+  # so the number is whatever the toolkit itself says it is.
+  find_file(_g4_version_header G4Version.hh PATHS ${Geant4_INCLUDE_DIRS}
+            NO_DEFAULT_PATH REQUIRED)
+  file(STRINGS "${_g4_version_header}" _g4_version_line
+       REGEX "^[ \t]*#[ \t]*define[ \t]+G4VERSION_NUMBER[ \t]+[0-9]+")
+  if(NOT _g4_version_line MATCHES "G4VERSION_NUMBER[ \t]+([0-9]+)")
+    message(FATAL_ERROR "could not read G4VERSION_NUMBER from ${_g4_version_header}")
+  endif()
+  add_definitions(-DG4VERSION_NUMBER=${CMAKE_MATCH_1})
+  message(STATUS "Geant4 version number: ${CMAKE_MATCH_1}")
 endif()
 if(CMSSW_WITH_HDF5)
   find_package(HDF5 REQUIRED COMPONENTS CXX)
   set(hdf5_LIBRARIES ${HDF5_LIBRARIES} ${HDF5_CXX_LIBRARIES})
   set(hdf5_INCLUDE_DIRECTORIES ${HDF5_INCLUDE_DIRS})
+endif()
+if(CMSSW_WITH_G4HEPEM)
+  # SimG4Core/PhysicsLists asks for this as "g4hepemcore". Upstream splits the
+  # implementation across four libraries and CMSSW's tracking manager pulls
+  # symbols from all of them, so link the set rather than the front-end alone.
+  foreach(_l g4HepEm g4HepEmData g4HepEmInit g4HepEmRun)
+    find_library(_g4hepem_${_l} NAMES ${_l} REQUIRED)
+    list(APPEND g4hepemcore_LIBRARIES ${_g4hepem_${_l}})
+  endforeach()
+  # PATH_SUFFIXES because the headers sit in include/G4HepEm/ while CMSSW
+  # includes them unprefixed, so the subdirectory itself is the include path.
+  find_path(g4hepemcore_INCLUDE_DIRECTORIES NAMES G4HepEmTrackingManager.hh
+            PATH_SUFFIXES G4HepEm REQUIRED)
 endif()
 if(CMSSW_WITH_DD4HEP)
   # the 20_1-era geometry is built on DD4hep (DetectorDescription/DDCMS and
@@ -180,6 +219,10 @@ if(CMSSW_WITH_DD4HEP)
     list(APPEND dd4hep_LIBRARIES ${_dd4hep_${_l}})
   endforeach()
   find_path(dd4hep_INCLUDE_DIRECTORIES NAMES DD4hep/Detector.h REQUIRED)
+  # SimG4Core/Geometry asks for dd4hep-geant4 by that name. Only the link
+  # needs it: DDG4 installs its headers under the same prefix as DDCore, and
+  # dd4hep_INCLUDE_DIRECTORIES is on the global include path already.
+  find_library(dd4hep-geant4_LIBRARIES NAMES DDG4 REQUIRED)
 endif()
 if(CMSSW_WITH_CURL)
   find_library(curl_LIBRARIES NAMES curl REQUIRED)
@@ -350,6 +393,7 @@ foreach(dir ${Boost_INCLUDE_DIRS} ${CLHEP_INCLUDE_DIRS} ${eigen_INCLUDE_DIRECTOR
         ${cpu_features_INCLUDE_DIRECTORIES} ${openssl_INCLUDE_DIRECTORIES}
         ${dd4hep_INCLUDE_DIRECTORIES} ${hls_INCLUDE_DIRECTORIES}
         ${geant4core_INCLUDE_DIRECTORIES} ${hdf5_INCLUDE_DIRECTORIES}
+        ${g4hepemcore_INCLUDE_DIRECTORIES}
         ${hepmc3_INCLUDE_DIRECTORIES} ${onnxruntime_INCLUDE_DIRECTORIES}
         ${xgboost_INCLUDE_DIRECTORIES} ${pythia8_INCLUDE_DIRECTORIES}
         ${lhapdf_INCLUDE_DIRECTORIES} ${sigcpp_INCLUDE_DIRECTORIES})

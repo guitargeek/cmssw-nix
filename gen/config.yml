@@ -122,6 +122,14 @@ subsystems:
     Configuration:
         whitelist:
           - Eras
+          # GeometryExtended2018_cff and friends: the cff files that wire the
+          # XMLIdealGeometryESSource up to the full detector description the
+          # simulation needs. Reconstruction examples can hand-list the few
+          # XML files they care about (examples/MuonLocalReco does), but a
+          # simulation transports particles through everything, so leaving a
+          # subdetector out changes the material budget rather than just
+          # losing a collection.
+          - Geometry
           - ProcessModifiers
     DataFormats:
         no_plugins: true
@@ -287,7 +295,12 @@ subsystems:
           - EcalCommonData
           - EcalMapping
           - EcalSimData
+          # the forward and tracker XML/data packages the full 2018
+          # description pulls in - GeometryExtended2018_cff names
+          # Geometry/ForwardCommonData/data/forward.xml directly
+          - ForwardCommonData
           - ForwardGeometry
+          - ForwardSimData
           - GEMGeometry
           - GEMGeometryBuilder
           - GlobalTrackingGeometryBuilder
@@ -297,6 +310,13 @@ subsystems:
           - HcalAlgo
           - HcalCommonData
           - HcalEventSetup
+          # Python and data only, and not optional: 20_1 moved the HF shower
+          # library parameters out of g4SimHits_cfi into HFParameters_cff and
+          # left behind a module-level "from Geometry.HcalSimData..." import,
+          # so the simulation cfi does not import at all without it. The 10_6
+          # cfi still inlines those parameters, which is why its configuration
+          # needs this package for a different reason.
+          - HcalSimData
           - HcalTowerAlgo
           - MTDCommonData
           - MTDGeometryBuilder
@@ -310,6 +330,8 @@ subsystems:
           - TrackerCommonData
           - TrackerGeometryBuilder
           - TrackerNumberingBuilder
+          - TrackerRecoData
+          - TrackerSimData
           - VeryForwardGeometryBuilder
     GeometryReaders:
         whitelist:
@@ -323,6 +345,10 @@ subsystems:
           - TrivialSerialisation
     IOMC:
         whitelist:
+          # the particle guns that feed the simulation, and the beam-spot
+          # vertex smearing the standard sequence applies to them
+          - EventVertexGenerators
+          - ParticleGuns
           - RandomEngine
     IOPool:
         whitelist:
@@ -535,7 +561,20 @@ subsystems:
         whitelist:
           - CaloSimAlgos
           - EcalSimAlgos
+          # the digitisers proper: a SimHit becomes the same digi type
+          # the detector actually reads out
+          - EcalSimProducers
           - HcalSimAlgos
+          - HcalSimProducers
+          # not built to be used either: SimGeneral/MixingModule/
+          # mixObjects_cfi imports hgcalDigitizer_cfi unconditionally, so
+          # the crossing-frame description cannot be loaded without it.
+          # HGCal is not in the 2018 geometry these examples simulate.
+          # SimAlgos is not needed in the 10_6 configuration - 20_1 moved
+          # HGCFEElectronics there, and HGCalSimProducers will not link
+          # without it.
+          - HGCalSimAlgos
+          - HGCalSimProducers
     SimDataFormats:
         whitelist:
           - Associations
@@ -544,29 +583,96 @@ subsystems:
           - CrossingFrame
           - DigiSimLinks
           - EncodedEventId
+          - CaloTest
+          - Forward
           - GeneratorProducts
+          - HTXS
+          - JetMatching
           - PileupSummaryInfo
           - RandomEngine
+          - RPCDigiSimLink
+          - SimHitMaker
           - Track
           - TrackerDigiSimLink
           - TrackingAnalysis
           - TrackingHit
           - Vertex
+    # The CMS sensitive detectors: the classes that turn a Geant4 step inside
+    # a sensitive volume into a PSimHit or a CaloG4Hit. Calo and Forward carry
+    # their data/ directories in the release itself rather than in a cms-data
+    # external, so they need no extra flake input.
+    SimG4CMS:
+        whitelist:
+          - Calo
+          - Forward
+          - Muon
+          # New in the 20_1 era: the CTPPS/Roman-pot sensitive detectors were
+          # split out of Forward. It is needed even though nothing here looks
+          # at the forward region, because 20_1 g4SimHits_cfi carries an
+          # OnlySDs list naming every sensitive detector to construct and
+          # OscarMTProducer throws if a plugin behind one is missing. The
+          # 10_6 configuration has no such list - it discovers sensitive
+          # detectors from the geometry - which is why that era needs neither
+          # this package nor the equivalent.
+          - PPS
+          - Tracker
+    # The simulation core: OscarMTProducer and the run managers (Application),
+    # the DDD -> G4 geometry translation (Geometry), the CMS physics lists,
+    # the HepMC -> G4 primary conversion (Generators) and the field
+    # integration (MagneticField). Built against Geant4 11 here, where the
+    # 10_6 build uses Geant4 10.4 - the source carries G4VERSION_NUMBER
+    # guards for the 11.3 series, which is the era nixpkgs ships.
+    SimG4Core:
+        whitelist:
+          - Application
+          # a dependency of Application, not an option: its plugin library is
+          # where the exotic-particle physics lists register
+          - CustomPhysics
+          - Generators
+          - Geometry
+          - GeometryProducer
+          - MagneticField
+          - Notification
+          - Physics
+          - PhysicsLists
+          - SensitiveDetector
+          - Watcher
     SimGeneral:
         whitelist:
+          # parameterised shower description, used by the calorimeter
+          # sensitive detectors
+          - GFlash
+          # particle data table ES source + the .tbl data files (needed by
+          # GenParticleProducer and the generator statistics)
+          - HepPDTESSource
           - HepPDTRecord
           - MixingModule
           - NoiseGenerators
+          - PileupInformation
           - PreMixingModule
           - TrackingAnalysis
     SimMuon:
         whitelist:
+          - CSCDigitizer
+          - DTDigitizer
           - MCTruth
+          # the neutron background generator that RPCDigitizer links
+          - Neutron
+          - RPCDigitizer
     SimTracker:
         no_plugins:
           - TrackAssociation
         whitelist:
           - Common
+          - Records
+          - SiPixelDigitizer
+          # not built to be used: SimGeneral/MixingModule/pixelDigitizer_cfi
+          # imports it unconditionally, to have something for
+          # phase2_tracker.toReplaceWith to swap in. Whitelisting it costs
+          # one package - everything it needs is here already - and keeps
+          # the standard digitiser configs loadable as written.
+          - SiPhase2Digitizer
+          - SiStripDigitizer
           - TrackAssociation
           - TrackerHitAssociation
     TauAnalysis:

@@ -11,6 +11,12 @@ set(CMSSW_BASE $ENV{CMSSW_BASE})
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# PoolDBOutputService renamed its write method between the two releases;
+# plugins/PixelLorentzAngleWriter.cc spells both through this macro.
+if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
+  add_compile_definitions(CMSSW_10_6_ERA)
+endif()
+
 include_directories(${CMSSW_BASE}/src)
 link_directories(${CMSSW_BASE}/lib)
 
@@ -20,14 +26,6 @@ find_library(TBB_LIBS NAMES tbb REQUIRED)
 
 file(GLOB PLUGIN_FILES plugins/*.cc)
 
-# PixelLorentzAngleWriter exists for the 20_1 configuration, which has no
-# usable SiPixelFakeLorentzAngleESSource (see the file's header). It is the
-# same writer examples/TrackerLocalReco carries, for the same reason, and it
-# uses PoolDBOutputService::writeOneIOV, which 10_6 does not have - so leave
-# it out there, where the fake source works and the writer is not needed.
-if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
-  list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/PixelLorentzAngleWriter.cc)
-endif()
 add_library(TrackingChainPlugins SHARED ${PLUGIN_FILES})
 set_target_properties(TrackingChainPlugins PROPERTIES PREFIX "plugin")
 
