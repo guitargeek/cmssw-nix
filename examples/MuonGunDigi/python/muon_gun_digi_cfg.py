@@ -16,7 +16,11 @@
 # step still goes through it.
 #
 # Needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`).
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("SIMDIGI")
 
@@ -49,6 +53,12 @@ process.TrackerDigiGeometryESModule = cms.ESProducer(
 # cff whose alignment dependency we are avoiding.
 process.TrackerParametersESModule = cms.ESProducer("TrackerParametersESModule")
 process.trackerTopology = cms.ESProducer("TrackerTopologyEP")
+# New in 20_1: the tracker digi geometry depends on a per-det additional
+# parameters record that did not exist in the 10_6 era.
+if not _is_10_6:
+    process.TrackerAdditionalParametersPerDetESModule = cms.ESProducer(
+        "TrackerAdditionalParametersPerDetESModule"
+    )
 
 # A second TrackerGeometry, labelled idealForDigi. The digitisers ask for
 # it by that label on purpose: digitisation must use the geometry the
@@ -135,16 +145,29 @@ del process.VtxSmeared
 process.load("SimG4Core.Application.g4SimHits_cfi")
 _present = cms.FileInPath("SimG4CMS/Calo/data/responsTBpim50.dat")
 process.g4SimHits.HCalSD.UseShowerLibrary = cms.bool(False)
-process.g4SimHits.HFShowerLibrary.FileName = _present
 process.g4SimHits.CastorSD.useShowerLibrary = cms.bool(False)
 process.g4SimHits.CastorShowerLibrary.FileName = _present
+
+# The HF library path moved in 20_1: it is no longer inline in
+# g4SimHits_cfi but in a top-level HFLibraryFileBlock that the module
+# reaches through refToPSet_, so it is that PSet which has to be
+# redirected - see examples/MuonGunSim, which does the same.
+if _is_10_6:
+    process.g4SimHits.HFShowerLibrary.FileName = _present
+else:
+    process.HFLibraryFileBlock.FileName = _present
 
 # --- conditions the digitisers read ----------------------------------------
 # All fake (from-parameters) sources: there is no conditions database here,
 # and the point of the example is the data flow, not the calibration values.
 # The strip block is the one examples/TrackerLocalReco already uses, which is
 # deliberate - the digis produced here have to be readable by that chain.
-process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
+# SiStripDetInfoFileReader is a Service only in the 10_6 era. 20_1 replaced
+# it with a plain class (CalibFormats/SiStripObjects' SiStripDetInfo, read
+# through Geometry/TrackerNumberingBuilder/interface/utils.h), so asking
+# the framework for the service there aborts with PluginNotFound.
+if _is_10_6:
+    process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
 
 process.siStripFedCabling = cms.ESSource(
     "SiStripFedCablingFakeESSource",
@@ -193,6 +216,7 @@ process.load("CalibTracker.SiStripESProducers.fake.SiStripApvGainFakeESSource_cf
 process.load("CalibTracker.SiStripESProducers.fake.SiStripLatencyFakeESSource_cfi")
 process.load("CalibTracker.SiStripESProducers.fake.SiStripBadChannelFakeESSource_cfi")
 
+
 process.siStripQualityESProducer = cms.ESProducer(
     "SiStripQualityESProducer",
     appendToDataLabel=cms.string(""),
@@ -232,6 +256,30 @@ process.simConditions = cms.ESSource(
     ),
 )
 
+# 20_1 cannot use SiPixelFakeLorentzAngleESSource at all: its
+# fillDescriptions builds an edm::FileInPath naming a file in a data-only
+# package that is not in this build, and a description is built during
+# validation whatever the configuration says - so the job dies before any
+# module exists. python/write_sim_conditions_cfg.py already writes the
+# same flat payload as SiPixelLorentzAngleRcd (it has to on 10_6 too, where
+# the fake source describes a phase-0 detector and silently supplies
+# nothing for this phase-1 geometry), so read it back from there instead.
+if not _is_10_6:
+    process.simConditions.toGet.append(
+        cms.PSet(
+            record=cms.string("SiPixelLorentzAngleRcd"),
+            tag=cms.string("SiPixelLorentzAngle_ideal"),
+        )
+    )
+    # ... and the HV-off map, which 20_1's SiPixelQualityESProducer
+    # consumes unconditionally - see plugins/PixelDetVOffWriter.cc
+    process.simConditions.toGet.append(
+        cms.PSet(
+            record=cms.string("SiPixelDetVOffRcd"),
+            tag=cms.string("SiPixelDetVOff_empty"),
+        )
+    )
+
 # The simulated gain, read from the same sqlite file. Its producer is left
 # at its default record (SiStripApvGainSimRcd) because SiStripGainSimRcd
 # depends on that record, so an IOV for it has to exist regardless of
@@ -247,15 +295,22 @@ process.siStripGainSimESProducer = _simGain.clone()
 # the one record is listed, since SiPixelDetVOffRcd (the HV-off map) has no
 # fake source here.
 process.load("CalibTracker.SiPixelESProducers.SiPixelFakeGainOfflineESSource_cfi")
-process.load("CalibTracker.SiPixelESProducers.SiPixelFakeLorentzAngleESSource_cfi")
+if _is_10_6:
+    process.load("CalibTracker.SiPixelESProducers.SiPixelFakeLorentzAngleESSource_cfi")
 process.load("CalibTracker.SiPixelESProducers.SiPixelFakeQualityESSource_cfi")
 process.siPixelQualityESProducer = cms.ESProducer(
     "SiPixelQualityESProducer",
     ListOfRecordToMerge=cms.VPSet(
         cms.PSet(record=cms.string("SiPixelQualityFromDbRcd"), tag=cms.string("")),
     ),
-    siPixelQualityLabel=cms.string(""),
 )
+# 20_1 renamed this parameter: siPixelQualityLabel -> siPixelQualityFromDbLabel.
+# Same meaning - the label of the SiPixelQualityFromDbRcd tag a global tag
+# would normally supply - and empty is right either way here.
+if _is_10_6:
+    process.siPixelQualityESProducer.siPixelQualityLabel = cms.string("")
+else:
+    process.siPixelQualityESProducer.siPixelQualityFromDbLabel = cms.string("")
 
 # --- the muon system --------------------------------------------------------
 # The DT digitiser is not an accumulator inside the mixing module: it is an
@@ -372,6 +427,18 @@ process.out = cms.OutputModule(
         "keep *_generator_*_*",
     ),
 )
+
+# 20_1 took the det-info map away from the SiStripDetInfoFileReader service and
+# made it a parameter of each fake ES source instead. Modules loaded from their
+# cfis carry it already; ones declared by hand here do not, and the framework
+# refuses to construct them without it. Done by walking the ES sources rather
+# than naming them, so a source added later cannot quietly miss out.
+if not _is_10_6:
+    _detinfo = cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat")
+    for _essrc in process.es_sources_().values():
+        if _essrc.type_().startswith("SiStrip") and _essrc.type_().endswith("FakeESSource"):
+            if not hasattr(_essrc, "SiStripDetInfoFile"):
+                _essrc.SiStripDetInfoFile = _detinfo
 
 process.p = cms.Path(
     process.generator * process.generatorSmeared * process.g4SimHits

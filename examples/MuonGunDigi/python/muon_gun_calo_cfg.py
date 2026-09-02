@@ -31,7 +31,11 @@
 # the file.
 #
 # Reads muon_gun_digi.root, so run python/muon_gun_digi_cfg.py first.
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("CALO")
 
@@ -331,6 +335,18 @@ process.calo = cms.EDAnalyzer(
     minHbResponse=cms.double(50.0),
     maxHbResponse=cms.double(250.0),
 )
+
+# 20_1 took the det-info map away from the SiStripDetInfoFileReader service and
+# made it a parameter of each fake ES source instead. Modules loaded from their
+# cfis carry it already; ones declared by hand here do not, and the framework
+# refuses to construct them without it. Done by walking the ES sources rather
+# than naming them, so a source added later cannot quietly miss out.
+if not _is_10_6:
+    _detinfo = cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat")
+    for _essrc in process.es_sources_().values():
+        if _essrc.type_().startswith("SiStrip") and _essrc.type_().endswith("FakeESSource"):
+            if not hasattr(_essrc, "SiStripDetInfoFile"):
+                _essrc.SiStripDetInfoFile = _detinfo
 
 process.p = cms.Path(
     process.mix

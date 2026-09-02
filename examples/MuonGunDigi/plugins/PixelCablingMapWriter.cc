@@ -53,10 +53,16 @@ public:
       throw cms::Exception("NoDBService") << "PoolDBOutputService is not configured";
 
     SiPixelFedCablingMap payload(version_);
+#ifdef CMSSW_10_6_ERA
     if (db->isNewTagRequest(record_))
       db->createNewIOV<SiPixelFedCablingMap>(&payload, db->beginOfTime(), db->endOfTime(), record_);
     else
       db->appendSinceTime<SiPixelFedCablingMap>(&payload, db->currentTime(), record_);
+#else
+    // 20_1 collapsed createNewIOV/appendSinceTime into one call - the same
+    // rename plugins/PixelLorentzAngleWriter.cc spells through this macro
+    db->writeOneIOV(payload, db->beginOfTime(), record_);
+#endif
 
     edm::LogWarning("PixelCablingMapWriter")
         << "wrote an empty SiPixelFedCablingMap (version '" << version_ << "') as " << record_;

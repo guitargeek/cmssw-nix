@@ -21,6 +21,8 @@ import os
 
 import FWCore.ParameterSet.Config as cms
 
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
+
 # A fresh database every time: PoolDBOutputService appends to an existing tag,
 # and a leftover file would hide a writer that had stopped working.
 if os.path.exists("sim_conditions.db"):
@@ -47,7 +49,19 @@ process.TrackerDigiGeometryESModule = cms.ESProducer(
 # cff whose alignment dependency we are avoiding.
 process.TrackerParametersESModule = cms.ESProducer("TrackerParametersESModule")
 process.trackerTopology = cms.ESProducer("TrackerTopologyEP")
-process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
+# New in 20_1: the tracker digi geometry depends on a per-det additional
+# parameters record that did not exist in the 10_6 era.
+if not _is_10_6:
+    process.TrackerAdditionalParametersPerDetESModule = cms.ESProducer(
+        "TrackerAdditionalParametersPerDetESModule"
+    )
+# SiStripDetInfoFileReader is a Service only in the 10_6 era; the strip fake
+# ES sources ask the framework for it by name. 20_1 replaced it with a plain
+# class (CalibFormats/SiStripObjects' SiStripDetInfo, read through
+# Geometry/TrackerNumberingBuilder/interface/utils.h), so there is no
+# service to declare and asking for one aborts with PluginNotFound.
+if _is_10_6:
+    process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
 
 process.load("CalibTracker.SiStripESProducers.fake.SiStripLorentzAngleFakeESSource_cfi")
 process.load("CalibTracker.SiStripESProducers.fake.SiStripApvGainFakeESSource_cfi")
@@ -78,6 +92,11 @@ process.PoolDBOutputService = cms.Service(
         cms.PSet(
             record=cms.string("SiPixelLorentzAngleRcd"),
             tag=cms.string("SiPixelLorentzAngle_ideal"),
+        ),
+        cms.PSet(
+            # 20_1 only - see plugins/PixelDetVOffWriter.cc
+            record=cms.string("SiPixelDetVOffRcd"),
+            tag=cms.string("SiPixelDetVOff_empty"),
         ),
     ),
 )
@@ -124,9 +143,20 @@ process.pixelLorentzAngleWriter = cms.EDAnalyzer(
     tanLorentzAnglePerTesla=cms.double(0.106),
 )
 
+# See plugins/PixelDetVOffWriter.cc: 20_1's SiPixelQualityESProducer consumes
+# SiPixelDetVOffRcd whether or not its ListOfRecordToMerge asks for it, and
+# nothing in this build produces that record.
+if not _is_10_6:
+    process.pixelDetVOffWriter = cms.EDAnalyzer(
+        "PixelDetVOffWriter",
+        record=cms.string("SiPixelDetVOffRcd"),
+    )
+
 process.p = cms.Path(
     process.writer
     * process.gainWriter
     * process.pixelCablingWriter
     * process.pixelLorentzAngleWriter
 )
+if not _is_10_6:
+    process.p *= process.pixelDetVOffWriter

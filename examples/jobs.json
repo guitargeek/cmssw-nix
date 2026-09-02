@@ -22,7 +22,8 @@
     { "dir": "MagneticFieldMap", "cfgs": ["python/magfield_cfg.py"] },
     { "dir": "MuonChain",        "cfgs": ["python/muon_sta_cfg.py"] },
     { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] },
-    { "dir": "MuonGunSim",       "cfgs": ["python/muon_gun_sim_cfg.py"] }
+    { "dir": "MuonGunSim",       "cfgs": ["python/muon_gun_sim_cfg.py"] },
+    { "dir": "MuonGunDigi",      "cfgs": ["python/write_sim_conditions_cfg.py", "python/muon_gun_digi_cfg.py", "python/muon_gun_reco_cfg.py", "python/muon_gun_tracks_cfg.py", "python/muon_gun_muons_cfg.py"] }
   ],
 
   "_excluded": {

@@ -36,9 +36,13 @@ subsystems:
           - CSCCalibration
           - DTDigiSync
     CalibTracker:
-        no_plugins:
-          - SiStripCommon
         whitelist:
+          # SiStripCommon builds WITH its plugins here, as in the 10_6
+          # configuration: the SiStripDetInfoFileReader service lives there
+          # and the strip digitiser needs it. What made the package awkward
+          # is pruned for both eras in gen/prepare_sources.py - the Shallow*
+          # calibration-ntuple producers, which would drag in the whole
+          # SimTracker truth-matching and track-fitting chain.
           - Records
           - SiPixelESProducers
           - SiStripCommon
@@ -76,6 +80,13 @@ subsystems:
           # in the build, and defaults are resolved during validation even
           # when the configuration overrides them.
           - SiPixelPlugins
+          # The conditions-DB proxies for the strip records. Without them
+          # PoolDBESSource reads the payload out of the sqlite file and then
+          # cannot hand it to the EventSetup: 'Plugin for Record
+          # SiStripLorentzAngleSimRcd has not been found', as a warning, and
+          # the job dies later on the missing record. SiPixelPlugins above
+          # does the same job for the pixel records.
+          - SiStripPlugins
           - PopCon
     CondFormats:
         whitelist:

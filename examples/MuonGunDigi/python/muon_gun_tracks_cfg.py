@@ -17,7 +17,11 @@
 # and ctfWithMaterialTracks does the final Kalman fit with material effects.
 #
 # Reads muon_gun_digi.root, so run python/muon_gun_digi_cfg.py first.
+import os
+
 import FWCore.ParameterSet.Config as cms
+
+_is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
 process = cms.Process("TRACKS")
 
@@ -34,6 +38,12 @@ process.maxEvents = cms.untracked.PSet(input=cms.untracked.int32(-1))
 process.load("Configuration.Geometry.GeometryExtended2018_cff")
 process.TrackerParametersESModule = cms.ESProducer("TrackerParametersESModule")
 process.trackerTopology = cms.ESProducer("TrackerTopologyEP")
+# New in 20_1: the tracker digi geometry depends on a per-det additional
+# parameters record that did not exist in the 10_6 era.
+if not _is_10_6:
+    process.TrackerAdditionalParametersPerDetESModule = cms.ESProducer(
+        "TrackerAdditionalParametersPerDetESModule"
+    )
 process.TrackerDigiGeometryESModule = cms.ESProducer(
     "TrackerDigiGeometryESModule",
     fromDDD=cms.bool(True),
@@ -51,7 +61,12 @@ process.load("MagneticField.Engine.volumeBasedMagneticField_160812_cfi")
 # and the point of the example is the data flow, not the calibration values.
 # The strip block is the one examples/TrackerLocalReco already uses, which is
 # deliberate - the digis produced here have to be readable by that chain.
-process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
+# SiStripDetInfoFileReader is a Service only in the 10_6 era. 20_1 replaced
+# it with a plain class (CalibFormats/SiStripObjects' SiStripDetInfo, read
+# through Geometry/TrackerNumberingBuilder/interface/utils.h), so asking
+# the framework for the service there aborts with PluginNotFound.
+if _is_10_6:
+    process.SiStripDetInfoFileReader = cms.Service("SiStripDetInfoFileReader")
 
 process.siStripFedCabling = cms.ESSource(
     "SiStripFedCablingFakeESSource",
@@ -180,8 +195,14 @@ process.siPixelQualityESProducer = cms.ESProducer(
     ListOfRecordToMerge=cms.VPSet(
         cms.PSet(record=cms.string("SiPixelQualityFromDbRcd"), tag=cms.string("")),
     ),
-    siPixelQualityLabel=cms.string(""),
 )
+# 20_1 renamed this parameter: siPixelQualityLabel -> siPixelQualityFromDbLabel.
+# Same meaning - the label of the SiPixelQualityFromDbRcd tag a global tag
+# would normally supply - and empty is right either way here.
+if _is_10_6:
+    process.siPixelQualityESProducer.siPixelQualityLabel = cms.string("")
+else:
+    process.siPixelQualityESProducer.siPixelQualityFromDbLabel = cms.string("")
 # NOT the fake Lorentz angle source: it covers phase-0 DetIds only, so
 # against this geometry it supplies nothing and the CPE applies no drift
 # correction. Read the phase-1 payload written by
@@ -206,10 +227,31 @@ process.pixelConditions = cms.ESSource(
     ),
 )
 
+# 20_1 only: SiPixelQualityESProducer consumes SiPixelDetVOffRcd
+# whether or not its ListOfRecordToMerge asks for it, and nothing in this
+# build produces that record - see plugins/PixelDetVOffWriter.cc, which
+# writes an empty one. Gated because the tag is only in the sqlite file
+# when that writer ran, which is also only on 20_1.
+if not _is_10_6:
+    process.pixelConditions.toGet.append(
+        cms.PSet(
+            record=cms.string("SiPixelDetVOffRcd"),
+            tag=cms.string("SiPixelDetVOff_empty"),
+        )
+    )
+
 # --- clusters ---------------------------------------------------------------
 # The standard three-threshold algorithm, reading the digis the mixing module
 # wrote. This is the line examples/TrackerLocalReco has pointing at a
 # hand-built ToyTrackerDigiProducer instead.
+# New in 20_1: the strip clusteriser takes its conditions from one bundled
+# record instead of reaching for SiStripGain, SiStripNoises and
+# SiStripQuality individually. Same as examples/TrackingChain.
+if not _is_10_6:
+    process.load(
+        "RecoLocalTracker.SiStripClusterizer.SiStripClusterizerConditionsESProducer_cfi"
+    )
+
 process.siStripClusters = cms.EDProducer(
     "SiStripClusterizer",
     Clusterizer=cms.PSet(
@@ -220,7 +262,11 @@ process.siStripClusters = cms.EDProducer(
         MaxSequentialHoles=cms.uint32(0),
         MaxSequentialBad=cms.uint32(1),
         MaxAdjacentBad=cms.uint32(0),
-        QualityLabel=cms.string(""),
+        # QualityLabel in 10_6 named the SiStripQuality record to consult;
+        # in 20_1 the clusteriser reads one bundled conditions record and
+        # the label names that instead. Same as examples/TrackingChain.
+        **({"QualityLabel": cms.string("")} if _is_10_6
+           else {"ConditionsLabel": cms.string(""), "setDetId": cms.bool(True)}),
         RemoveApvShots=cms.bool(True),
         clusterChargeCut=cms.PSet(value=cms.double(-1.0)),
     ),
@@ -274,37 +320,59 @@ process.siStripMatchedRecHits = cms.EDProducer(
     VerbosityLevel=cms.untracked.int32(0),
 )
 
-process.PixelCPEGenericESProducer = cms.ESProducer(
-    "PixelCPEGenericESProducer",
-    ComponentName=cms.string("PixelCPEGeneric"),
-    Alpha2Order=cms.bool(True),
-    PixelErrorParametrization=cms.string("NOTcmsim"),
-    eff_charge_cut_lowX=cms.double(0.0),
-    eff_charge_cut_lowY=cms.double(0.0),
-    eff_charge_cut_highX=cms.double(1.0),
-    eff_charge_cut_highY=cms.double(1.0),
-    size_cutX=cms.double(3.0),
-    size_cutY=cms.double(3.0),
-    EdgeClusterErrorX=cms.double(50.0),
-    EdgeClusterErrorY=cms.double(85.0),
-    inflate_errors=cms.bool(False),
-    inflate_all_errors_no_trk_angle=cms.bool(False),
-    UseErrorsFromTemplates=cms.bool(False),
-    TruncatePixelCharge=cms.bool(False),
-    IrradiationBiasCorrection=cms.bool(False),
-    DoCosmics=cms.bool(False),
-    LoadTemplatesFromDB=cms.bool(False),
-    ClusterProbComputationFlag=cms.int32(0),
-    useLAWidthFromDB=cms.bool(False),
-    useLAAlignmentOffsets=cms.bool(False),
-    MagneticFieldRecord=cms.ESInputTag(""),
-)
+# The parameter set of the generic CPE changed between the releases -
+# PixelErrorParametrization and useLAAlignmentOffsets are gone in 20_1 and
+# passing them is a validation error - so there the producer is cloned from
+# the fragment the release generates out of its own parameter description,
+# and only the switches this example needs are overridden. Same treatment as
+# examples/TrackingChain.
+if not _is_10_6:
+    from RecoLocalTracker.SiPixelRecHits._generic_default_cfi import _generic_default
+
+    process.PixelCPEGenericESProducer = _generic_default.clone(
+        ComponentName="PixelCPEGeneric",
+        UseErrorsFromTemplates=False,
+        LoadTemplatesFromDB=False,
+        TruncatePixelCharge=False,
+        useLAWidthFromDB=False,
+        IrradiationBiasCorrection=False,
+        DoCosmics=False,
+        MagneticFieldRecord=cms.ESInputTag(""),
+    )
+else:
+    process.PixelCPEGenericESProducer = cms.ESProducer(
+        "PixelCPEGenericESProducer",
+        ComponentName=cms.string("PixelCPEGeneric"),
+        Alpha2Order=cms.bool(True),
+        PixelErrorParametrization=cms.string("NOTcmsim"),
+        eff_charge_cut_lowX=cms.double(0.0),
+        eff_charge_cut_lowY=cms.double(0.0),
+        eff_charge_cut_highX=cms.double(1.0),
+        eff_charge_cut_highY=cms.double(1.0),
+        size_cutX=cms.double(3.0),
+        size_cutY=cms.double(3.0),
+        EdgeClusterErrorX=cms.double(50.0),
+        EdgeClusterErrorY=cms.double(85.0),
+        inflate_errors=cms.bool(False),
+        inflate_all_errors_no_trk_angle=cms.bool(False),
+        UseErrorsFromTemplates=cms.bool(False),
+        TruncatePixelCharge=cms.bool(False),
+        IrradiationBiasCorrection=cms.bool(False),
+        DoCosmics=cms.bool(False),
+        LoadTemplatesFromDB=cms.bool(False),
+        ClusterProbComputationFlag=cms.int32(0),
+        useLAWidthFromDB=cms.bool(False),
+        useLAAlignmentOffsets=cms.bool(False),
+        MagneticFieldRecord=cms.ESInputTag(""),
+    )
 process.siPixelRecHits = cms.EDProducer(
     "SiPixelRecHitConverter",
     src=cms.InputTag("siPixelClusters"),
     CPE=cms.string("PixelCPEGeneric"),
-    VerboseLevel=cms.untracked.int32(0),
 )
+# SiPixelRecHitConverter no longer accepts VerboseLevel in 20_1.
+if _is_10_6:
+    process.siPixelRecHits.VerboseLevel = cms.untracked.int32(0)
 
 # Beam spot: the same one the simulation smeared its vertices over.
 #
@@ -374,10 +442,20 @@ process.pixelTracksTrackingRegions = cms.EDProducer(
 )
 
 # cluster multiplicity sanity check (off for the toy)
+# New in 20_1: the hit-pair generator asks for the multiple-scattering
+# parametrisation through an EventSetup record of its own.
+if not _is_10_6:
+    process.load(
+        "RecoTracker.TkMSParametrization."
+        "multipleScatteringParametrisationMakerESProducer_cfi"
+    )
+
 process.trackerClusterCheck = cms.EDProducer(
     "ClusterCheckerEDProducer",
     doClusterCheck=cms.bool(False),
-    MaxNumberOfCosmicClusters=cms.uint32(400000),
+    # MaxNumberOfCosmicClusters was renamed MaxNumberOfStripClusters in 20_1
+    **({"MaxNumberOfCosmicClusters": cms.uint32(400000)} if _is_10_6
+       else {"MaxNumberOfStripClusters": cms.uint32(400000)}),
     ClusterCollectionLabel=cms.InputTag("siStripClusters"),
     MaxNumberOfPixelClusters=cms.uint32(40000),
     PixelClusterCollectionLabel=cms.InputTag("siPixelClusters"),
@@ -475,7 +553,9 @@ process.PixelCPEGenericESProducer.IrradiationBiasCorrection = cms.bool(False)
 process.PixelCPEGenericESProducer.DoCosmics = cms.bool(False)
 process.PixelCPEGenericESProducer.LoadTemplatesFromDB = cms.bool(False)
 process.PixelCPEGenericESProducer.useLAWidthFromDB = cms.bool(False)
-process.PixelCPEGenericESProducer.useLAAlignmentOffsets = cms.bool(False)
+# useLAAlignmentOffsets does not exist in 20_1 - see the CPE block above.
+if _is_10_6:
+    process.PixelCPEGenericESProducer.useLAAlignmentOffsets = cms.bool(False)
 
 process.load("RecoTracker.TkNavigation.NavigationSchoolESProducer_cfi")
 process.load("TrackingTools.KalmanUpdators.KFUpdatorESProducer_cfi")
@@ -554,6 +634,18 @@ process.vertex = cms.EDAnalyzer(
     maxMedianLongitudinal=cms.double(0.02),
     minEfficiency=cms.double(0.8),
 )
+
+# 20_1 took the det-info map away from the SiStripDetInfoFileReader service and
+# made it a parameter of each fake ES source instead. Modules loaded from their
+# cfis carry it already; ones declared by hand here do not, and the framework
+# refuses to construct them without it. Done by walking the ES sources rather
+# than naming them, so a source added later cannot quietly miss out.
+if not _is_10_6:
+    _detinfo = cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat")
+    for _essrc in process.es_sources_().values():
+        if _essrc.type_().startswith("SiStrip") and _essrc.type_().endswith("FakeESSource"):
+            if not hasattr(_essrc, "SiStripDetInfoFile"):
+                _essrc.SiStripDetInfoFile = _detinfo
 
 process.p = cms.Path(
     process.siStripClusters

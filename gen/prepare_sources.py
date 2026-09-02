@@ -259,6 +259,23 @@ if os.path.isdir(pdir):
         r'<use\s+name="(?:SimTracker/[^"]*|TrackingTools/TrackFitters)"\s*/>\n?',
         "", xml))
 
+# ... and, in the 20_1 era, four more that produce nanoAOD flat tables for
+# tracker calibration (SiStripGainCalib, SiStripPositionCorrections,
+# SiStripLorentzAngleRunInfo, TkInstLumi). They pull PhysicsTools/NanoAOD,
+# which is not in the 20_1 package set, and taking the whole plugin library
+# out instead would lose the SiStripDetInfoFileReader service that the strip
+# digitiser needs. Nothing here writes a calibration ntuple.
+if os.path.isdir(pdir):
+    dropped = []
+    for name in ("SiStripGainCalibTableProducer", "SiStripPositionCorrectionsTableProducer",
+                 "SiStripLorentzAngleRunInfoTableProducer", "TkInstLumiTableProducer"):
+        for f in glob.glob(pdir + "/" + name + ".*"):
+            os.remove(f)
+            dropped.append(name)
+    if dropped:
+        edit(pdir + "/BuildFile.xml", lambda xml: re.sub(
+            r'<use\s+name="PhysicsTools/NanoAOD"\s*/>\n?', "", xml))
+
 # --- calo local reco without RecoMET / Oracle / Geant4 (all versions) --------
 # RecoLocalCalo/HcalRecAlgos declares RecoMET/METAlgorithms, but the only
 # thing it actually links from that direction is EcalSeverityLevelAlgo
