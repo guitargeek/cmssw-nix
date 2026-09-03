@@ -188,6 +188,18 @@ process.hcalRecAlgos = cms.ESProducer(
     ),
 )
 
+
+# 20_1 moved the per-channel reconstruction constants out of
+# HBHEPhase1Reconstructor and into an EventSetup product of their own:
+# HcalChannelPropertiesEP gathers the conditions, the reco params, the
+# severity computer, the channel quality and the geometry into one
+# HcalChannelPropertiesRecord that the reconstructor then consumes. Nothing
+# loads it here - in production it comes with the reco sequence cff - so
+# without it the job dies with "No HcalChannelPropertiesRecord record found
+# in the EventSetup". The 10_6 reconstructor read the parent records itself.
+if not _is_10_6:
+    process.load("RecoLocalCalo.HcalRecAlgos.hcalChannelPropertiesESProd_cfi")
+
 # --- random numbers ---------------------------------------------------------
 # The calorimeter digitisers draw photostatistics and electronics noise, and
 # like the tracker ones they draw through the service under the label of the
@@ -311,23 +323,29 @@ process.calo = cms.EDAnalyzer(
     # Measured: 100% of the cells with a deposit have a rec hit. The bound
     # allows for one cell in ten falling below the reconstruction threshold.
     minEbEfficiency=cms.double(0.9),
-    # Measured: 1.03. ECAL is homogeneous, so what the crystal absorbed is
+    # Measured: 1.03 in 10_6, 1.09 in 20_1. ECAL is homogeneous, so what the
+    # crystal absorbed is
     # what the reconstruction should report, and the answer is one. The 20%
     # window is wide enough for the noise on a 300 MeV signal and narrow
     # enough that a wrong calibration constant, pulse shape or amplitude fit
     # cannot pass - those get it wrong by factors, not percent.
     minEbResponse=cms.double(0.8),
     maxEbResponse=cms.double(1.2),
-    # Measured: 0.34 GeV. A muon crossing 23 cm of PbWO4 at minimum ionisation
+    # Measured: 0.34 GeV in 10_6, 0.44 GeV in 20_1. The two releases run
+    # different Geant4 versions (10.4 and 11.4), so what is deposited differs
+    # and not only what is made of it.
+    # A muon crossing 23 cm of PbWO4 at minimum ionisation
     # deposits about that, and it is the smallest signal ECAL is ever asked to
     # reconstruct - a few times the 40 MeV per-crystal noise.
     minEbMip=cms.double(0.15),
     maxEbMip=cms.double(0.6),
-    # Measured: 0.0093. This is the statement that the calorimeter is seeing a
+    # Measured: 0.0093 in 10_6, 0.012 in 20_1. This is the statement that the
+    # calorimeter is seeing a
     # muon: an electron of the same momentum would deposit essentially all of
     # it, so E/p would be 1 rather than 1%.
     maxEOverP=cms.double(0.05),
-    # Measured: 113, and 2.4 GeV of reconstructed energy per muon, which is
+    # Measured: 113 in 10_6 and 108 in 20_1, and 2.4 / 2.3 GeV of reconstructed
+    # energy per muon, which is
     # the textbook figure for a muon crossing the barrel hadron calorimeter.
     # The HCAL response is the sampling factor, fixed by the
     # brass-to-scintillator ratio of the barrel; it is known to be around a

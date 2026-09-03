@@ -26,7 +26,12 @@ jobs, each measuring something with a known right answer:
 | `muon_gun_calo_cfg.py` | calorimeter DIGI + reco | energy response 1.03, MIP 0.34 GeV |
 | `muon_gun_nano_cfg.py` | global muons + NanoAOD | 0.87% momentum, in a flat table |
 
-Needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`).
+Six of the seven jobs run in both releases. `muon_gun_nano_cfg.py` is
+10_6-only: `PhysicsTools/NanoAOD` is not part of the 20_1 package. The
+measured numbers in the table are the 10_6 ones; the calorimeter job is the
+one where 20_1 differs enough to be worth stating, because the two releases
+simulate with different Geant4 versions (10.4 and 11.4) — see the bounds in
+`python/muon_gun_calo_cfg.py`, which carry both.
 
 ## The digitisers live inside the mixing module
 
@@ -590,7 +595,8 @@ no-database path this flake is necessarily on.
 
 ## Building and running
 
-From this directory, inside `nix develop .#cmssw_10_6_30`:
+From this directory, inside `nix develop .#cmssw_10_6_30` (or `nix develop
+.#default` for 20_1, leaving out the NanoAOD job):
 
 ```bash
 cmake -B build -S . -G Ninja

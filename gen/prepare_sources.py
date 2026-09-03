@@ -717,6 +717,46 @@ if release_cycle >= (20, 0):
 
     edit("cmssw/FWCore/Services/plugins/InitRootHandlers.cc", whitelist_ttreecache_message)
 
+    # --- ECAL component shapes only when component digis are asked for -------
+    # EcalDigiProducer builds its ComponentShapeCollection through the
+    # ComponentShapeCollection(iC) delegate, which hard-codes useDBShape=true,
+    # and accumulate() calls setEventSetup on it for every event in which the
+    # barrel is digitised. Both happen regardless of componentSeparateDigi -
+    # the parameter that decides whether the component shapes are used at all.
+    #
+    # They are not used otherwise. EBHitResponseImpl reaches shapes() only in
+    # the else of `if (!m_isComponentShapeBased)` (EBHitResponse.icc:139), and
+    # of the three responses EcalDigiProducer builds, only m_ComponentResponse
+    # passes doComponent=true - and it is a nullptr unless componentSeparateDigi
+    # is set, which nothing but the ecal_component era modifiers do.
+    #
+    # So in the default configuration the collection is filled from
+    # EcalSimComponentShapeRcd and then never read. That is fatal here: the
+    # only producer of that record in this build is
+    # EcalTrivialConditionRetriever (producedEcalSimComponentShape defaults to
+    # true), and its EBSimComponentShapeFiles list is empty, because the 23
+    # per-depth shape files are in no cms-data package and the conditions
+    # database is not reachable from here. It therefore delivers a payload
+    # with no shapes in it and ComponentShape::fillShape dies on
+    # barrel_shapes.at(0), which is what keeps examples/MuonGunDigi's
+    # calorimeter job 10_6-only.
+    #
+    # Tie the DB lookup to the switch that decides whether its result is read.
+    # With componentSeparateDigi off, ComponentShape takes its useDB=false
+    # branch - which upstream provides for exactly this case ("fill with dummy
+    # values, since this code is only reached before the actual digi
+    # simulation") and which no response object ever looks at. With it on,
+    # nothing changes.
+    def component_shapes_follow_switch(src):
+        assert src.count("      m_ComponentShapes(iC),\n") == 1
+        return src.replace(
+            "      m_ComponentShapes(iC),\n",
+            '      m_ComponentShapes(params.getParameter<bool>("componentSeparateDigi"), iC),\n',
+        )
+
+    edit("cmssw/SimCalorimetry/EcalSimProducers/src/EcalDigiProducer.cc",
+         component_shapes_follow_switch)
+
 if release_cycle < (11, 0):
     # --- 10_6-era fixups -----------------------------------------------------
 
