@@ -28,10 +28,14 @@ public_key=$key_dir/cmssw-nix-cache.public
 nix_conf=$key_dir/nix.conf
 key_name=cmssw-nix-cache-1
 
-# The releases, and the sources that are not in any runtime closure (see the
-# tail of build.sh - they are ~500 MB each and the slowest thing to refetch).
+# The releases, plus the two things that are in no release's runtime closure
+# and that build.sh roots for exactly that reason: the CMSSW checkouts (~500 MB
+# each, the slowest thing to refetch) and the dev shells' inputs, which is
+# where Geant4's datasets live. result-geant4 and result-g4data stood in for
+# the latter here by hand; nothing maintained them and one had gone dangling,
+# so a store reset would have taken the datasets with it.
 links=(result-10_6 result-20_1 result-src-10_6 result-src-20_1
-       result-geant4 result-g4data)
+       result-shell-10_6 result-shell-20_1)
 
 die() { echo "$*" >&2; exit 1; }
 
@@ -73,8 +77,38 @@ cmd_init() {
   echo "public key $pub"
 }
 
+# What gets pushed is whatever the out-links point at, and nothing keeps them
+# in step with the flake: a build made with `nix build --no-link`, or one made
+# before an edit under gen/, leaves result-<release> on an older store path.
+# The push then copies that older path, verifies it, and reports success -
+# while the build that was actually just made stays uncached and, worse,
+# unpinned. That is how a finished 10_6 build sat unprotected for a day.
+#
+# Evaluating the flake is seconds against a push of gigabytes, so say which
+# links are behind. It is a warning rather than an error: pushing an older
+# build on purpose is legitimate, being unaware of it is not.
+declare -A release_attrs=( [result-10_6]=cmssw_10_6_30 [result-20_1]=cmssw )
+
+warn_stale_links() {
+  local link want have stale=0
+  for link in "${!release_attrs[@]}"; do
+    [ -L "$link" ] || continue
+    want=$(nix eval --raw ".#${release_attrs[$link]}.outPath" 2>/dev/null) || continue
+    have=$(readlink -f "$link")
+    [ "$want" = "$have" ] && continue
+    echo "warning: $link does not point at what the flake evaluates to now" >&2
+    echo "           link   $have" >&2
+    echo "           flake  $want" >&2
+    stale=1
+  done
+  [ "$stale" -eq 0 ] ||
+    echo "run ./scripts/build.sh to refresh the out-links first, unless the older build is what you meant to push" >&2
+}
+
 cmd_push() {
   [ -f "$secret_key" ] || die "no signing key - run './scripts/local-cache.sh init' first"
+
+  warn_stale_links
 
   local paths=()
   for link in "${links[@]}"; do

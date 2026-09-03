@@ -2,9 +2,9 @@ result
 result-*
 examples/*/build/
 examples/*/build-*/
-examples/*/build.log
-examples/*/run.log
-examples/*/check.log
+# every example writes its logs beside itself; run_all.sh makes build.log,
+# run.log and check.log, and a job run by hand can leave others.
+examples/*/*.log
 examples/NanoGen/nanogen.root
 examples/MyAnalyzer/myelectrons.root
 examples/MiniAODReader/miniaod.root
@@ -17,6 +17,6 @@ __pycache__/
 build-*.log
 examples/ConditionsSqlite/beamspot.db
 examples/ConditionsFrontier/frontier_port.txt
-examples/ConditionsFrontier/frontier_requests.log
 rebuild-status.log
-examples/TrackerLocalReco/pixel_la.db
+# written by write_pixel_la_20_1_cfg.py, which the 20_1 job list runs first
+examples/*/pixel_la.db
