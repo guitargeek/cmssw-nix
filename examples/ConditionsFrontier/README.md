@@ -35,18 +35,18 @@ The check script then looks at the other end of the wire and confirms the
 server was sent a real Frontier query — the servlet path, `type=frontier_request`,
 an encoding, and a compressed query parameter.
 
-## The catch: cmsRun aborts at exit
+## The teardown abort, and the patch that fixes it
 
-The job does all of the above correctly and then **aborts with exit code 134**
-on the way out:
+This example used to do all of the above correctly and then **abort with exit
+code 134** on the way out, after the event loop and after the MessageLogger
+summary — every result above was already in hand:
 
 ```
 terminate called after throwing an instance of 'boost::wrapexcept<boost::lock_error>'
   what():  boost: mutex lock failed in pthread_mutex_lock: Invalid argument
 ```
 
-This happens after the event loop, after the MessageLogger summary — every
-result above is already in hand. The backtrace is unambiguous:
+The backtrace was unambiguous:
 
 ```
 coral::Context::~Context()                          <- from exit()
@@ -57,21 +57,24 @@ coral::Context::~Context()                          <- from exit()
      coral::FrontierAccess::Connection::disconnect()   <- throws here
 ```
 
-`disconnect()` starts by locking `m_domainProperties.lock()`, a `boost::mutex`
-owned by the Frontier plugin's `Domain`. At `exit()` the `Domain` has already
-been destroyed, so the lock fails, and the exception escapes a destructor —
-which is `std::terminate`.
+`disconnect()` begins by locking `DomainProperties::lock()`. That was a
+namespace-scope `static boost::mutex` in `liblcg_FrontierAccess.so`, while the
+`Context` that owns the connection pool is torn down from `exit()` over in
+`liblcg_ConnectionService.so`. Nothing orders static destruction between two
+shared libraries, and in practice the mutex went first: `pthread_mutex_lock`
+returned `EINVAL`, boost turned that into `lock_error`, and an exception
+leaving a destructor is `std::terminate`.
 
-It is an upstream destruction-order bug between `liblcg_FrontierAccess.so`
-and `liblcg_ConnectionService.so`, not something this example causes: it
-happens just as reliably when the server refuses the connection, so merely
-*creating* a Frontier connection is enough. The same code against the sqlite
-backend exits 0, and `purgeConnectionPool()` in `endJob` does not release the
-connection either. Fixing it properly means patching CORAL's teardown.
+It was not something this example caused. It happened just as reliably when
+the server refused the connection, so merely *creating* a Frontier connection
+was enough — which meant every real job in this build that read conditions
+over Frontier aborted, after doing its work.
 
-Because of this the example is **not part of `nix flake check`** — see
-`_excluded` in `examples/jobs.json`. Any real job in this build that reads
-conditions over Frontier will hit the same abort, after doing its work.
+`pkgs/coral-frontier-lock-lifetime.patch` gives that mutex a lifetime that
+outlasts teardown: it is allocated once, on first use, and never deleted. That
+removes the dependency on cross-library destruction order rather than working
+around it, at the cost of leaking one mutex at process exit. The job now exits
+0, and the example is part of `nix flake check`.
 
 ## What else is not tested
 
@@ -90,13 +93,15 @@ process.GlobalTag = cms.ESSource(
 ```
 
 which additionally needs a site-local-config that maps `FrontierProd` to a
-squid — the package already ships one, see `gen/site-local-config-10_6.xml`.
+squid — the package already ships one, see `gen/site-local-config.xml` and
+`gen/site-local-config-10_6.xml`.
 
-This example needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`).
+Runs in both releases.
 
 ## Building and running
 
-From this directory, inside `nix develop .#cmssw_10_6_30`:
+From this directory, inside `nix develop .#cmssw_10_6_30` or `nix develop
+.#default`:
 
 ```bash
 cmake -B build -S . -G Ninja

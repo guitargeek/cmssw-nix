@@ -21,6 +21,14 @@ stdenv.mkDerivation {
   version = "2.3.21";
   inherit src;
 
+  # The one CORAL defect this build hits: a job that opens a frontier://
+  # connection does its work and then aborts with SIGABRT at exit. See the
+  # patch header - a static mutex in one plugin library is destroyed before
+  # the connection pool in another gets to lock it. patch(1) fails loudly if
+  # a future coral-src no longer matches, which is the point of shipping it
+  # as a patch rather than a substituteInPlace.
+  patches = [ ./coral-frontier-lock-lifetime.patch ];
+
   nativeBuildInputs = [ cmake ninja ];
   buildInputs = [ boost xercesc sqlite libuuid ] ++ lib.optional (frontier != null) frontier;
 

@@ -9,6 +9,7 @@
     { "dir": "MuonChain",        "cfgs": ["python/muon_sta_cfg.py"] },
     { "dir": "NanoGen",          "cfgs": ["python/nanogen_cfg.py"] },
     { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] },
+    { "dir": "ConditionsFrontier", "cfgs": ["python/frontier_conditions_cfg.py"] },
     { "dir": "MuonGunSim",       "cfgs": ["python/muon_gun_sim_cfg.py"] },
     { "dir": "MuonGunDigi",      "cfgs": ["python/write_sim_conditions_cfg.py", "python/muon_gun_digi_cfg.py", "python/muon_gun_reco_cfg.py", "python/muon_gun_tracks_cfg.py", "python/muon_gun_muons_cfg.py", "python/muon_gun_calo_cfg.py", "python/muon_gun_nano_cfg.py"] }
   ],
@@ -22,12 +23,12 @@
     { "dir": "MagneticFieldMap", "cfgs": ["python/magfield_cfg.py"] },
     { "dir": "MuonChain",        "cfgs": ["python/muon_sta_cfg.py"] },
     { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] },
+    { "dir": "ConditionsFrontier", "cfgs": ["python/frontier_conditions_cfg.py"] },
     { "dir": "MuonGunSim",       "cfgs": ["python/muon_gun_sim_cfg.py"] },
     { "dir": "MuonGunDigi",      "cfgs": ["python/write_sim_conditions_cfg.py", "python/muon_gun_digi_cfg.py", "python/muon_gun_reco_cfg.py", "python/muon_gun_tracks_cfg.py", "python/muon_gun_muons_cfg.py", "python/muon_gun_calo_cfg.py"] }
   ],
 
   "_excluded": {
-    "ConditionsFrontier": "the transport works, but cmsRun aborts at exit - see that example's README",
     "MiniAODReader": "needs a CMS Open Data file that is not in the store"
   }
 }

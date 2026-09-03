@@ -1,0 +1,73 @@
+Give the FrontierAccess global lock a lifetime that outlives teardown.
+
+Any CORAL job that opened a frontier:// connection aborted with SIGABRT on
+the way out, after its work was complete:
+
+  terminate called after throwing an instance of 'boost::wrapexcept<boost::lock_error>'
+    what():  boost: mutex lock failed in pthread_mutex_lock: Invalid argument
+
+  coral::Context::~Context()                            <- from exit()
+   coral::ConnectionService::ConnectionService::~ConnectionService()
+    coral::ConnectionService::ConnectionPool::clearConnectionPool()
+     coral::ConnectionHandle::~ConnectionHandle()
+      coral::FrontierAccess::Connection::~Connection()
+       coral::FrontierAccess::Connection::disconnect()  <- throws here
+
+DomainProperties::s_lock was a namespace-scope static boost::mutex living in
+liblcg_FrontierAccess.so; the Context that owns the connection pool is torn
+down from exit() in liblcg_ConnectionService.so. Nothing orders the two, and
+in practice the mutex was destroyed first - so pthread_mutex_lock on it
+returned EINVAL, boost turned that into lock_error, and the exception escaped
+~Connection(), which is std::terminate.
+
+Making the mutex immortal removes the dependency on cross-library static
+destruction order entirely. It leaks exactly one mutex, at process exit.
+
+Reported here rather than upstream-only because CORAL is no longer maintained;
+CMSSW carries the same code in cms-externals/coral.
+
+--- a/FrontierAccess/src/DomainProperties.h
++++ b/FrontierAccess/src/DomainProperties.h
+@@ -84,9 +84,6 @@
+       /// The chunk size in bytes for a LOB retrieval
+       int m_lobChunkSize;
+ 
+-      /// The class global lock
+-      static boost::mutex s_lock;
+-
+     };
+ 
+   }
+@@ -95,7 +92,20 @@
+ 
+ inline boost::mutex& coral::FrontierAccess::DomainProperties::lock()
+ {
+-  return s_lock;
++  // Deliberately allocated and never deleted. This used to be a namespace-scope
++  // static boost::mutex in liblcg_FrontierAccess.so, while CoralKernel's
++  // Context is torn down from exit() over in liblcg_ConnectionService.so. By
++  // the time ConnectionPool::clearConnectionPool() got to
++  // FrontierAccess::Connection::disconnect(), which locks this, the mutex had
++  // already been destroyed: pthread_mutex_lock returned EINVAL, boost threw
++  // lock_error out of ~Connection(), and an exception leaving a destructor is
++  // std::terminate. Every job that opened a frontier:// connection aborted
++  // with 134 on the way out, after its work was already done.
++  //
++  // Leaking one mutex at process exit is the usual price for not depending on
++  // destruction order between shared libraries.
++  static boost::mutex* const s_lock = new boost::mutex();
++  return *s_lock;
+ }
+ 
+ 
+--- a/FrontierAccess/src/DomainProperties.cpp
++++ b/FrontierAccess/src/DomainProperties.cpp
+@@ -8,8 +8,6 @@
+ 
+ #include "CoralKernel/Context.h"
+ 
+-boost::mutex coral::FrontierAccess::DomainProperties::s_lock{};
+-
+ coral::FrontierAccess::DomainProperties::DomainProperties( coral::FrontierAccess::Domain* service ) :
+   m_service( service ),
+   m_tableSpaceForTables(""),
