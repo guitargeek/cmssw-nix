@@ -8,8 +8,7 @@ built with cmake instead of scram. Two release eras are provided:
   whose toolchain matches the release era (gcc 11 / C++17, ROOT 6.24, classic
   TBB 2020.3 with the `tbb::task` API, python 3.9)
 
-It is the successor of the
-[Arch Linux PKGBUILD experiment](../PKGBUILDs/cmssw): the
+It is the successor of an earlier Arch Linux PKGBUILD experiment: the
 `BuildFile.xml` → `CMakeLists.txt` conversion script from there lives on in
 [gen/cmssw_cmake.py](gen/cmssw_cmake.py), now driven by a nix derivation.
 
@@ -58,8 +57,12 @@ DBOutputService, the BeamSpot record plugins) against it. The
 boost-serialization code for the `CondFormats` payload classes is generated
 at build time by CMSSW's own libclang-based generator, exactly as scram
 does it. Payloads can be written to and read from `sqlite_file:` databases
-through `PoolDBOutputService` / `PoolDBESSource`. Oracle/Frontier access
-(real GlobalTags from the grid) is not built.
+through `PoolDBOutputService` / `PoolDBESSource`. The Frontier transport —
+how a real CMS job reads a global tag over HTTP — is built as well
+([pkgs/frontier-client.nix](pkgs/frontier-client.nix) plus CORAL's
+`FrontierAccess` backend) and exercised against a stub servlet in
+[examples/ConditionsFrontier](examples/ConditionsFrontier); direct Oracle
+access is not built.
 
 The first reconstruction step itself is also covered for the tracker, the
 calorimeters and the muon system. **Tracker local reco**: the SiPixel/SiStrip clusterizers,

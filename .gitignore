@@ -1,7 +1,7 @@
 result
 result-*
-examples/*/build/
-examples/*/build-*/
+# cmake build dirs beside each example (build/, build-*/, build20, ...)
+examples/*/build*/
 # every example writes its logs beside itself; run_all.sh makes build.log,
 # run.log and check.log, and a job run by hand can leave others.
 examples/*/*.log
