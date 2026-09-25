@@ -390,7 +390,21 @@
       makeExampleCheck = ps: cmsswPkg: rootPkg: extraPackages: era: job:
         ps.stdenv.mkDerivation {
           name = "cmssw-example-${era}-${job.dir}";
-          src = ./examples + "/${job.dir}";
+          # The example directory plus the helpers all examples share:
+          # data/ (calorimeter pulse shapes — each consumer symlinks
+          # data/ to ../data), cmake/ (the common CMakeLists preamble) and
+          # common/ (sources compiled by more than one example).
+          # (fileset comes from the modern package set; nixos-22.05's lib
+          # does not have it, and path filtering is era-independent)
+          src = pkgs.lib.fileset.toSource {
+            root = ./examples;
+            fileset = pkgs.lib.fileset.unions [
+              (./examples + "/${job.dir}")
+              ./examples/data
+              ./examples/cmake
+              ./examples/common
+            ];
+          };
 
           nativeBuildInputs = [ ps.cmake ps.ninja ];
           buildInputs = userPackages ps cmsswPkg rootPkg extraPackages;
@@ -403,6 +417,7 @@
             runHook preBuild
             # ROOT writes into $HOME on startup
             export HOME=$TMPDIR
+            cd ${job.dir}
             cmake -B build -S . -G Ninja
             cmake --build build
             runHook postBuild

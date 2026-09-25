@@ -132,7 +132,7 @@ process.pixelCablingWriter = cms.EDAnalyzer(
     version=cms.string("empty - see PixelCablingMapWriter.cc"),
 )
 
-# See plugins/PixelLorentzAngleWriter.cc: the fake ES source covers the
+# See ../common/plugins/PixelLorentzAngleWriter.cc: the fake ES source covers the
 # phase-0 pixel detector, so against a 2018 geometry it supplies nothing
 # and reconstruction silently applies no Lorentz correction.
 process.pixelLorentzAngleWriter = cms.EDAnalyzer(

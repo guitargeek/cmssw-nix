@@ -372,7 +372,7 @@ process.residuals = cms.EDAnalyzer(
     # cell. Measured: 9 um. This bound is the one that matters - it is
     # tight enough to catch the Lorentz drift going uncorrected, which
     # put this at 51 um until the phase-1 payload was written (see
-    # plugins/PixelLorentzAngleWriter.cc).
+    # ../common/plugins/PixelLorentzAngleWriter.cc).
     maxPixelMedianResidual=cms.double(0.003),
     # every SimHit in the barrel strips is reconstructed in practice; the
     # margin is for the occasional low-energy secondary that leaves a hit too

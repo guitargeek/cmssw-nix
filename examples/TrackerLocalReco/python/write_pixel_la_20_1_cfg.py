@@ -1,6 +1,6 @@
 # Write the pixel Lorentz angle the 20_1 local reconstruction needs.
 #
-# See plugins/PixelLorentzAngleWriter.cc: CMSSW_20_1's only producer of
+# See ../common/plugins/PixelLorentzAngleWriter.cc: CMSSW_20_1's only producer of
 # SiPixelLorentzAngleRcd resolves a FileInPath default into a data-only
 # package that is not in this build, during validation, whatever the
 # configuration says. The payload is a flat tan(theta_L) per module, so it is

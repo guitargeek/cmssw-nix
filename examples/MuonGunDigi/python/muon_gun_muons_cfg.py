@@ -22,8 +22,15 @@
 #
 # Reads muon_gun_digi.root, so run python/muon_gun_digi_cfg.py first.
 import os
+import sys
 
 import FWCore.ParameterSet.Config as cms
+
+# the shared reconstruction stages live beside this file; cmsRun does not
+# put the config's directory on sys.path
+sys.path.insert(0, globals().get("__file__") and os.path.dirname(os.path.abspath(__file__))
+                or os.path.join(os.getcwd(), "python"))
+from muon_gun_stages import add_detinfo_fixups, add_muon_reco
 
 _is_10_6 = os.environ.get("CMSSW_VERSION", "").startswith("CMSSW_10_")
 
@@ -119,55 +126,7 @@ process.offlineBeamSpot = cms.EDProducer("BeamSpotProducer")
 # fits. What it cannot absorb is that the bias grows with radius, so the
 # stations disagree with each other, and only the track fit across them sees
 # it - as chi2/ndof of 112 instead of 1.8.
-from RecoLocalMuon.DTRecHit.dt1DRecHits_LinearDrift_cfi import dt1DRecHits as _dt1DRecHits
-
-process.dt1DRecHits = _dt1DRecHits.clone(dtDigiLabel=cms.InputTag("simMuonDTDigis"))
-process.dt1DRecHits.recAlgoConfig.tTrigMode = cms.string("DTTTrigSyncTOFCorr")
-process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tTrig = cms.double(500.0)
-process.dt1DRecHits.recAlgoConfig.tTrigModeConfig.tofCorrType = cms.int32(1)
-
-from RecoLocalMuon.DTSegment.dt4DSegments_CombPatternReco4D_LinearDrift_cfi import (
-    dt4DSegments as _dt4DSegments,
-)
-
-process.dt4DSegments = _dt4DSegments.clone(recHits1DLabel=cms.InputTag("dt1DRecHits"))
-for _cfg in (
-    process.dt4DSegments.Reco4DAlgoConfig.Reco2DAlgoConfig.recAlgoConfig,
-    process.dt4DSegments.Reco4DAlgoConfig.recAlgoConfig,
-):
-    _cfg.tTrigMode = cms.string("DTTTrigSyncTOFCorr")
-    _cfg.tTrigModeConfig.tTrig = cms.double(500.0)
-    _cfg.tTrigModeConfig.tofCorrType = cms.int32(1)
-
-# perform_delta_rejecting is required by DTSegmentUpdator and absent from
-# this cfi. It belongs to the pattern-recognition algo config, not to the
-# rec-hit algo config inside it. The LinearDriftFromDB variant of the same
-# algorithm sets it True and the cosmic-data ones False; True is right here,
-# because rejectBadHits drops hits inconsistent with the segment fit and a
-# simulated collision muon really does make delta rays along its path.
-# examples/MuonChain sets False - its toy digis have none.
-process.dt4DSegments.Reco4DAlgoConfig.perform_delta_rejecting = cms.bool(True)
-process.dt4DSegments.Reco4DAlgoConfig.Reco2DAlgoConfig.perform_delta_rejecting = (
-    cms.bool(True)
-)
-
-# --- seeds and the standalone fit -------------------------------------------
-# DT only: the gun fires into the barrel, so there are no CSC hits, and the RPC
-# digitiser is packaged but not run here.
-from RecoMuon.MuonSeedGenerator.ancientMuonSeed_cfi import ancientMuonSeed as _ancientMuonSeed
-
-process.ancientMuonSeed = _ancientMuonSeed.clone(
-    EnableCSCMeasurement=cms.bool(False),
-    EnableRPCMeasurement=cms.bool(False),
-)
-
-process.load("RecoMuon.StandAloneMuonProducer.standAloneMuons_cff")
-for _pset in (
-    process.standAloneMuons.STATrajBuilderParameters.FilterParameters,
-    process.standAloneMuons.STATrajBuilderParameters.BWFilterParameters,
-):
-    _pset.EnableCSCMeasurement = cms.bool(False)
-    _pset.EnableRPCMeasurement = cms.bool(False)
+add_muon_reco(process, _is_10_6)
 
 # --- the measurement --------------------------------------------------------
 # The same analyzer the tracking job uses, pointed at the standalone muons.
@@ -202,17 +161,7 @@ process.muons = cms.EDAnalyzer(
     maxMedianChi2=cms.double(5.0),
 )
 
-# 20_1 took the det-info map away from the SiStripDetInfoFileReader service and
-# made it a parameter of each fake ES source instead. Modules loaded from their
-# cfis carry it already; ones declared by hand here do not, and the framework
-# refuses to construct them without it. Done by walking the ES sources rather
-# than naming them, so a source added later cannot quietly miss out.
-if not _is_10_6:
-    _detinfo = cms.FileInPath("CalibTracker/SiStripCommon/data/SiStripDetInfo.dat")
-    for _essrc in process.es_sources_().values():
-        if _essrc.type_().startswith("SiStrip") and _essrc.type_().endswith("FakeESSource"):
-            if not hasattr(_essrc, "SiStripDetInfoFile"):
-                _essrc.SiStripDetInfoFile = _detinfo
+add_detinfo_fixups(process, _is_10_6)
 
 process.p = cms.Path(
     process.offlineBeamSpot

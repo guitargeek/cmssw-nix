@@ -1,31 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
-project(ConditionsSqliteTest LANGUAGES CXX)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
-
-if(NOT DEFINED ENV{CMSSW_BASE})
-  message(FATAL_ERROR "CMSSW_BASE is not set - run inside `nix develop`")
-endif()
-set(CMSSW_BASE $ENV{CMSSW_BASE})
-
-# Match the C++ standard CMSSW was built with (C++20 for modern releases,
-# C++17 for the 10_6 era).
-if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
-  set(CMAKE_CXX_STANDARD 17)
-  # BeamSpotObjects renamed its accessors and PoolDBOutputService its write
-  # method between the two releases; the plugins spell both through macros.
-  add_compile_definitions(CMSSW_10_6_ERA)
-else()
-  set(CMAKE_CXX_STANDARD 20)
-endif()
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-include_directories(${CMSSW_BASE}/src)
-link_directories(${CMSSW_BASE}/lib)
-
-find_package(ROOT REQUIRED)
-find_package(Boost REQUIRED)
-find_library(TBB_LIBS NAMES tbb REQUIRED)
+set(EXAMPLE_NAME ConditionsSqlite)
+include(${CMAKE_CURRENT_LIST_DIR}/../cmake/ExampleSetup.cmake)
 
 file(GLOB PLUGIN_FILES plugins/*.cc)
 add_library(ConditionsSqliteTestPlugins SHARED ${PLUGIN_FILES})
