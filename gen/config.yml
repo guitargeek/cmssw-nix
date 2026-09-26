@@ -14,9 +14,8 @@ bins:
 subsystems:
     # Tracker alignment, for the differentiable-nuisance study:
     # MisalignedTrackerESProducer applies a misalignment scenario scaled by a
-    # configurable parameter, which is the cleanest DIGI/RECO-level nuisance
-    # handle in the tracker - see
-    # /home/claude/research/differentiable-nuisance. CommonAlignment carries
+    # configurable parameter - the cleanest DIGI/RECO-level nuisance handle
+    # in the tracker for fixed-seed finite-difference studies. CommonAlignment carries
     # the alignable hierarchy the producer walks; TrackerAlignment has the
     # producer and the scenario builder.
     Alignment:
