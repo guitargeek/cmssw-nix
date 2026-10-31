@@ -35,6 +35,21 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ cmake ];
   buildInputs = [ clhep xercesc expat zlib ];
 
+  # 10.4 recognises a Mac only on x86_64: on any other clang Mac the
+  # multi-threaded build stops at "No Threading model technology supported
+  # for this platform", although the pthread code path it would take is
+  # plain POSIX. Widen the three platform tests to every clang Mac.
+  postPatch = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    for f in source/global/management/include/G4Threading.hh \
+             source/global/management/include/tls.hh \
+             source/processes/electromagnetic/dna/management/src/G4MemStat.cc; do
+      grep -q 'defined(__MACH__) && defined(__clang__) && defined(__x86_64__)' $f \
+        || { echo "geant4: platform test not found in $f" >&2; exit 1; }
+      sed -i 's/defined(__MACH__) \&\& defined(__clang__) \&\& defined(__x86_64__)/defined(__MACH__) \&\& defined(__clang__)/' $f
+    done
+  '';
+
+
   cmakeFlags = [
     "-DCMAKE_BUILD_TYPE=Release"
     "-DBUILD_SHARED_LIBS=ON"
@@ -74,6 +89,12 @@ stdenv.mkDerivation {
     "-DGEANT4_USE_XM=OFF"
     "-DGEANT4_USE_RAYTRACER_X11=OFF"
     "-DGEANT4_USE_QT=OFF"
+  ] ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    # libc++ drops the C++17-deprecated library features outright where
+    # libstdc++ keeps them, and 10.4 still uses std::mem_fun_ref (INCL),
+    # among others. libc++ keeps them on request; this is the switch for the
+    # libc++ of the 22.05 package set (the per-feature macros came later).
+    "-DCMAKE_CXX_FLAGS=-D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES"
   ];
 
   # The TLS model is left at Geant4's multi-threaded default of initial-exec,
@@ -105,6 +126,6 @@ stdenv.mkDerivation {
   meta = {
     description = "Geant4 10.4.p03 (CMS fork), the toolkit CMSSW_10_6 simulates with";
     homepage = "https://geant4.web.cern.ch";
-    platforms = lib.platforms.linux;
+    platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
 }

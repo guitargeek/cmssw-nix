@@ -76,10 +76,19 @@
 , nlohmann_json ? null
 # clang binaries + libclang python bindings: the CondFormats serialization
 # code (boost-serialization methods for the conditions payload classes) is
-# generated at build time by a libclang-based script, like scram does it
+# generated at build time by a libclang-based script, like scram does it.
+# The script runs clang++ only to ask it for its default include paths, so
+# clangTools can be null where the stdenv compiler is clang itself.
 , clangTools ? null
 , libclangPython ? null
 , legacySiteConf ? false
+# darwin: raises the macOS deployment target of the build (nixpkgs'
+# darwinMinVersionHook), propagated so that what is built against the
+# release targets the same version
+, deploymentTargetHook ? null
+# compiler-wrapper hardening flags to turn off (nixpkgs' hardeningDisable);
+# whatever is compiled against the release should turn off the same ones
+, hardeningDisable ? [ ]
 # extra python packages for the runtime environment (e.g. six for 10_6-era
 # python config code)
 , extraPythonPackages ? (ps: [ ])
@@ -143,6 +152,10 @@ stdenv.mkDerivation {
     ++ lib.optional (pythia8 != null) pythia8
     ++ lib.optional (lhapdf != null) lhapdf
     ++ lib.optional (libsigcxx != null) libsigcxx;
+
+  propagatedBuildInputs = lib.optional (deploymentTargetHook != null) deploymentTargetHook;
+
+  inherit hardeningDisable;
 
   # We drive cmake manually because of the custom source layout (top-level
   # CMakeLists.txt above the cmssw source tree).
@@ -274,9 +287,18 @@ stdenv.mkDerivation {
     '') extraData}
 
     # Generate the fillDescriptions-based *_cfi.py files (scram's
-    # "cfipython") into each package's python directory, so the standard
-    # configuration files can import them. The library manifest maps every
-    # built library back to its package.
+    # "cfipython"), so the standard configuration files can import them. The
+    # library manifest maps every built library back to its package.
+    #
+    # Like scram, they go into a tree of their own, $out/cfipython/<pkg>,
+    # which the package's __init__.py appends to its __path__ (below), and
+    # not next to the handwritten files. A handwritten file still wins, by
+    # coming first on the path. Mixing the two in one directory cannot work
+    # on a case-insensitive filesystem - the default on macOS, the nix store
+    # volume included: CalibTracker/SiStripESProducers ships a handwritten
+    # SiStripLorentzAngleDepESProducer_cfi.py, the generator writes
+    # siStripLorentzAngleDepESProducer_cfi.py, and only one of the two can
+    # exist there, while python imports by exact case.
     if [ -x $out/bin/edmWriteConfigs ] && [ -f library_manifest.txt ]; then
       echo "generating cfipython files"
       export LD_LIBRARY_PATH=$out/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
@@ -291,10 +313,12 @@ stdenv.mkDerivation {
           # and the cfi imports it. Dropping those makes the generated cfi
           # unimportable (ModuleNotFoundError at cmsRun time).
           if ls $tmp/*.py > /dev/null 2>&1; then
-            mkdir -p $out/src/$pkg/python
+            # (the package needs a python directory for its __init__.py even
+            # when it has no handwritten python of its own)
+            mkdir -p $out/src/$pkg/python $out/cfipython/$pkg
             for f in $tmp/*.py; do
-              # handwritten files win over generated ones
-              [ -e $out/src/$pkg/python/$(basename $f) ] || cp $f $out/src/$pkg/python/
+              # two libraries of one package: the first one's file stays
+              [ -e $out/cfipython/$pkg/$(basename $f) ] || cp $f $out/cfipython/$pkg/
             done
           fi
           rm -rf $tmp
@@ -313,6 +337,10 @@ stdenv.mkDerivation {
       pkg=$(basename "$pkgdir")
       sub=$(basename "$(dirname "$pkgdir")")
       touch "$dir/__init__.py"
+      # the generated cfi files, after the handwritten ones
+      if [ -d $out/cfipython/$sub/$pkg ]; then
+        echo "__path__.append('$out/cfipython/$sub/$pkg')" >> "$dir/__init__.py"
+      fi
       mkdir -p $out/python/$sub
       ln -s "$dir" $out/python/$sub/$pkg
       touch $out/python/$sub/__init__.py
@@ -367,7 +395,16 @@ stdenv.mkDerivation {
     # Environment needed to use this CMSSW install, applied automatically when
     # the package is used in a nix shell.
     mkdir -p $out/nix-support
-    substituteAll ${../gen/setup-hook.sh} $out/nix-support/setup-hook
+    substituteAll ${../gen/setup-hook.sh} $out/nix-support/setup-hook${lib.optionalString (extraPythonPackages python3.pkgs != [ ]) ("\n" + ''
+      # cmsRun embeds the plain interpreter, and the python modules the
+      # release's configuration code imports beyond the standard library
+      # (six and future, for 10_6) live in the environment built around it.
+      # Whether the embedded interpreter finds that environment by itself
+      # depends on how libpython was linked: on darwin the library records
+      # the plain interpreter's path as its install name, and the job dies
+      # on "No module named 'six'". Name it explicitly.
+      echo "addToSearchPath PYTHONPATH ${pythonEnv}/${python3.sitePackages}" >> $out/nix-support/setup-hook
+    '')}
 
     runHook postInstall
   '';
@@ -391,6 +428,6 @@ stdenv.mkDerivation {
     description = "CMS software framework (FWCore + DataFormats subset, cmake-based build)";
     homepage = "https://github.com/cms-sw/cmssw";
     license = lib.licenses.asl20;
-    platforms = [ "x86_64-linux" ];
+    platforms = [ "x86_64-linux" "aarch64-darwin" ];
   };
 }

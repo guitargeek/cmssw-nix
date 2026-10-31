@@ -3,7 +3,7 @@
 # uses). Built with the LHAPDF6 plugin, so "PDF:pSet = LHAPDF6:<set>" works
 # once PDF data sets are on LHAPDF_DATA_PATH; the internal NNPDF 2.3 default
 # needs nothing extra.
-{ stdenv, src, lhapdf, rsync, cxxStandard ? "17" }:
+{ lib, stdenv, src, lhapdf, rsync, fixDarwinDylibNames, cxxStandard ? "17" }:
 
 stdenv.mkDerivation {
   pname = "pythia8";
@@ -11,7 +11,10 @@ stdenv.mkDerivation {
   inherit src;
 
   # pythia's own configure script (not autotools): it writes Makefile.inc
-  nativeBuildInputs = [ rsync ];
+  # (on darwin the library names itself @rpath/libpythia8.dylib, which only
+  # resolves for a consumer carrying this lib/ in its rpaths; nixpkgs
+  # libraries name themselves absolutely)
+  nativeBuildInputs = [ rsync ] ++ lib.optional stdenv.hostPlatform.isDarwin fixDarwinDylibNames;
   buildInputs = [ lhapdf ];
 
   postPatch = ''

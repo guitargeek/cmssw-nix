@@ -3,7 +3,7 @@
 # HepPDTESSource that serves the particle table to the reconstruction).
 # The autotools scripts predate modern toolchains; the layout is simple
 # enough to compile directly.
-{ stdenv, tbb, src }:
+{ lib, stdenv, tbb, src }:
 
 stdenv.mkDerivation {
   pname = "heppdt";
@@ -18,9 +18,15 @@ stdenv.mkDerivation {
     mkdir -p lib
     # defs.h is autoheader boilerplate no header actually uses
     touch include/HepPDT/defs.h
-    for pkg in HepPDT HepPID; do
-      g++ -O2 -fPIC -shared -I include \
-        -o lib/lib$pkg.so src/$pkg/*.cc -ltbb
+    # HepPID first: HepPDT calls into it, and Mach-O wants every symbol of
+    # a library resolved when it is linked. (The install name is what
+    # Mach-O records in everything that links it; left at the default it
+    # would be the bare file name.)
+    for pkg in HepPID HepPDT; do
+      $CXX -O2 -fPIC -shared -I include \
+        -o lib/lib$pkg.so src/$pkg/*.cc -ltbb \
+        ${lib.optionalString stdenv.hostPlatform.isDarwin
+          "-Llib $([ $pkg = HepPDT ] && echo -lHepPID) -Wl,-install_name,$out/lib/lib$pkg.so"}
     done
     runHook postBuild
   '';

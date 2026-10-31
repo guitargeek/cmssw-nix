@@ -48,6 +48,23 @@ stdenv.mkDerivation {
       || { echo "pacparser_setmyip patch did not apply"; exit 1; }
     grep -q '^static int (\*pp_setmyip)' pacparser-dlopen.c \
       || { echo "pp_setmyip pointer patch did not apply"; exit 1; }
+  '' + lib.optionalString stdenv.hostPlatform.isDarwin ''
+
+    # The Makefile has a dylib branch for macOS, but selects it by testing
+    # for /usr/lib/libc.dylib, which no macOS since Big Sur has on disk. Keep
+    # the .so build it falls through to (the name CORAL's cmake looks for)
+    # and give it what Mach-O needs instead of an ELF soname: an absolute
+    # install name, or nothing that links it could find it at run time. And
+    # gcc is hardcoded as the C compiler. (sed rather than substituteInPlace
+    # --replace-fail, which the 22.05 stdenv this also builds with lacks.)
+    sed -i \
+      -e "s|-Wl,-soname,libfrontier_client.so.\$(FN_VER_MAJOR)|-Wl,-install_name,$out/lib/libfrontier_client.so.\$(FN_VER_MAJOR)|" \
+      -e 's|^CC\(\s*\)=\(\s*\)gcc$|CC\1=\2cc|' \
+      Makefile
+    grep -q -- "-Wl,-install_name,$out/lib/libfrontier_client.so" Makefile \
+      || { echo "frontier-client: soname patch did not apply" >&2; exit 1; }
+    grep -qE '^CC\s*=\s*cc$' Makefile \
+      || { echo "frontier-client: CC patch did not apply" >&2; exit 1; }
   '';
 
   dontConfigure = true;
@@ -88,6 +105,6 @@ stdenv.mkDerivation {
     description = "Frontier client: HTTP access to relational databases, used by CMS conditions";
     homepage = "https://github.com/fermitools/frontier";
     license = lib.licenses.bsd3;
-    platforms = [ "x86_64-linux" ];
+    platforms = [ "x86_64-linux" "aarch64-darwin" ];
   };
 }

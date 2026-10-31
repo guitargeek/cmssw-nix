@@ -1,0 +1,33 @@
+TBB 2020.3 on Apple silicon (arm64 macOS).
+
+The makefiles only know x86 and PowerPC Macs and fall back to a 32-bit
+Intel build on anything else, so the architecture is passed in from the
+nix expression (arch=arm64; macos.clang.inc already has the flags for it,
+from the iOS port). What is left is source: tbb_machine.h has no atomics
+layer for an arm64 Mac, and the ITT layer does not recognise __aarch64__
+as ARM. Use the generic __atomic-builtin port, as on aarch64 Linux.
+
+diff -ru a/include/tbb/tbb_machine.h b/include/tbb/tbb_machine.h
+--- a/include/tbb/tbb_machine.h
++++ b/include/tbb/tbb_machine.h
+@@ -254,6 +254,8 @@
+         #include "machine/linux_intel64.h"
+     #elif __POWERPC__
+         #include "machine/mac_ppc.h"
++    #elif __aarch64__
++        #include "machine/gcc_generic.h"
+     #endif
+     #include "machine/macos_common.h"
+ 
+diff -ru a/src/tbb/tools_api/ittnotify_config.h b/src/tbb/tools_api/ittnotify_config.h
+--- a/src/tbb/tools_api/ittnotify_config.h
++++ b/src/tbb/tools_api/ittnotify_config.h
+@@ -162,7 +162,7 @@
+ #    define ITT_ARCH ITT_ARCH_IA32E
+ #  elif defined _M_IA64 || defined __ia64__
+ #    define ITT_ARCH ITT_ARCH_IA64
+-#  elif defined _M_ARM || defined __arm__
++#  elif defined _M_ARM || defined __arm__ || defined __aarch64__
+ #    define ITT_ARCH ITT_ARCH_ARM
+ #  elif defined __powerpc64__
+ #    define ITT_ARCH ITT_ARCH_PPC64

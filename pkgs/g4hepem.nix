@@ -14,6 +14,10 @@
 # SetMSCRangeFactor, SetMSCSafetyFactor), which older tags do not all have.
 { stdenv, cmake, geant4, src, version }:
 
+let
+  so = stdenv.hostPlatform.extensions.sharedLibrary;
+in
+
 stdenv.mkDerivation {
   pname = "g4hepem";
   inherit version src;
@@ -37,8 +41,8 @@ stdenv.mkDerivation {
   # them up by these names.
   postInstall = ''
     for lib in g4HepEm g4HepEmData g4HepEmInit g4HepEmRun; do
-      test -e $out/lib/lib$lib.so \
-        || { echo "g4hepem: expected lib$lib.so in $out/lib" >&2; ls $out/lib >&2; exit 1; }
+      test -e $out/lib/lib$lib${so} \
+        || { echo "g4hepem: expected lib$lib${so} in $out/lib" >&2; ls $out/lib >&2; exit 1; }
     done
     # Headers install into include/G4HepEm/, but CMSSW includes them
     # unprefixed (<G4HepEmTrackingManager.hh>), so that subdirectory - not

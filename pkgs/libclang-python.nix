@@ -1,4 +1,4 @@
-{ stdenvNoCC, llvmPackages }:
+{ stdenvNoCC, stdenv, llvmPackages }:
 
 # The libclang python bindings (clang.cindex), taken from the clang source
 # tree and pinned to the matching libclang shared library. Needed by the
@@ -26,7 +26,7 @@ stdenvNoCC.mkDerivation {
     # needed (Config is defined in cindex.py, appending works)
     cat >> $out/site-packages/clang/cindex.py <<EOF
 
-Config.library_file = "${llvmPackages.libclang.lib}/lib/libclang.so"
+Config.library_file = "${llvmPackages.libclang.lib}/lib/libclang${stdenv.hostPlatform.extensions.sharedLibrary}"
 EOF
   '';
 }

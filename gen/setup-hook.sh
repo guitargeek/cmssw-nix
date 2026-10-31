@@ -11,9 +11,16 @@
 # with -DGEANT4_BUILD_TLS_MODEL=global-dynamic - is cleaner in principle but
 # would mean nobody can ever substitute the stock geant4 (or anything built
 # on top of it) from the binary cache again.
-_cmssw_tls=glibc.rtld.optional_static_tls=2097152
-export GLIBC_TUNABLES=${GLIBC_TUNABLES:+$GLIBC_TUNABLES:}$_cmssw_tls
-unset _cmssw_tls
+#
+# (glibc only: Mach-O allocates thread-locals on demand, so macOS has no
+# static TLS block to run out of.)
+case "$OSTYPE" in
+linux*)
+    _cmssw_tls=glibc.rtld.optional_static_tls=2097152
+    export GLIBC_TUNABLES=${GLIBC_TUNABLES:+$GLIBC_TUNABLES:}$_cmssw_tls
+    unset _cmssw_tls
+    ;;
+esac
 
 export CMSSW_BASE=@out@
 export CMSSW_RELEASE_BASE=@out@

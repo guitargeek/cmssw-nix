@@ -115,6 +115,48 @@ See [examples/MyAnalyzer](examples/MyAnalyzer) for how to build and run an
 analyzer plugin against this CMSSW installation (self-contained, works
 with both releases).
 
+## Platforms
+
+Both releases build and pass the example suite on `x86_64-linux` and on
+`aarch64-darwin` (Apple silicon). On macOS the 20_1 package targets macOS
+26 or later: `FWCore/ParameterSet` parses numbers with the floating-point
+`std::from_chars`, which the system C++ library only has from that
+version on.
+
+CMSSW has only ever been developed against gcc and libstdc++ on Linux, so
+the macOS port is mostly about what clang and libc++ do differently. The
+fixes live in `gen/prepare_sources.py` (each with a comment saying why),
+and nearly all of them are plain portability fixes that compile to the
+same thing on Linux. The ones worth knowing about:
+
+* **Undefined behaviour that libstdc++ forgives.** A map iterator
+  stepped back past `begin()` in the HCAL reconstruction, a vector indexed
+  out of bounds in the strip conditions: harmless with libstdc++, a crash
+  with libc++. nixpkgs also builds against libc++ in its "fast" hardening
+  mode, which turns such precondition violations into traps; the 20_1
+  release and everything compiled against it turn that off, as Linux
+  builds never check them either.
+* **`std::stringbuf::pubsetbuf`**, which libc++ ignores: the conditions
+  database read every payload as empty until it read from a copy.
+* **The SIMD vector types.** Apple's arm64 ABI reports 8 for
+  `__BIGGEST_ALIGNMENT__`, which made CMSSW fall back to a scalar
+  implementation nothing else uses any more. The vector-extension one is
+  used instead, as on every Linux build, with 10_6's gcc-only spellings
+  fixed for clang.
+* **Static destruction order.** Geant4 11 destroys the particle table's
+  mutex before the table that locks it; glibc tolerates locking a
+  destroyed mutex, macOS does not. The 20_1 Geant4 is patched.
+* **Case-insensitive filesystems**, the nix store included: the generated
+  `*_cfi.py` files go into a `cfipython/` tree of their own (as with
+  scram), because a generated `siStrip..._cfi.py` and a handwritten
+  `SiStrip..._cfi.py` cannot share a directory.
+
+The 10_6 build on macOS uses nixos-22.05, which predates most Apple
+silicon work; `flake.nix` carries a small overlay for it (TBB 2020 for
+arm64, ROOT 6.24 built as C++17 and able to target macOS 11). The plugin
+manager reads `LD_LIBRARY_PATH` on macOS as well, so everything below works
+unchanged on both platforms.
+
 ## Testing
 
 ```bash
@@ -233,7 +275,7 @@ for 20_1). What actually differs, in one list:
 * `devShells.build` (and `devShells.build_10_6_30`) is for hacking on the
   CMSSW build itself (all deps, no cmssw): run the generator + cmake by
   hand against a local checkout.
-* The setup hook raises glibc's static-TLS surplus
+* On Linux, the setup hook raises glibc's static-TLS surplus
   (`GLIBC_TUNABLES=glibc.rtld.optional_static_tls`). nixpkgs builds Geant4
   multi-threaded, which compiles the toolkit with
   `-ftls-model=initial-exec` and leaves `libG4processes_hadronic.so` with

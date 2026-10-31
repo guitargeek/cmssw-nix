@@ -1,5 +1,16 @@
 # 3.22 is what nixos-22.05 (used for the 10_6-era builds) ships
 cmake_minimum_required(VERSION 3.22)
+# macOS: compile against the SDK of the nix toolchain, never the host's.
+# Left to itself, CMake asks xcrun for the system SDK; nixpkgs' cmake hook
+# prevents that, but this project is configured by hand. The modern stdenv
+# names its SDK in SDKROOT; the 22.05 one has none and wants an empty sysroot
+# (its compiler wrapper supplies the headers), which is what its cmake hook
+# passes. Building against the host SDK is not only impure: a library that
+# records a recent SDK and has no LC_UUID - which the 22.05 linker never
+# writes - is refused by dyld outright.
+if(APPLE AND NOT DEFINED CMAKE_OSX_SYSROOT)
+  set(CMAKE_OSX_SYSROOT "$ENV{SDKROOT}" CACHE PATH "macOS SDK (from SDKROOT, empty for the toolchain default)")
+endif()
 project(CMSSW LANGUAGES C CXX)
 
 # C++ standard of the release era (20 for >= 13_X, 17 for the 10_6 era).
@@ -10,6 +21,23 @@ set(CMAKE_CXX_STANDARD ${CMSSW_CXX_STANDARD})
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+# macOS: keep the .so suffix for every library, the way ROOT itself does
+# there. The name is baked into more places than the link line: the rootmaps
+# genreflex writes (--rootmap-lib below), the library manifest the install
+# step generates the cfi files from, and python's import of the pybind11
+# modules, which only looks for .so.
+#
+# And allow undefined symbols at link time, which is the ELF default this
+# build was written against: scram never links with -z defs either, and a
+# number of BuildFiles rely on that. They are resolved when the library is
+# loaded, and the plugin refresh at install time loads every plugin, so a
+# symbol that is really missing still fails the build - just there rather
+# than here.
+if(APPLE)
+  set(CMAKE_SHARED_LIBRARY_SUFFIX ".so")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -undefined dynamic_lookup")
+endif()
 
 if(NOT DEFINED CMSSW_VERSION)
   set(CMSSW_VERSION "CMSSW_UNKNOWN")
@@ -39,7 +67,12 @@ endif()
 
 find_library(md5_LIBRARIES NAMES cms-md5 REQUIRED)
 find_path(md5_INCLUDE_DIRECTORIES NAMES edm_md5.h md5.h REQUIRED)
-find_library(libuuid_LIBRARIES NAMES uuid REQUIRED)
+# libuuid is part of libSystem on macOS
+if(APPLE)
+  set(libuuid_LIBRARIES "")
+else()
+  find_library(libuuid_LIBRARIES NAMES uuid REQUIRED)
+endif()
 find_library(openssl_LIBRARIES NAMES crypto REQUIRED)
 find_path(openssl_INCLUDE_DIRECTORIES NAMES openssl/md5.h REQUIRED)
 find_library(zlib_LIBRARIES NAMES z REQUIRED)
@@ -338,13 +371,27 @@ find_path(tinyxml2_INCLUDE_DIRECTORIES NAMES tinyxml2.h REQUIRED)
 set(fmt_LIBRARIES fmt::fmt)
 find_path(fmt_INCLUDE_DIRECTORIES NAMES fmt/format.h REQUIRED)
 
-set(gcc-atomic_LIBRARIES atomic)
+# libatomic and librt are glibc/gcc things; on macOS their contents are in
+# libSystem and the compiler runtime
+if(APPLE)
+  set(gcc-atomic_LIBRARIES "")
+  set(rt_LIBRARIES "")
+else()
+  set(gcc-atomic_LIBRARIES atomic)
+  set(rt_LIBRARIES rt)
+endif()
 set(resolv_LIBRARIES resolv)
-set(rt_LIBRARIES rt)
 
 # ---------------------------------------------------------------------------
 # Global compile flags
 # ---------------------------------------------------------------------------
+
+# what scram's microarch flags would name the default target
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+  set(_cms_micro_arch "x86-64")
+else()
+  set(_cms_micro_arch "armv8.0-a")
+endif()
 
 add_compile_definitions(
   GNU_GCC
@@ -354,13 +401,44 @@ add_compile_definitions(
   TBB_PREVIEW_TASK_GROUP_EXTENSIONS=1
   PROJECT_NAME=CMSSW
   PROJECT_VERSION=${CMSSW_VERSION}
-  CMS_MICRO_ARCH="x86-64"
+  CMS_MICRO_ARCH="${_cms_micro_arch}"
 )
 
 # -DNDEBUG matches scram: without it the boost assertions are live, and e.g.
 # the nanoAOD TableOutputBranches aborts on taking .front() of a legitimately
 # empty table column
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -msse3 -DNDEBUG -Wno-deprecated-declarations -Wno-attributes -Wno-unused-result -Wno-psabi")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2 -DNDEBUG -Wno-deprecated-declarations -Wno-attributes -Wno-unused-result -Wno-psabi")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64)$")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -msse3")
+endif()
+# clang rejects a constexpr function that can never be a constant expression
+# (10_6's approx_erf calls the non-constexpr std::abs); gcc, which the
+# release is written against, accepts it. The diagnostic is an error only by
+# default.
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-constexpr")
+endif()
+
+# libc++ (the C++ library on macOS) drops the library features C++17 and
+# C++20 deprecated as soon as the standard does; libstdc++, which CMSSW is
+# written against, keeps most of them. 10_6 in particular still says
+# std::auto_ptr in three dozen places. libc++ keeps each of them on request.
+# genreflex parses the same headers, so it gets the same list (below).
+set(CMSSW_STDLIB_DEFINITIONS "")
+if(APPLE)
+  set(CMSSW_STDLIB_DEFINITIONS
+    _LIBCPP_ENABLE_CXX17_REMOVED_AUTO_PTR
+    _LIBCPP_ENABLE_CXX17_REMOVED_BINDERS
+    _LIBCPP_ENABLE_CXX17_REMOVED_RANDOM_SHUFFLE
+    _LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION
+    _LIBCPP_ENABLE_CXX17_REMOVED_UNEXPECTED_FUNCTIONS
+    _LIBCPP_ENABLE_CXX20_REMOVED_BINDER_TYPEDEFS
+    _LIBCPP_ENABLE_CXX20_REMOVED_NEGATORS
+    _LIBCPP_ENABLE_CXX20_REMOVED_RAW_STORAGE_ITERATOR
+    _LIBCPP_ENABLE_CXX20_REMOVED_TYPE_TRAITS)
+  add_compile_definitions(${CMSSW_STDLIB_DEFINITIONS})
+endif()
+list(TRANSFORM CMSSW_STDLIB_DEFINITIONS PREPEND "-D" OUTPUT_VARIABLE GENREFLEX_STDLIB_DEFINITIONS)
 
 if(CMSSW_WITH_ALPAKA)
   add_compile_definitions(
@@ -438,6 +516,7 @@ macro(MAKE_GENREFLEX_COMMAND MY_TARGET MY_SOURCE MY_HEADER MY_XML)
         --library lib${MY_TARGET}.so --multiDict
         -DCMS_DICT_IMPL -D_REENTRANT -DGNUSOURCE -D__STRICT_ANSI__ -DCMSSW_REFLEX_DICT
         -DALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128 -DALPAKA_DISABLE_VENDOR_RNG -DALPAKA_HAS_STD_ATOMIC_REF
+        ${GENREFLEX_STDLIB_DEFINITIONS}
         ${INCLUDE_COMPILER_LIST}
         DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/${MY_HEADER}.h ${CMAKE_CURRENT_SOURCE_DIR}/src/${MY_XML}.xml
     )

@@ -1184,3 +1184,463 @@ if decayer:
     # restructures this function should stop the build here rather than have
     # the prune silently do nothing.
     edit(path + "/src/CustomPhysicsList.cc", drop_rhadron_decay)
+
+# --- one plugin search path variable on every platform (all versions) ------
+# The plugin manager builds its search path from LD_LIBRARY_PATH, except on
+# macOS, where it reads DYLD_FALLBACK_LIBRARY_PATH instead. Everything else
+# here speaks LD_LIBRARY_PATH: the setup hook, the example checks and
+# run_all.sh, and ROOT, which reads it next to DYLD_LIBRARY_PATH on macOS to
+# resolve the libraries the rootmaps name. A DYLD_* variable would also have
+# to survive System Integrity Protection, which strips them whenever a
+# protected binary (/bin/sh, /usr/bin/env) is in the exec chain, and it
+# would replace dyld's own fallback path for every program in the
+# environment. Nothing on macOS links through LD_LIBRARY_PATH (the
+# libraries carry rpaths), so reading it here only tells the plugin manager
+# which directories to index.
+path = "cmssw/FWCore/PluginManager/src/standard.cc"
+
+
+def plugin_path_from_ld_library_path(src):
+    src, n = re.subn(
+        r'#ifdef __APPLE__\n\s*const char\* path = (?:std::)?getenv\("DYLD_FALLBACK_LIBRARY_PATH"\);\n'
+        r'#else\n(\s*const char\* path = (?:std::)?getenv\("LD_LIBRARY_PATH"\);\n)#endif\n',
+        r"\1", src)
+    if n != 1 and "DYLD_FALLBACK_LIBRARY_PATH" in src:
+        raise SystemExit("standard.cc: plugin search path code not where expected")
+    return src
+
+
+edit(path, plugin_path_from_ld_library_path)
+
+# --- the async pool's thread name on macOS (20_1) ---------------------------
+# pthread_setname_np(thread, name) is the glibc form. macOS has only
+# pthread_setname_np(name), which names the calling thread, so it cannot be
+# done from the constructor that spawns the thread. The name is cosmetic (it
+# is what a debugger or top shows), so on macOS the thread goes unnamed.
+path = "cmssw/FWCore/Concurrency/src/WaitingThreadPool.cc"
+if os.path.exists(path):
+    def name_thread_on_linux_only(src):
+        call = "[[maybe_unused]] int err = pthread_setname_np(thread_.native_handle(), poolName);"
+        if "#ifdef __APPLE__" in src:
+            return src
+        if call not in src:
+            raise SystemExit("WaitingThreadPool.cc: pthread_setname_np call not where expected")
+        return src.replace("    " + call, "#ifdef __APPLE__\n    [[maybe_unused]] int err = 0;\n#else\n    "
+                           + call + "\n#endif")
+    edit(path, name_thread_on_linux_only)
+
+# --- libstdc++ extensions under libc++ (all versions) -----------------------
+# On macOS the release is compiled against libc++, and CMSSW has only ever
+# been built against libstdc++ - its clang builds included. What is left of
+# the GNU extensions in the packages built here:
+#
+# * includes of <ext/alloc_traits.h> and <ext/pool_allocator.h> that nothing
+#   uses any more (the pool allocator typedef they were for is commented out
+#   in every header that includes it), and of <ext/functional> in files that
+#   no longer touch __gnu_cxx;
+# * __gnu_cxx::is_sorted from <ext/algorithm>, which is std::is_sorted since
+#   C++11.
+#
+# Both are plain cleanups that mean the same with either library, so they
+# are applied everywhere rather than behind a platform test.
+ext_dead_includes = ["#include <ext/alloc_traits.h>\n", "#include <ext/pool_allocator.h>\n"]
+for root, dirs, files in os.walk("cmssw"):
+    for name in files:
+        if not name.endswith((".h", ".cc", ".icc", ".cpp")):
+            continue
+        p = os.path.join(root, name)
+        with open(p, errors="surrogateescape") as f:
+            src = f.read()
+        if "<ext/" not in src:
+            continue
+        new = src
+        for inc in ext_dead_includes:
+            new = new.replace(inc, "")
+        if "#include <ext/functional>" in new and "__gnu_cxx::" not in new:
+            new = new.replace("#include <ext/functional>\n", "")
+        if "#include <ext/algorithm>" in new:
+            new = new.replace("#include <ext/algorithm>", "#include <algorithm>")
+            new = new.replace("__gnu_cxx::is_sorted", "std::is_sorted")
+        if new != src:
+            with open(p, "w", errors="surrogateescape") as f:
+                f.write(new)
+
+# The one real use: PhysicsTools/MVATrainer (10_6) reads the output of a
+# popen()ed command through __gnu_cxx::stdio_filebuf. libc++ has no such
+# class, so give it the few lines of read-only FILE* streambuf it needs.
+# libstdc++ builds keep the original.
+path = "cmssw/PhysicsTools/MVATrainer/src/XMLDocument.cc"
+if os.path.exists(path):
+    def stdio_filebuf_for_libcxx(src):
+        if "stdio_filebuf_compat" in src:
+            return src
+        if src.count("#include <ext/stdio_filebuf.h>\n") != 1 or \
+                src.count("typedef __gnu_cxx::stdio_filebuf<char>\t__filebuf_type;") != 1:
+            raise SystemExit("XMLDocument.cc: stdio_filebuf use not where expected")
+        src = src.replace("#include <ext/stdio_filebuf.h>\n", "\n".join([
+            "#include <cstdio>",
+            "#ifdef _LIBCPP_VERSION",
+            "#include <streambuf>",
+            "namespace {",
+            "  // read-only stand-in for __gnu_cxx::stdio_filebuf<char>",
+            "  class stdio_filebuf_compat : public std::streambuf {",
+            "  public:",
+            "    stdio_filebuf_compat(FILE* file, std::ios_base::openmode) : file_(file) {}",
+            "",
+            "  protected:",
+            "    int_type underflow() override {",
+            "      if (gptr() < egptr())",
+            "        return traits_type::to_int_type(*gptr());",
+            "      std::size_t n = std::fread(buf_, 1, sizeof buf_, file_);",
+            "      if (n == 0)",
+            "        return traits_type::eof();",
+            "      setg(buf_, buf_, buf_ + n);",
+            "      return traits_type::to_int_type(*gptr());",
+            "    }",
+            "",
+            "  private:",
+            "    FILE* file_;",
+            "    char buf_[4096];",
+            "  };",
+            "}  // namespace",
+            "#else",
+            "#include <ext/stdio_filebuf.h>",
+            "#endif",
+            ""]))
+        # (and the constructor has to name a base constructor: libc++'s
+        # istream, unlike libstdc++'s, has no default one to fall back on)
+        src = src.replace("\t\t\tfile_(file), filebuf_(file, std::ios_base::in)",
+                          "\t\t\tstd::istream(nullptr), file_(file), filebuf_(file, std::ios_base::in)")
+        return src.replace(
+            "typedef __gnu_cxx::stdio_filebuf<char>\t__filebuf_type;",
+            "#ifdef _LIBCPP_VERSION\n\t\ttypedef stdio_filebuf_compat\t__filebuf_type;\n#else\n"
+            "\t\ttypedef __gnu_cxx::stdio_filebuf<char>\t__filebuf_type;\n#endif")
+    edit(path, stdio_filebuf_for_libcxx)
+
+# --- UUID_STR_LEN outside util-linux (20_1) ---------------------------------
+# Guid.cc sizes its buffer with UUID_STR_LEN, which util-linux's libuuid
+# defines and the macOS <uuid/uuid.h> does not. It is the length of the
+# 36-character text form plus its terminator either way.
+path = "cmssw/FWCore/Utilities/src/Guid.cc"
+if os.path.exists(path):
+    def define_uuid_str_len(src):
+        if "UUID_STR_LEN" not in src or "#define UUID_STR_LEN" in src:
+            return src
+        anchor = '#include "FWCore/Utilities/interface/Guid.h"\n'
+        if anchor not in src:
+            raise SystemExit("Guid.cc: include not where expected")
+        return src.replace(anchor, anchor + "#ifndef UUID_STR_LEN\n#define UUID_STR_LEN 37\n#endif\n")
+    edit(path, define_uuid_str_len)
+
+# --- includes libstdc++ supplied transitively (all versions) ----------------
+# libc++ includes far less from its own headers than libstdc++ does, so files
+# that use a standard facility without including its header compile on
+# Linux and fail on macOS. Adding the include is right under either library.
+missing_includes = {
+    "cmssw/DataFormats/ForwardDetId/src/BTLDetId.cc": ["<sstream>"],
+    "cmssw/DataFormats/ForwardDetId/src/ETLDetId.cc": ["<sstream>"],
+    "cmssw/Geometry/TrackerGeometryBuilder/interface/PixelTopologyMap.h": ["<sstream>"],
+    "cmssw/Geometry/HGCalCommonData/interface/HGCalCell.h": ["<utility>"],
+    "cmssw/CondCore/CondDB/interface/Utils.h": ["<map>"],
+    "cmssw/FWCore/Framework/interface/Callback.h": ["<array>"],
+    "cmssw/Geometry/HGCalCommonData/interface/HGCalDDDConstants.h": ["<array>"],
+    "cmssw/SimDataFormats/TrackerDigiSimLink/interface/StripCompactDigiSimLinks.h": ["<vector>"],
+    "cmssw/CondFormats/PCLConfig/src/AlignPCLThreshold.cc": ["<array>"],
+    "cmssw/CondFormats/PCLConfig/src/AlignPCLThresholds.cc": ["<array>"],
+    "cmssw/DetectorDescription/OfflineDBLoader/src/DDCoreToDDXMLOutput.cc": ["<array>"],
+    "cmssw/GeneratorInterface/Core/src/BaseHadronizer.cc": ["<array>"],
+    "cmssw/PhysicsTools/MVATrainer/src/XMLDocument.cc": ["<fstream>"],
+    "cmssw/Geometry/HGCalCommonData/interface/HGCalParameters.h": ["<array>"],
+    "cmssw/RecoParticleFlow/PFClusterTools/src/PFResolutionMap.cc": ["<array>"],
+    "cmssw/Geometry/MTDGeometryBuilder/src/MTDParametersFromDD.cc": ["<array>"],
+    # iterates a reco::TrackCollection with only TrackFwd.h in sight
+    "cmssw/RecoTracker/FinalTrackSelectors/interface/TrackMVAClassifier.h":
+        ['"DataFormats/TrackReco/interface/Track.h"'],
+}
+for path, headers in missing_includes.items():
+    if not os.path.exists(path):
+        continue
+    def add_includes(src, headers=headers, path=path):
+        lines = src.split("\n")
+        last = max((i for i, l in enumerate(lines) if l.startswith("#include")), default=None)
+        if last is None:
+            raise SystemExit(f"{path}: no #include to add {headers} after")
+        new = [f"#include {h}" for h in headers if f"#include {h}" not in src]
+        return "\n".join(lines[:last + 1] + new + lines[last + 1:])
+    edit(path, add_includes)
+
+# --- the vector-extension SIMD types on Apple arm64 (all versions) ---------
+# SIMDVec.h falls back to the scalar Basic2DVector/Basic3DVector when
+# __BIGGEST_ALIGNMENT__ is below 16, as a proxy for "no 16-byte vectors".
+# The Apple arm64 ABI reports 8 there (long double is double), although its
+# NEON vectors and operator new are 16-byte aligned like on aarch64 Linux,
+# which reports 16. The scalar fallback is otherwise unused and has rotted
+# (RecoParticleFlow/PFClusterTools reaches for the .v member only the
+# vector-extension implementation has), so let Apple arm64 take the same
+# kind of implementation every Linux build does. (10_6's PFClusterTools needs
+# it as much: x86_64 took the SSE one there, which has the same members.)
+path = "cmssw/DataFormats/Math/interface/SIMDVec.h"
+if os.path.exists(path):
+    def extvect_on_apple_arm64(src):
+        new = re.sub(r"\(__BIGGEST_ALIGNMENT__\s*<\s*16\)",
+                     lambda m: "(__BIGGEST_ALIGNMENT__ < 16 && !(defined(__APPLE__) && defined(__aarch64__)))",
+                     src, count=1)
+        if new == src and "defined(__APPLE__) && defined(__aarch64__)" not in src:
+            raise SystemExit("SIMDVec.h: alignment test not where expected")
+        return new
+    edit(path, extvect_on_apple_arm64)
+
+# --- constexpr std::abs (20_1) ----------------------------------------------
+# TTTrack_TrackWord computes its binning steps as constexpr from
+# std::abs(<negative constant>). std::abs is constexpr only from C++23; gcc
+# folds it as a builtin anyway, clang with libc++ does not. Spell it out.
+path = "cmssw/DataFormats/L1TrackTrigger/interface/TTTrack_TrackWord.h"
+if os.path.exists(path):
+    def constexpr_abs(src):
+        return re.sub(r"\(2\. \* std::abs\((min\w+)\)\)", r"(2. * (\1 < 0 ? -\1 : \1))", src)
+    edit(path, constexpr_abs)
+
+# --- a vector iterator made from a pointer (20_1) ---------------------------
+# SiStripClusterInfo::chargeLR declares std::vector<uint8_t>::const_iterator
+# variables but initialises them from stripCharges(), a range over plain
+# pointers. libstdc++'s iterator happens to have a public constructor from
+# the pointer; libc++'s does not. Let the variables have the range's type.
+# (10_6 spells the same declaration over several lines, but there the range
+# is a real std::vector, so it is correct as it stands.)
+path = "cmssw/RecoLocalTracker/SiStripClusterizer/src/SiStripClusterInfo.cc"
+if os.path.exists(path):
+    def iterators_from_range(src):
+        old = "std::vector<uint8_t>::const_iterator begin(stripCharges().begin()), end(stripCharges().end()), max;"
+        # (and qualify the algorithms: unqualified, they were only found by
+        # argument-dependent lookup on the std:: iterator type)
+        src = src.replace(old, "auto begin = stripCharges().begin(), end = stripCharges().end(), max = begin;")
+        src = src.replace("  max = max_element(begin, end);", "  max = std::max_element(begin, end);")
+        return src.replace("std::make_pair(accumulate(begin, max, uint16_t(0)), accumulate(max + 1, end, uint16_t(0)))",
+                           "std::make_pair(std::accumulate(begin, max, uint16_t(0)), std::accumulate(max + 1, end, uint16_t(0)))")
+    edit(path, iterators_from_range)
+
+# --- HOST_NAME_MAX (20_1) ---------------------------------------------------
+# glibc's name for the hostname length limit; macOS has only the POSIX
+# minimum, _POSIX_HOST_NAME_MAX (255, which is also what glibc defines
+# HOST_NAME_MAX to be).
+path = "cmssw/CondCore/CondDB/interface/Utils.h"
+if os.path.exists(path):
+    def host_name_max(src):
+        if "HOST_NAME_MAX" not in src or "#define HOST_NAME_MAX" in src:
+            return src
+        anchor = "#include <climits>\n"
+        if anchor not in src:
+            raise SystemExit("CondDB Utils.h: <climits> include not where expected")
+        return src.replace(anchor, anchor + "#ifndef HOST_NAME_MAX\n#define HOST_NAME_MAX _POSIX_HOST_NAME_MAX\n#endif\n")
+    edit(path, host_name_max)
+
+# --- the stack-trace helper process outside Linux (all versions) ------------
+# InitRootHandlers forks a helper for stack traces. Two Linux-isms in it:
+# pipe2(), which macOS does not have (pipe() plus FD_CLOEXEC is the same
+# thing for a process that has not started other threads yet), and the
+# non-Linux execv branch, which passes the char const* const* argv execv's
+# char* const* parameter does not accept.
+path = "cmssw/FWCore/Services/plugins/InitRootHandlers.cc"
+if os.path.exists(path):
+    def portable_helper_process(src):
+        if "pipe2(" in src and "cms_pipe2" not in src:
+            anchor = "#include <sys/wait.h>"
+            lines = src.split("\n")
+            if anchor not in lines:
+                raise SystemExit("InitRootHandlers.cc: <sys/wait.h> include not where expected")
+            at = lines.index(anchor) + 1
+            lines[at:at] = [
+                "#ifndef __linux__",
+                "#include <fcntl.h>",
+                "#include <unistd.h>",
+                "namespace {",
+                "  int cms_pipe2(int fds[2], int flags) {",
+                "    if (pipe(fds) == -1)",
+                "      return -1;",
+                "    if (flags & O_CLOEXEC) {",
+                "      fcntl(fds[0], F_SETFD, FD_CLOEXEC);",
+                "      fcntl(fds[1], F_SETFD, FD_CLOEXEC);",
+                "    }",
+                "    return 0;",
+                "  }",
+                "}  // namespace",
+                "#define pipe2 cms_pipe2",
+                "#endif",
+            ]
+            src = "\n".join(lines)
+        return src.replace('execv("/bin/sh", argv);', 'execv("/bin/sh", const_cast<char* const*>(argv));')
+    edit(path, portable_helper_process)
+
+# --- constexpr std::pow (20_1) ----------------------------------------------
+# TTBV builds its powers-of-two table in a constexpr function with
+# std::pow, which gcc folds as a builtin and libc++ does not declare
+# constexpr. Doubling the previous entry gives the same, exact, values.
+path = "cmssw/DataFormats/L1TrackTrigger/interface/TTBV.h"
+if os.path.exists(path):
+    def constexpr_powers_of_two(src):
+        old = "      lut[i] = std::pow(2, i);"
+        if old not in src:
+            if "lut[i] = i == 0" in src:
+                return src
+            raise SystemExit("TTBV.h: powersOfTwo not where expected")
+        return src.replace(old, "      lut[i] = i == 0 ? 1. : 2. * lut[i - 1];")
+    edit(path, constexpr_powers_of_two)
+
+# --- uint64_t is unsigned long long on macOS (20_1) ------------------------
+# The L1 particle-flow jet formats overload unpack() for both
+# std::array<uint64_t, 2> and std::array<unsigned long long, 2>. Those are
+# two types where uint64_t is unsigned long (Linux) and one type where it is
+# unsigned long long (macOS), and there the second overload redeclares the
+# first. Keep it only where the types differ, as a template constrained to
+# exactly unsigned long long, so the overload set on Linux is unchanged.
+for path in ["cmssw/DataFormats/L1TParticleFlow/interface/jets.h",
+             "cmssw/DataFormats/L1TParticleFlow/interface/gt_datatypes.h"]:
+    if not os.path.exists(path):
+        continue
+    def ull_overload_where_distinct(src):
+        src, n = re.subn(
+            r"inline static (\w+) unpack\(const std::array<long long unsigned int, 2> &src\) \{",
+            r"template <typename U = long long unsigned int,"
+            r" typename = std::enable_if_t<std::is_same_v<U, long long unsigned int> && !std::is_same_v<U, uint64_t>>>"
+            "\n    "
+            r"inline static \1 unpack(const std::array<U, 2> &src) {",
+            src)
+        if n and "#include <type_traits>" not in src:
+            src = src.replace("#include <array>", "#include <array>\n#include <type_traits>", 1)
+        return src
+    edit(path, ull_overload_where_distinct)
+
+# --- conditions payloads read through std::stringbuf::pubsetbuf (all versions)
+# default_deserialize hands the payload bytes to a std::stringbuf with
+# pubsetbuf() and reads from that. libstdc++'s stringbuf takes the buffer as
+# its contents; libc++'s keeps the no-op setbuf of basic_streambuf (both are
+# allowed), so there the stream is empty, the archive runs dry at once and
+# every payload fails with "data size does not fit with the current class
+# layout" - even one written by the same job. Read from a copy instead.
+path = "cmssw/CondCore/CondDB/interface/Serialization.h"
+if os.path.exists(path):
+    def deserialize_from_copy(src):
+        src, n1 = re.subn(
+            r"std::stringbuf sstreamerInfoBuf;\s*"
+            r"sstreamerInfoBuf\.pubsetbuf\(\s*static_cast<char\*>\(const_cast<void\*>\(streamerInfoData\.data\(\)\)\),\s*streamerInfoData\.size\(\)\s*\);\s*"
+            r"std::string streamerInfo = sstreamerInfoBuf\.str\(\);",
+            "std::string streamerInfo(static_cast<const char*>(streamerInfoData.data()), streamerInfoData.size());",
+            src)
+        src, n2 = re.subn(
+            r"std::stringbuf sdataBuf;\s*"
+            r"sdataBuf\.pubsetbuf\(\s*static_cast<char\*>\(const_cast<void\*>\(payloadData\.data\(\)\)\),\s*payloadData\.size\(\)\s*\);\s*"
+            r"std::istream dataBuffer\(\s*&sdataBuf\s*\);",
+            "std::istringstream dataBuffer(\n"
+            "          std::string(static_cast<const char*>(payloadData.data()), payloadData.size()));",
+            src)
+        if (n1, n2) != (1, 1) and "pubsetbuf" in src:
+            raise SystemExit("CondDB Serialization.h: default_deserialize not where expected")
+        return src
+    edit(path, deserialize_from_copy)
+
+# --- iterators of map<K, V> and map<const K, V> (10_6) ----------------------
+# libstdc++ gives std::map<K, V> and std::map<const K, V> one and the same
+# iterator type, so code can declare the one and initialise it from the
+# other; libc++ gives them different types. Let the declarations take the
+# type of what initialises them.
+for path, old, new in [
+    ("cmssw/DetectorDescription/OfflineDBLoader/plugins/OutputDDToDDL.cc",
+     "std::map<DDsvalues_type, std::set<const DDPartSelection*> >::const_iterator mit( specStore.begin()), mend( specStore.end());",
+     "auto mit = specStore.begin(), mend = specStore.end();"),
+    ("cmssw/DetectorDescription/OfflineDBLoader/plugins/OutputMagneticFieldDDToDDL.cc",
+     "std::map<DDsvalues_type, std::set<const DDPartSelection*> >::const_iterator mit( specStore.begin()), mend( specStore.end());",
+     "auto mit = specStore.begin(), mend = specStore.end();"),
+    ("cmssw/FWCore/MessageService/src/MessageLogger.cc",
+     "std::map<const std::string, ELseverityLevel>::const_iterator it =",
+     "auto it ="),
+]:
+    if os.path.exists(path):
+        edit(path, lambda src, old=old, new=new: src.replace(old, new))
+
+# --- make_shared and noexcept(false) destructors (10_6) ---------------------
+# The 10_6 framework declares many EventSetup components' destructors
+# noexcept(false). libc++ 11's make_shared control block holds the object as
+# a member, and its own implicit destructor then cannot be as noexcept as the
+# base it overrides. A shared_ptr made from new keeps the object out of the
+# control block; ComponentMaker is the one place every ES module goes through.
+path = "cmssw/FWCore/Framework/interface/ComponentMaker.h"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace(
+        "std::shared_ptr<TComponent> component = std::make_shared<TComponent>(iConfiguration);",
+        "std::shared_ptr<TComponent> component(new TComponent(iConfiguration));"))
+
+# --- the 10_6 vector-extension implementation under clang (10_6) ----------
+# In 10_6, x86_64 always took the SSE implementation, so the vector-extension
+# one (which the SIMDVec.h change above selects on Apple arm64) was only ever
+# compiled by gcc, on aarch64 and ppc64le. Two gcc-isms in it:
+# * operator[] returning T& to an element of a vector type, which clang does
+#   not allow a reference to bind to; the vector is laid out as T[N], so
+#   index that;
+# * __builtin_shuffle, which clang does not have. With its constant mask
+#   {1,0,5,4} over the concatenation of t1 and t2 it picks t1[1], t1[0],
+#   t2[1], t2[0]; under clang, say so element by element.
+for path in ["cmssw/DataFormats/GeometryVector/interface/extBasic2DVector.h",
+             "cmssw/DataFormats/GeometryVector/interface/extBasic3DVector.h"]:
+    if os.path.exists(path):
+        edit(path, lambda src: src.replace(
+            "T & operator[](int i) { return v[i];}",
+            "T & operator[](int i) { return reinterpret_cast<T*>(&v)[i];}"))
+# * and, the one that matters: under __clang__ ExtVec.h spelled its vector
+#   types with ext_vector_type(N), whose N counts elements, while it passes
+#   N in bytes - so a "4 doubles" vector was a vector of 32 doubles, and the
+#   geometry built on it computed nonsense (no strip rec hit within 500 um of
+#   its SimHit) without a single compiler complaint. vector_size(N), which
+#   gcc always got, is what later releases use for every compiler.
+path = "cmssw/DataFormats/Math/interface/ExtVec.h"
+if os.path.exists(path):
+    def vector_size_for_clang(src):
+        old = ("#ifdef __clang__\n#define VECTOR_EXT(N) __attribute__( ( ext_vector_type( N ) ) )\n"
+               "#else\n#define VECTOR_EXT(N) __attribute__( ( vector_size( N ) ) )\n#endif")
+        if "ext_vector_type" not in src:
+            return src
+        if old not in src:
+            raise SystemExit("ExtVec.h: VECTOR_EXT definition not where expected")
+        return src.replace(old, "#define VECTOR_EXT(N) __attribute__( ( vector_size( N ) ) )")
+    edit(path, vector_size_for_clang)
+path = "cmssw/TrackingTools/AnalyticalJacobians/src/AnalyticalCurvilinearJacobianEXT.icc"
+if os.path.exists(path):
+    def shufflevector_for_clang(src):
+        old = "  Vec4D t = __builtin_shuffle(t1,t2,mask);"
+        if "__builtin_shufflevector" in src:  # later releases handle clang themselves
+            return src
+        if old not in src:
+            raise SystemExit("AnalyticalCurvilinearJacobianEXT.icc: shuffle not where expected")
+        return src.replace(old, "#ifdef __clang__\n  Vec4D t{t1[1], t1[0], t2[1], t2[0]};\n#else\n"
+                           + old + "\n#endif")
+    edit(path, shufflevector_for_clang)
+
+# --- a non-const comparison operator (10_6) ---------------------------------
+# NanoAOD's ScaleVarWeight declares operator< without const. libstdc++'s
+# std::sort happens never to compare through a const reference; libc++'s
+# does, and finds no usable operator. It compares two members and changes
+# neither.
+path = "cmssw/PhysicsTools/NanoAOD/plugins/GenWeightsTableProducer.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace(
+        "bool operator<(const ScaleVarWeight& other) {",
+        "bool operator<(const ScaleVarWeight& other) const {"))
+
+# --- a map iterator decremented past begin() (all versions) ---------------
+# HcalPulseContainmentCorrection::getCorrection decrements the result of
+# upper_bound() before checking whether it is begin(), which it is for every
+# amplitude below the first tabulated point (1 fC) - and decrementing begin()
+# is undefined. libstdc++'s tree lands on its header node and the value is
+# never read in that branch; libc++'s walks off the tree and dereferences
+# null, killing every HBHE reconstruction that sees a small pulse. Only step
+# back when there is somewhere to step to.
+path = "cmssw/CalibCalorimetry/HcalAlgos/src/HcalPulseContainmentCorrection.cc"
+if os.path.exists(path):
+    def no_decrement_past_begin(src):
+        if "if (fclower != mCorFactors_.begin())" in src:
+            return src
+        new, n = re.subn(r"(\n(\s*)fclower = fcupper;\n)\s*fclower--;\n",
+                         r"\1\2if (fclower != mCorFactors_.begin())\n\2  fclower--;\n", src)
+        if n != 1:
+            raise SystemExit("HcalPulseContainmentCorrection.cc: getCorrection not where expected")
+        return new
+    edit(path, no_decrement_past_begin)
