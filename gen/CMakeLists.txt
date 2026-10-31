@@ -38,7 +38,7 @@ if(NOT TBB_FOUND)
 endif()
 
 find_library(md5_LIBRARIES NAMES cms-md5 REQUIRED)
-find_path(md5_INCLUDE_DIRECTORIES NAMES md5.h REQUIRED)
+find_path(md5_INCLUDE_DIRECTORIES NAMES edm_md5.h md5.h REQUIRED)
 find_library(libuuid_LIBRARIES NAMES uuid REQUIRED)
 find_library(openssl_LIBRARIES NAMES crypto REQUIRED)
 find_path(openssl_INCLUDE_DIRECTORIES NAMES openssl/md5.h REQUIRED)

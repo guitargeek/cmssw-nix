@@ -2,7 +2,7 @@
 # Build and run the self-contained examples as a regression test.
 #
 #   ./examples/run_all.sh 10_6     # the CMSSW_10_6_30 package
-#   ./examples/run_all.sh 20_1     # the CMSSW_20_1_0_pre2 package
+#   ./examples/run_all.sh 20_1     # the CMSSW_20_1_0_pre4 package
 #
 # Run this from inside the matching dev shell. The job list lives in
 # examples/jobs.json, which `nix flake check` reads too - see the checks in

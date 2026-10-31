@@ -3,17 +3,34 @@
     "alpaka-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1766138764,
-        "narHash": "sha256-xMdAfva5qJtRYWJoeUC0ozKqpAjFJKR0En2sjzqOKfg=",
+        "lastModified": 1791457996,
+        "narHash": "sha256-VXXdc5QLEl9GBrccfGTDkLJnCiSjuLJT8yemrZxq/Lg=",
         "owner": "alpaka-group",
         "repo": "alpaka",
-        "rev": "425876ddffd566df76dc2e51eb9246efcbc64d5b",
+        "rev": "4dc5ea558defeab95427e114a2dd9da83cc4d215",
         "type": "github"
       },
       "original": {
         "owner": "alpaka-group",
-        "ref": "2.1.1",
+        "ref": "2.2.0",
         "repo": "alpaka",
+        "type": "github"
+      }
+    },
+    "cms-md5-2-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788427156,
+        "narHash": "sha256-8bQUECxoFBWbkQJWqU88CYi01bDrGVHn/HXZy0t7+xY=",
+        "owner": "cms-externals",
+        "repo": "md5",
+        "rev": "3cbf0d8cd00045a991cc5e8f14385bb09c8a61c4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-externals",
+        "ref": "cms/2.0.0",
+        "repo": "md5",
         "type": "github"
       }
     },
@@ -54,16 +71,16 @@
     "cmssw-src": {
       "flake": false,
       "locked": {
-        "lastModified": 1786446142,
-        "narHash": "sha256-0xir8MP5Dn7wAG4BREsQ90KL2ECXkHhQ6ODwe9feDT0=",
+        "lastModified": 1791708997,
+        "narHash": "sha256-vQE2jrdilXSK89gp6wktFq5svkK5A02C4gjN6p1DJN8=",
         "owner": "cms-sw",
         "repo": "cmssw",
-        "rev": "ca68b2fa55450e074c0dcc4d07f3fcbab9b8e866",
+        "rev": "d98d8f879545d833baf4e4e4a92d744faf0cb63b",
         "type": "github"
       },
       "original": {
         "owner": "cms-sw",
-        "ref": "CMSSW_20_1_0_pre2",
+        "ref": "CMSSW_20_1_0_pre4",
         "repo": "cmssw",
         "type": "github"
       }
@@ -238,6 +255,22 @@
     "magfield-data": {
       "flake": false,
       "locked": {
+        "lastModified": 1792134435,
+        "narHash": "sha256-MDImQxJc3ZFFnsnxxDkh3D8PvCLq7/mDr/jC+koDy5c=",
+        "owner": "cms-data",
+        "repo": "MagneticField-Interpolation",
+        "rev": "3b2fd38885ce884324f14470624dddd335865d0a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-data",
+        "repo": "MagneticField-Interpolation",
+        "type": "github"
+      }
+    },
+    "magfield-data-10_6": {
+      "flake": false,
+      "locked": {
         "lastModified": 1656513523,
         "narHash": "sha256-DBjQFiaBVzL/CZ5zpOIeuUxCdqr270UajwvrxAixv8A=",
         "owner": "cms-data",
@@ -248,16 +281,17 @@
       "original": {
         "owner": "cms-data",
         "repo": "MagneticField-Interpolation",
+        "rev": "d26df47beb8fbfcf28b9693a14b9bcba3a2a60bc",
         "type": "github"
       }
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1786384358,
-        "narHash": "sha256-RzPPiWeUtuvymnpuEWsdtzli5w4kjZs49FqEs3/1u+I=",
+        "lastModified": 1793341285,
+        "narHash": "sha256-Y1CiZ4SoBUjLQyQM/pY+rS2dXD3CHLPstF0lmOc73D4=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "2fcb964de67fcf60b43471c55d5d99e61a9ccb5a",
+        "rev": "1c89083e451e891152365b799595cf7790a43325",
         "type": "github"
       },
       "original": {
@@ -303,6 +337,7 @@
     "root": {
       "inputs": {
         "alpaka-src": "alpaka-src",
+        "cms-md5-2-src": "cms-md5-2-src",
         "cms-md5-src": "cms-md5-src",
         "cmssw-10_6-src": "cmssw-10_6-src",
         "cmssw-src": "cmssw-src",
@@ -317,6 +352,7 @@
         "hls-src": "hls-src",
         "lwtnn-src": "lwtnn-src",
         "magfield-data": "magfield-data",
+        "magfield-data-10_6": "magfield-data-10_6",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
         "pythia8-src": "pythia8-src",

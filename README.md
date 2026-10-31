@@ -1,7 +1,7 @@
 # CMSSW on nix
 
 A nix flake that packages about **half of CMSSW** — 523 of the ~1,100
-packages of the current pre-release `CMSSW_20_1_0_pre2`, and 494 of the
+packages of the current pre-release `CMSSW_20_1_0_pre4`, and 494 of the
 Run-2 ultra-legacy release `CMSSW_10_6_30` — built with CMake instead of
 scram, so that people outside the CMS collaboration can run the CMS
 **event-processing workflow end to end** on their own machine: event
@@ -19,7 +19,7 @@ within a percent of what the generator fired".
 
 ## Why two releases
 
-* `CMSSW_20_1_0_pre2` (default): the current pre-release, proving the
+* `CMSSW_20_1_0_pre4` (default): the current pre-release, proving the
   build tracks the modern codebase — C++20, DD4hep geometry, ONNX/XGBoost
   inference from nixpkgs.
 * `CMSSW_10_6_30`: the release that actually read and wrote the archived
@@ -104,7 +104,7 @@ nix build          # builds the cmssw package (takes a while!)
 nix develop        # shell with cmsRun, CMSSW libs and headers, cmake, ROOT
 
 # inside the shell, CMSSW_BASE etc. are set up:
-echo $CMSSW_BASE   # -> /nix/store/...-cmssw-CMSSW_20_1_0_pre2
+echo $CMSSW_BASE   # -> /nix/store/...-cmssw-CMSSW_20_1_0_pre4
 
 # the same for the 10_6 era:
 nix build .#cmssw_10_6_30

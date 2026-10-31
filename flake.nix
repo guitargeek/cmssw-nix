@@ -10,7 +10,7 @@
     nixpkgs-2205.url = "github:NixOS/nixpkgs/nixos-22.05";
 
     cmssw-src = {
-      url = "github:cms-sw/cmssw/CMSSW_20_1_0_pre2";
+      url = "github:cms-sw/cmssw/CMSSW_20_1_0_pre4";
       flake = false;
     };
 
@@ -20,12 +20,19 @@
     };
 
     alpaka-src = {
-      url = "github:alpaka-group/alpaka/2.1.1";
+      url = "github:alpaka-group/alpaka/2.2.0";
       flake = false;
     };
 
     cms-md5-src = {
       url = "github:cms-externals/md5?ref=cms/1.0.0";
+      flake = false;
+    };
+
+    # 20_1_0_pre4 moved to the namespaced edm_md5.h of the 2.0.0 branch;
+    # 10_6 keeps the original md5.h
+    cms-md5-2-src = {
+      url = "github:cms-externals/md5?ref=cms/2.0.0";
       flake = false;
     };
 
@@ -59,6 +66,14 @@
     # the field maps the volume-based magnetic field engine interpolates
     magfield-data = {
       url = "github:cms-data/MagneticField-Interpolation";
+      flake = false;
+    };
+    # ... and the same maps in the layout 10_6 reads. Upstream has since
+    # merged each grid's per-volume s*/grid.*.bin files into one merged.bin
+    # plus index, which the 20_1 engine reads and 10_6 cannot - so 10_6 is
+    # pinned to the last commit with the old layout.
+    magfield-data-10_6 = {
+      url = "github:cms-data/MagneticField-Interpolation/d26df47beb8fbfcf28b9693a14b9bcba3a2a60bc";
       flake = false;
     };
 
@@ -110,7 +125,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
     let
       system = "x86_64-linux";
       pkgs = nixpkgs.legacyPackages.${system};
@@ -124,7 +139,8 @@
       });
 
       cms-md5 = pkgs.callPackage ./pkgs/cms-md5.nix {
-        src = cms-md5-src;
+        src = cms-md5-2-src;
+        version = "2.0.0";
       };
 
       cms-md5_10_6 = pkgs2205.callPackage ./pkgs/cms-md5.nix {
@@ -258,13 +274,14 @@
 
       cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
         src = cmssw-src;
-        version = "CMSSW_20_1_0_pre2";
+        version = "CMSSW_20_1_0_pre4";
         inherit alpaka-src cms-md5 root;
         tbb = pkgs.onetbb;
         cpu_features = pkgs.cpu_features;
         pybind11 = pkgs.python3Packages.pybind11;
         xercesc = pkgs.xercesc;
         curl = pkgs.curl;
+        nlohmann_json = pkgs.nlohmann_json;
         inherit coral;
         clangTools = pkgs.clang;
         libclangPython = libclang-python;
@@ -328,7 +345,7 @@
         extraData = [
           { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
           { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
-          { path = "MagneticField/Interpolation"; src = magfield-data; }
+          { path = "MagneticField/Interpolation"; src = magfield-data-10_6; }
         ];
         geant4 = geant4_10_4;
         # 20_1-only externals: callPackage would otherwise auto-fill these
@@ -339,6 +356,7 @@
         hls = null;
         onnxruntime = null;
         xgboost = null;
+        nlohmann_json = null;
         clangTools = pkgs2205.llvmPackages_14.clang;
         libclangPython = libclang-python_2205;
         legacySiteConf = true;

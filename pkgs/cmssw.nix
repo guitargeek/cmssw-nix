@@ -71,6 +71,9 @@
 , coral ? null
 # libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
 , curl ? null
+# nlohmann/json (header-only, scram tool "json"): FWCore/Services'
+# DumpDependencyGraph writes the module graph with it, as of 20_1_0_pre4
+, nlohmann_json ? null
 # clang binaries + libclang python bindings: the CondFormats serialization
 # code (boost-serialization methods for the conditions payload classes) is
 # generated at build time by a libclang-based script, like scram does it
@@ -136,6 +139,7 @@ stdenv.mkDerivation {
     ++ lib.optional (xgboost != null) xgboost
     ++ lib.optional (coral != null) coral
     ++ lib.optional (curl != null) curl
+    ++ lib.optional (nlohmann_json != null) nlohmann_json
     ++ lib.optional (pythia8 != null) pythia8
     ++ lib.optional (lhapdf != null) lhapdf
     ++ lib.optional (libsigcxx != null) libsigcxx;

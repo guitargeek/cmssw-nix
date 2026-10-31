@@ -6,7 +6,7 @@ kinematics, the leading `pat::Jet`s with their DeepCSV b-tag discriminant,
 and the `reco::GenParticle` multiplicity of each event.
 
 This example needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`) — the
-`pat::` data formats are not part of the `CMSSW_20_1_0_pre2` package.
+`pat::` data formats are not part of the `CMSSW_20_1_0_pre4` package.
 
 ## Getting a file
 
