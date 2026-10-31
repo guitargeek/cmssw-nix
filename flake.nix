@@ -36,11 +36,6 @@
       flake = false;
     };
 
-    vdt-src = {
-      url = "github:dpiparo/vdt/v0.4.3";
-      flake = false;
-    };
-
     coral-src = {
       url = "github:cms-externals/coral/cms/CORAL_2_3_21py3";
       flake = false;
@@ -125,7 +120,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, vdt-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
@@ -262,13 +257,9 @@
             src = cms-md5-src;
           };
 
-          vdt = pkgs2205.callPackage ./pkgs/vdt.nix {
-            src = vdt-src;
-          };
-
-          vdt_201 = pkgs.callPackage ./pkgs/vdt.nix {
-            src = vdt-src;
-          };
+          # pkgs/vdt.nix is written for current nixpkgs (to be upstreamed).
+          # CMSSW only uses the inline headers, so 10_6 takes the same build.
+          vdt = pkgs.callPackage ./pkgs/vdt.nix { };
 
           libclang-python = pkgs.callPackage ./pkgs/libclang-python.nix { };
 
@@ -429,7 +420,7 @@
             clangTools = if isDarwin then null else pkgs.clang;
             libclangPython = libclang-python;
             gsl = pkgs.gsl;
-            vdt = vdt_201;
+            inherit vdt;
             fastjet = pkgs.fastjet;
             fastjet-contrib = pkgs.fastjet-contrib;
             heppdt = heppdt_201;
