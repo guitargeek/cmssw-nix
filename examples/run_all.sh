@@ -3,6 +3,7 @@
 #
 #   ./examples/run_all.sh 10_6     # the CMSSW_10_6_30 package
 #   ./examples/run_all.sh 20_1     # the CMSSW_20_1_0_pre4 package
+#   ./examples/run_all.sh 20_1 MuonGunSim MuonGunDigi   # just these
 #
 # Run this from inside the matching dev shell. The job list lives in
 # examples/jobs.json, which `nix flake check` reads too - see the checks in
@@ -12,6 +13,8 @@
 set -u
 
 era=${1:-20_1}
+shift || true
+only=" $* "   # example directories to run; all of them if none given
 case "$era" in
   10_6) attr=cmssw_10_6_30 ;;
   20_1) attr=cmssw ;;
@@ -26,16 +29,22 @@ import json, sys
 era = sys.argv[1]
 with open(sys.argv[2]) as f:
     spec = json.load(f)
+only = sys.argv[3].split()
 for job in spec[era]:
+    if only and job["dir"] not in only:
+        continue
     for cfg in job["cfgs"]:
         print(job["dir"] + ":" + cfg)
-' "$era" "$here/jobs.json") || { echo "cannot read $here/jobs.json" >&2; exit 2; }
+' "$era" "$here/jobs.json" "$only") || { echo "cannot read $here/jobs.json" >&2; exit 2; }
+[ ${#jobs[@]} -gt 0 ] || { echo "no example jobs match:$only" >&2; exit 2; }
 
 # A build directory of its own per release: the two eras have different
 # compilers and a different TBB, and a CMakeCache left behind by the other
-# one silently builds against the wrong toolchain.
+# one silently builds against the wrong toolchain. (scripts/worktree.sh sets
+# RUN_ALL_BUILD_DIR, for the same reason, to keep a work tree's release
+# apart from the nix-built one.)
 run_one() {
-  local dir=$1 cfg=$2 bld="build-$era"
+  local dir=$1 cfg=$2 bld=${RUN_ALL_BUILD_DIR:-build-$era}
   echo "=== $dir : $cfg"
   ( cd "$here/$dir" || exit 1
     cmake -B "$bld" -S . -G Ninja > build.log 2>&1 || { echo "   CMAKE FAILED"; tail -5 build.log; exit 1; }

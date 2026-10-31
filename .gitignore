@@ -20,3 +20,5 @@ examples/ConditionsFrontier/frontier_port.txt
 rebuild-status.log
 # written by write_pixel_la_20_1_cfg.py, which the 20_1 job list runs first
 examples/*/pixel_la.db
+# incremental build trees of scripts/worktree.sh
+/worktree/

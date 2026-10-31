@@ -215,6 +215,45 @@ substituter baked into a flake is a trust decision for whoever clones it,
 and an unreachable one makes every build print warnings. Consumers opt in
 with `cachix use $CACHIX_CACHE`.
 
+## Iterating on the build
+
+Every change under `gen/` or `pkgs/` changes the derivation, and `nix
+build` then compiles the release from scratch: hours per attempt, which is
+no way to work through a list of compile errors. `scripts/worktree.sh`
+keeps a persistent build tree instead and runs the derivation's own phases
+in it, in the environment `nix print-dev-env` gives for the package, so a
+fix costs an incremental ninja run:
+
+```bash
+scripts/worktree.sh 20_1 env        # build environment from the flake
+scripts/worktree.sh 20_1 fresh      # unpack, patch, configure
+scripts/worktree.sh 20_1 build      # all of it (-k 0), or: build lib/libX.so
+scripts/worktree.sh 20_1 install    # into worktree/20_1/out; loads every plugin
+scripts/worktree.sh 20_1 run        # the example jobs against that install
+scripts/worktree.sh 20_1 run MuonGunSim   # ... or some of them
+scripts/worktree.sh 20_1 shell      # a shell with the tree as the release
+```
+
+The loop after editing:
+
+* **anything under `gen/`** (a source fix in `prepare_sources.py`,
+  `config.yml`, `CMakeLists.txt`, the generator): `sync`, then `build`.
+  `prepare_sources.py` edits sources in place and is not idempotent, so it
+  never runs on the tree itself: `sync` prepares a fresh copy and copies
+  over only what differs by content. Unchanged files keep their
+  timestamps, and ninja rebuilds only what the edit reaches. (`sync` also
+  regenerates the environment: the phases it prints name `gen/` by store
+  path, so a stale one would apply the old script. A new file under `gen/`
+  has to be `git add`ed before the flake sees it.)
+* **a change to the dependencies** (`flake.nix`, `flake.lock`, `pkgs/`):
+  `env`, then `configure --fresh` and `build`. The CMake cache records
+  store paths, so it has to go; most of the release recompiles.
+
+The tree lives in `worktree/<era>` (gitignored; `CMSSW_WORKTREE` moves
+it) and takes a few GB per release. Compiling the same phases makes it
+faithful to the sandbox build, not identical to it: once the tree is green,
+`nix build` and `nix flake check` are what count.
+
 ## Porting notes: what changed between the releases
 
 Eleven of the twelve examples run on both releases from the same
@@ -263,7 +302,9 @@ for 20_1). What actually differs, in one list:
   ```
 * `gen/sweep_libs.py` — `dlopen`s every library in a build and reports the
   ones that fail; run by the `libsweep-*` flake checks
-* `scripts/` — build and pin the releases, push them to a binary cache
+* `scripts/` — build and pin the releases, push them to a binary cache,
+  and `worktree.sh`, the incremental build tree (see *Iterating on the
+  build*)
 * `examples/jobs.json` — the example jobs, shared by `nix flake check` and
   `examples/run_all.sh`
 * `examples/cmake/ExampleSetup.cmake`, `examples/common/`,
@@ -274,7 +315,8 @@ for 20_1). What actually differs, in one list:
 
 * `devShells.build` (and `devShells.build_10_6_30`) is for hacking on the
   CMSSW build itself (all deps, no cmssw): run the generator + cmake by
-  hand against a local checkout.
+  hand against a local checkout. `scripts/worktree.sh` does the same with
+  the derivation's own phases, and is usually the better place to start.
 * On Linux, the setup hook raises glibc's static-TLS surplus
   (`GLIBC_TUNABLES=glibc.rtld.optional_static_tls`). nixpkgs builds Geant4
   multi-threaded, which compiles the toolkit with
