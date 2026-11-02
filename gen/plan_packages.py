@@ -15,8 +15,8 @@ and decides, for every package, whether it can be built here:
   * mutually dependent packages (a plugin library that uses its own package,
     or two packages that reference each other) are accepted as a group,
   * the dependency edits that gen/prepare_sources.py applies before the build
-    are modelled in PRUNED_EDGES, and the library stanzas it deletes in
-    STANZA, so the picture matches what actually gets compiled.
+    are modelled in gen/buildfile_model.py, so the picture matches what
+    actually gets compiled.
 
 Usage:
   python3 gen/plan_packages.py --src <cmssw source> --base gen/config.yml \
@@ -28,6 +28,8 @@ import re
 from collections import defaultdict
 
 import yaml
+
+import buildfile_model
 
 parser = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -64,53 +66,8 @@ ALLOW = {"Utilities/BinningTools","Utilities/General","Utilities/Xerces","Utilit
 def excluded(p):
     return p in EXCL_PKGS or (p.split("/")[0] in EXCL_SUBS and p not in ALLOW)
 
-use_re = re.compile(r'<\s*use\s+name\s*=\s*"([^"]+)"')
-STANZA = [r'<library[^>]*>(?:(?!</library>).)*DD4HEP_PLUGIN(?:(?!</library>).)*</library>\n?',
- r'<library[^>]*>(?:(?!</library>).)*name="(?:Fireworks/Core)"(?:(?!</library>).)*</library>\n?',
- r'<library[^>]*name="(?:DD4hep_|alpaka_)[^"]*"[^>]*>(?:(?!</library>).)*</library>\n?']
-# dependencies that gen/prepare_sources.py removes before the build
-PRUNED_EDGES = {
- ("FWCore/Services", "Utilities/XrdAdaptor"), ("FWCore/Services", "FWStorage/XrdAdaptor"),
- ("FWStorage/Services", "FWStorage/XrdAdaptor"),
- ("CalibTracker/SiStripESProducers", "DQMServices/Core"),
- ("CalibTracker/SiStripCommon", "SimTracker/TrackAssociation"),
- ("CalibTracker/SiStripCommon", "SimTracker/Records"),
- ("CalibTracker/SiStripCommon", "TrackingTools/TrackFitters"),
- ("CalibCalorimetry/EcalTPGTools", "SimCalorimetry/EcalSimAlgos"),
- ("CalibCalorimetry/EcalTrivialCondModules", "CondTools/Ecal"),
- ("CalibCalorimetry/EcalTrivialCondModules", "SimG4CMS/Calo"),
- ("RecoLocalCalo/HcalRecAlgos", "RecoMET/METAlgorithms"),
- ("RecoLocalMuon/RPCRecHit", "TrackingTools/TrackRefitter"),
- ("RecoMET/METPUSubtraction", "PhysicsTools/TensorFlow"),
- ("RecoTauTag/RecoTau", "PhysicsTools/TensorFlow"),
- ("RecoTracker/TrackProducer", "Alignment/TwoBodyDecay"),
- ("RecoTracker/TrackProducer", "Alignment/ReferenceTrajectories"),
- ("RecoTracker/DeDx", "HLTrigger/HLTcore"),
- ("CondCore/BeamSpotPlugins", "CondCore/Utilities"),
- # TensorFlow / Triton consumers pruned at prepare time
- ("RecoEcal/EgammaCoreTools", "PhysicsTools/TensorFlow"),
- ("RecoEcal/EgammaClusterAlgos", "HeterogeneousCore/SonicTriton"),
- ("RecoEcal/EgammaClusterAlgos", "HeterogeneousCore/SonicCore"),
- ("RecoEcal/EgammaClusterProducers", "HeterogeneousCore/SonicTriton"),
- ("RecoEcal/EgammaClusterProducers", "HeterogeneousCore/SonicCore"),
- ("RecoEgamma/EgammaTools", "HeterogeneousCore/SonicTriton"),
- ("RecoEgamma/EgammaTools", "HeterogeneousCore/SonicCore"),
- ("RecoTauTag/RecoTau", "HeterogeneousCore/SonicTriton"),
- ("RecoTauTag/RecoTau", "HeterogeneousCore/SonicCore"),
- ("RecoMuon/TrackerSeedGenerator", "PhysicsTools/TensorFlow"),
- ("RecoMuon/TrackerSeedGenerator", "SimTracker/TrackTriggerAssociation"),
-}
 def deps_of(p, drop_plugins=False):
-    P, T = set(), set()
-    for sub in ["", "src", "bin"] + ([] if drop_plugins else ["plugins"]):
-        bf = os.path.join(SRC, p, sub, "BuildFile.xml") if sub else os.path.join(SRC, p, "BuildFile.xml")
-        if not os.path.isfile(bf): continue
-        txt = re.sub(r"<!--.*?-->", "", open(bf, encoding="latin-1").read(), flags=re.DOTALL)
-        for pat in STANZA: txt = re.sub(pat, "", txt, flags=re.DOTALL)
-        for n in use_re.findall(txt):
-            if (p, n) in PRUNED_EDGES: continue
-            (P if "/" in n else T).add(n)
-    return P, T
+    return buildfile_model.deps_of(SRC, p, ("", "src", "bin") + (() if drop_plugins else ("plugins",)))
 universe, todo = set(x for x in want if not excluded(x)), [x for x in want if not excluded(x)]
 while todo:
     p = todo.pop()

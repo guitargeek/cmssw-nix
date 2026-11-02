@@ -300,6 +300,18 @@ for 20_1). What actually differs, in one list:
   python3 gen/plan_packages.py --src <cmssw source> --base gen/config.yml \
       --wanted gen/config-10_6.yml --output gen/config.yml
   ```
+* `gen/rank_blockers.py` — what holds the rest of the release back: for
+  every package in the source tree, the missing externals in its dependency
+  closure; lists the packages that could build already, the blocker sets by
+  how many packages each holds back, and with `--why <package>` the
+  dependency chain to each blocker:
+
+  ```bash
+  python3 gen/rank_blockers.py --src <cmssw source> --config gen/config.yml \
+      --with $(nix eval --raw .#packages.<system>.cmssw.configurePhase \
+               | grep -o 'CMSSW_WITH_[A-Z0-9_]*' | sort -u) \
+      --why PhysicsTools/PatAlgos
+  ```
 * `gen/sweep_libs.py` — `dlopen`s every library in a build and reports the
   ones that fail; run by the `libsweep-*` flake checks
 * `scripts/` — build and pin the releases, push them to a binary cache,
