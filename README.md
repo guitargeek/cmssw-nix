@@ -45,6 +45,7 @@ particle through every stage of the experiment's offline software:
 | tracking + vertexing | 100% of muons reconstructed, momentum to **0.7%**, charge right every time; primary vertex within 9 µm of the gun |
 | muon system | the same muons measured a second time in the yoke alone (independent probe of the field where the tracker does not sample it) |
 | calorimeters | the textbook MIP: E/p = 0.9%, HCAL response at the barrel sampling factor |
+| raw data (20_1) | HCAL digis packed into FED buffers, written to an HLT streamer file, unpacked: all 57600 channels back sample for sample |
 | combination → ntuple | tracker + standalone fits merged into `reco::Muon`, written to a NanoAOD file, read back by plain ROOT and matched to the generated muons |
 
 Standing alone, [examples/TrackerLocalReco](examples/TrackerLocalReco),
@@ -80,6 +81,11 @@ drives the Frontier transport against a stub servlet.
   NanoAOD on 20_1, with the DQM core, the L1 menu utilities and the HLT
   configuration readers they depend on (`DQMServices/Core`,
   `L1Trigger/L1TGlobal`, `HLTrigger/HLTcore`); NanoAOD on 10_6.
+* **Raw data** — on 20_1, the packers and unpackers of every subdetector
+  (`EventFilter/*RawToDigi`, `*DigiToRaw`), the L1 trigger emulators the
+  unpacking configuration needs, and the streamer file format
+  (`IOPool/Streamer`, the DAQ sources in `EventFilter/Utilities`), so the
+  standard `RawToDigi` and `DigiToRaw` sequences load.
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface` (10_6 era; the 8.3 API break is not
   yet handled for 20_1).

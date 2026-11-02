@@ -464,6 +464,9 @@
             # DQMServices/Core
             inherit classlib utm;
             protobuf = pkgs.protobuf;
+            # the streamer format and the Geners archives
+            zstd = pkgs.zstd;
+            bzip2 = pkgs.bzip2;
             geant4 = geant4_201;
             inherit g4hepem;
             hdf5 = pkgs.hdf5-cpp;

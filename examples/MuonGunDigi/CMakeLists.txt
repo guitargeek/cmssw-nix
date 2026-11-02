@@ -10,8 +10,13 @@ list(APPEND PLUGIN_FILES ${CMAKE_CURRENT_LIST_DIR}/../common/plugins/PixelLorent
 # (see the file header). The 10_6 producer does not, so there is nothing
 # for it to do there - and it uses PoolDBOutputService::writeOneIOV,
 # which that era does not have.
+#
+# HcalSyntheticVMEMap serves the raw data jobs, which run on 20_1 only (the
+# 10_6 configuration does not build the packers), and uses the ES token API
+# that era does not have.
 if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
   list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/PixelDetVOffWriter.cc)
+  list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/HcalSyntheticVMEMap.cc)
 endif()
 add_library(MuonGunDigiTestPlugins SHARED ${PLUGIN_FILES})
 set_target_properties(MuonGunDigiTestPlugins PROPERTIES PREFIX "plugin")
@@ -53,6 +58,11 @@ target_link_libraries(MuonGunDigiTestPlugins
   DataFormatsHcalRecHit
   DataFormatsEcalDetId
   DataFormatsHcalDetId
+  # the HCAL raw data round trip (plugins/HcalDigiRoundTrip.cc,
+  # plugins/HcalSyntheticVMEMap.cc)
+  DataFormatsHcalDigi
+  CondFormatsHcalObjects
+  GeometryCaloTopology
   SimDataFormatsCaloHit
   # nominal preshower conditions (plugins/PreshowerTrivialConditions.cc)
   CondFormatsESObjects

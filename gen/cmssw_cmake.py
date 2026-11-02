@@ -165,7 +165,19 @@ def complete_build_file(build_file, default_lib_name=None, in_plugin_dir=False):
         xml = '<flags EDM_PLUGIN="1"/>\n' + xml
         default_lib_name = default_lib_name + "Plugins"
     if auto:
-        xml = '<library   file="*.cc *.cxx *.cpp" name="' + default_lib_name + '">\n' + xml + "\n</library>"
+        patterns = ["*.cc", "*.cxx", "*.cpp"]
+        # ADD_SUBDIR="1" in a plugins/ directory: scram also compiles the
+        # sources one directory down (EventFilter/L1TRawToDigi/plugins/
+        # implementations_stage2/, ...); alpaka/ holds the per-backend
+        # sources, which are not built here. (For a package library, the
+        # subdirectories of src/ are globbed anyway.)
+        if in_plugin_dir and re.search(r'ADD_SUBDIR\s*=\s*"1"', xml):
+            here = os.path.dirname(build_file)
+            for d in sorted(os.listdir(here)):
+                if d != "alpaka" and os.path.isdir(os.path.join(here, d)):
+                    patterns += [f"{d}/{p}" for p in ("*.cc", "*.cxx", "*.cpp")]
+        xml = ('<library   file="' + " ".join(patterns) + '" name="' + default_lib_name + '">\n'
+               + xml + "\n</library>")
 
     if not auto and in_plugin_dir:
         # scram semantics: a <library> in a plugins/ directory is an EDM
@@ -397,7 +409,8 @@ def cmssw_to_cmake(cmssw_src_dir, config_path):
         def accept_as_build_file(filename):
             if filename != "BuildFile.xml" or root.count("/") > 3:
                 return False
-            if basename in ["python", "test"]:
+            # scripts/BuildFile.xml only says which scripts scram installs
+            if basename in ["python", "test", "scripts"]:
                 return False
             if basename == "plugins" and not build_plugins(subsystem, package):
                 return False

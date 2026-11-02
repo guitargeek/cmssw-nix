@@ -4,7 +4,8 @@
 #
 # Extended to the scope of the 10_6 configuration: the full local and
 # high-level reconstruction chain, then the simulation, and the PAT and
-# NanoAOD layer with what it needs of DQM, L1 and HLT. Left out are the
+# NanoAOD layer with what it needs of DQM, L1 and HLT, and the raw data
+# packers and unpackers with the streamer format. Left out are the
 # producers that need inference externals we do not build (TensorFlow,
 # PyTorch, Triton) and the rest of the trigger subsystems.
 bins:
@@ -47,6 +48,7 @@ subsystems:
           - HcalObjects
           - SiPixelObjects
           - SiStripObjects
+          - CaloTPG
     CalibMuon:
         whitelist:
           - CSCCalibration
@@ -145,11 +147,13 @@ subsystems:
           - SiPixelObjects
           - SiPixelTransient
           - SiStripObjects
+          - MTDObjects
     CondTools:
         whitelist:
           - BTau
           - Hcal
           - RunInfo
+          - L1Trigger
     Configuration:
         whitelist:
           - Eras
@@ -276,6 +280,14 @@ subsystems:
           - TrivialSerialisation
           - VertexReco
           - WrappedStdDictionaries
+          - HGCDigi
+          - L1CSCTrackFinder
+          - L1DTTrackFinder
+          - L1Scouting
+          - L1ScoutingRawData
+          - L1TCalorimeter
+          - LTCDigi
+          - TotemReco
     DetectorDescription:
         whitelist:
           - Core
@@ -287,10 +299,44 @@ subsystems:
     DQMServices:
         whitelist:
           - Core
+    # The raw data layer: the packers and unpackers of every subdetector
+    # (what Configuration/StandardSequences' DigiToRaw and RawToDigi load),
+    # the event builder, and Utilities' DAQ input sources.
     EventFilter:
         whitelist:
           - SiPixelRawToDigi
           - SiStripRawToDigi
+          - CSCRawToDigi
+          - CSCTFRawToDigi
+          - CTPPSRawToDigi
+          - CastorRawToDigi
+          - Configuration
+          - DTRawToDigi
+          - DTTFRawToDigi
+          - ESDigiToRaw
+          - ESRawToDigi
+          - EcalDigiToRaw
+          - EcalRawToDigi
+          - EcalTBRawToDigi
+          - GEMRawToDigi
+          - GctRawToDigi
+          - HGCalRawToDigi
+          - HcalRawToDigi
+          - L1GlobalTriggerRawToDigi
+          - L1ScoutingRawToDigi
+          - L1TRawToDigi
+          - L1TXRawToDigi
+          - LTCRawToDigi
+          - MTDRawToDigi
+          - OnlineMetaDataRawToDigi
+          - Phase2PixelRawToDigi
+          - Phase2TrackerRawToDigi
+          - RPCRawToDigi
+          - RawDataCollector
+          - RctRawToDigi
+          - ScalersRawToDigi
+          - SiStripChannelChargeFilter
+          - Utilities
     FWCore:
         whitelist:
           - AbstractServices
@@ -383,6 +429,10 @@ subsystems:
           - AlpakaInterface
           - SonicCore
           - TrivialSerialisation
+          - CUDACore
+          - Common
+          - MPIServices
+          - ROCmCore
     # HLTConfigProvider and the prescale providers, which the PAT trigger
     # matching reads.
     HLTrigger:
@@ -401,6 +451,7 @@ subsystems:
           - Input
           - Output
           - Provenance
+          - Streamer
     JetMETCorrections:
         whitelist:
           - Algorithms
@@ -418,6 +469,21 @@ subsystems:
           - GlobalTriggerAnalyzer
           - L1TCommon
           - L1TGlobal
+          - CSCTriggerPrimitives
+          - Configuration
+          - DTUtilities
+          - L1TCalorimeter
+          - L1TMuon
+          - L1TMuonEndCap
+          - TextToDigi
+    # the L1 emulator pieces the unpacking configuration and the L1 unpackers
+    # need (the DT trigger primitive configuration, the scouting utilities)
+    L1TriggerConfig:
+        whitelist:
+          - DTTPGConfig
+    L1TriggerScouting:
+        whitelist:
+          - Utilities
     MagneticField:
         whitelist:
           - Engine
@@ -647,6 +713,8 @@ subsystems:
           # without it.
           - HGCalSimAlgos
           - HGCalSimProducers
+          - EcalTrigPrimAlgos
+          - EcalTrigPrimProducers
     SimDataFormats:
         whitelist:
           - Associations
@@ -760,6 +828,10 @@ subsystems:
         no_plugins: true
         whitelist:
           - MCEmbeddingTools
+    # the ECAL test-beam objects, for EventFilter/EcalTBRawToDigi
+    TBDataFormats:
+        whitelist:
+          - EcalTBObjects
     TopQuarkAnalysis:
         whitelist:
           - TopTools

@@ -103,6 +103,18 @@ if(CMSSW_WITH_HEPMC)
   find_library(xz_LIBRARIES NAMES lzma REQUIRED)
   find_path(xz_INCLUDE_DIRECTORIES NAMES lzma.h REQUIRED)
 endif()
+# zstd: the streamer file format (IOPool/Streamer, and through it the DAQ
+# input sources of EventFilter/Utilities)
+if(CMSSW_WITH_ZSTD)
+  find_library(zstd_LIBRARIES NAMES zstd REQUIRED)
+  find_path(zstd_INCLUDE_DIRECTORIES NAMES zstd.h REQUIRED)
+endif()
+# bzip2 (scram tool bz2lib): the Geners archives of the JetMET correction
+# tables
+if(CMSSW_WITH_BZ2LIB)
+  find_library(bz2lib_LIBRARIES NAMES bz2 REQUIRED)
+  find_path(bz2lib_INCLUDE_DIRECTORIES NAMES bzlib.h REQUIRED)
+endif()
 if(CMSSW_WITH_VDT)
   # inline fast-math headers only (scram tool vdt_headers)
   find_path(vdt_headers_INCLUDE_DIRECTORIES NAMES vdt/vdtMath.h REQUIRED)

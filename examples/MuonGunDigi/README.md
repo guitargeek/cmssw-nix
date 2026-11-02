@@ -13,8 +13,8 @@ readable by the same reconstruction that runs on detector data — the chain
 [examples/TrackerLocalReco](../TrackerLocalReco) demonstrates on digis it
 builds by hand.
 
-The example did not stay at digitisation. It now runs the whole chain in six
-jobs, each measuring something with a known right answer:
+The example did not stay at digitisation. It now runs the whole chain, in
+jobs that each measure something with a known right answer:
 
 | job | stage | what it measures |
 | --- | --- | --- |
@@ -25,8 +25,11 @@ jobs, each measuring something with a known right answer:
 | `muon_gun_muons_cfg.py` | muon system | 11% momentum, standalone |
 | `muon_gun_calo_cfg.py` | calorimeter DIGI + reco | energy response 1.03, MIP 0.34 GeV |
 | `muon_gun_nano_cfg.py` | global muons + NanoAOD | 0.87% momentum, in a flat table |
+| `muon_gun_raw_cfg.py` | HCAL DIGI → RAW | packed into FED buffers, a streamer file |
+| `muon_gun_unpack_cfg.py` | RAW → DIGI | every HB/HE/HO channel back, sample for sample |
 
-All seven jobs run in both releases. The measured numbers in the table
+The first seven jobs run in both releases, the two raw data jobs in 20_1
+only (the 10_6 configuration does not build the packers). The measured numbers in the table
 are the 10_6 ones; the calorimeter job is the
 one where 20_1 differs enough to be worth stating, because the two releases
 simulate with different Geant4 versions (10.4 and 11.4) — see the bounds in
@@ -505,6 +508,45 @@ alignment offsets and templates read from payloads that do not exist here.
 `MeasurementTrackerESProducer_cff` does the same thing earlier in the same
 file. Each time they have to be turned off again *after* the load.
 
+## Raw data: the format the detector writes
+
+Every job above hands digis from one module to the next as C++ objects. The
+detector does not. Its front ends write FED buffers, the DAQ assembles them
+into one `FEDRawDataCollection` per event, the HLT writes those into
+streamer files, and the reconstruction of collision data starts by unpacking
+them. `python/muon_gun_raw_cfg.py` runs that path forwards on the
+calorimeter job's HCAL digis: the VME packer (`HcalDigiToRaw`) writes the
+FED buffers, `RawDataCollector` builds the event, and `EventStreamFileWriter`
+writes it in the HLT's streamer format, zstd compressed.
+`python/muon_gun_unpack_cfg.py` reads the file with the streamer input
+source and unpacks it with `HcalRawToDigi`, configured as for collision
+data.
+
+The file carries the simulated digis too, so the check is exact rather than
+statistical. `plugins/HcalDigiRoundTrip.cc` compares every channel's samples
+ADC count for ADC count and capacitor id for capacitor id:
+
+```
+HBHE: 46800 simulated, 46800 unpacked, 46800 identical, 0 different, 0 not unpacked
+HO: 10800 simulated, 10800 unpacked, 10800 identical, 0 different, 0 not unpacked
+```
+
+The packer needs one thing the hardcoded conditions do not have: an
+electronics map with readout addresses in it. The hardcoded map numbers the
+channels in the uTCA id space and stops there, which serves the
+reconstruction (it only looks channels up) and gives the packer nothing to
+lay out; its first run packed empty FEDs and the unpacker found 0 of 46800
+channels. The real maps are in the conditions database, and the text map
+the release's fake-conditions configuration names is no longer distributed.
+`plugins/HcalSyntheticVMEMap.cc` builds one with the shape of the Run 1-2
+VME readout instead: 32 DCCs of 15 spigots, 8 fibers each, 3 channels per
+fiber. That is 11520 addresses, which is exactly the number of HB, HE and HO
+channels. It is not the detector's cabling, but it is a valid one, and a
+round trip only needs that. The ECAL packer would also need the trigger
+primitives and selective-readout flags, which this example does not
+emulate; the tracker and muon packers need cabling maps that, like the pixel
+map below, exist only in the database.
+
 ## The pixel Lorentz angle, and a conditions bug the residuals caught
 
 The residual test earned its place here. With the pixel digitiser turned
@@ -595,7 +637,7 @@ no-database path this flake is necessarily on.
 ## Building and running
 
 From this directory, inside `nix develop .#cmssw_10_6_30` (or `nix develop
-.#default` for 20_1, leaving out the NanoAOD job):
+.#default` for 20_1, which also runs the two raw data jobs):
 
 ```bash
 cmake -B build -S . -G Ninja
@@ -613,4 +655,6 @@ cmsRun python/muon_gun_muons_cfg.py
 cmsRun python/muon_gun_calo_cfg.py
 cmsRun python/muon_gun_nano_cfg.py
 python3 python/muon_gun_nano_cfg_check.py
+cmsRun python/muon_gun_raw_cfg.py      # 20_1 only
+cmsRun python/muon_gun_unpack_cfg.py   # 20_1 only
 ```

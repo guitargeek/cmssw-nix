@@ -59,6 +59,10 @@
 # L1Trigger/L1TGlobal and HLTrigger/HLTcore need (without it, the payloads
 # are pruned)
 , utm ? null
+# zstd for the streamer file format (IOPool/Streamer, EventFilter/Utilities),
+# bzip2 for the Geners archives (Alignment/Geners, JetMETCorrections)
+, zstd ? null
+, bzip2 ? null
 # classlib (DQMNet's sockets) and protobuf (the DQM histogram file format,
 # regenerated with the protoc at hand): DQMServices/Core
 , classlib ? null
@@ -155,6 +159,8 @@ stdenv.mkDerivation {
     ++ lib.optional (hls4ml-emulator-extras != null) hls4ml-emulator-extras
     ++ lib.optional (classlib != null) classlib
     ++ lib.optional (utm != null) utm
+    ++ lib.optional (zstd != null) zstd
+    ++ lib.optional (bzip2 != null) bzip2
     ++ lib.optional (protobuf != null) protobuf
     ++ lib.optional (geant4 != null) geant4
     ++ lib.optional (g4hepem != null) g4hepem
@@ -247,6 +253,8 @@ stdenv.mkDerivation {
       ${lib.optionalString (hls4ml-emulator-extras != null) "-DCMSSW_WITH_HLS4ML_EMULATOR_EXTRAS=ON"} \
       ${lib.optionalString (classlib != null) "-DCMSSW_WITH_CLASSLIB=ON"} \
       ${lib.optionalString (utm != null) "-DCMSSW_WITH_UTM=ON"} \
+      ${lib.optionalString (zstd != null) "-DCMSSW_WITH_ZSTD=ON"} \
+      ${lib.optionalString (bzip2 != null) "-DCMSSW_WITH_BZ2LIB=ON"} \
       ${lib.optionalString (protobuf != null) "-DCMSSW_WITH_PROTOBUF=ON"} \
       ${lib.optionalString (geant4 != null) "-DCMSSW_WITH_GEANT4=ON"} \
       ${lib.optionalString (g4hepem != null) "-DCMSSW_WITH_G4HEPEM=ON"} \

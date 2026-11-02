@@ -12,7 +12,7 @@ This runs after the cfi generation of the install phase. For every
 `from Sub.Pkg.<...>_cfi import name` in the installed python code that
 resolves neither to a handwritten file nor to a generated one, in a package
 that is part of the build, it writes a placeholder cfi into the generated
-tree: a module of the imported name without parameters, which accepts any
+tree: a module of the plugin's type without parameters, which accepts any
 clone(). The configuration loads, and a job that actually runs the module
 fails on the missing plugin.
 
@@ -20,6 +20,7 @@ Usage: python3 placeholder_cfis.py <release prefix>
 """
 import ast
 import os
+import re
 import sys
 
 out = sys.argv[1]
@@ -33,7 +34,39 @@ class _NotBuilt(cms.EDProducer):
     def clone(self, *args, **params):
         return _NotBuilt(self.type_())
 
+    # configuration code sets the module's parameters as plain values
+    # (module.InputLabel = "..."), which only declared parameters accept;
+    # the module never runs, so drop them
+    def __setattr__(self, name, value):
+        try:
+            super().__setattr__(name, value)
+        except TypeError:
+            pass
+
 {definitions}"""
+
+
+# The plugin type behind a cfi, from the package's (installed) sources: the
+# generated cfi is named after the plugin class with its first letter in
+# lower case, and an alpaka module registers as "<class>@alpaka". Code that
+# inspects the type (HeterogeneousCore/AlpakaCore's makeSerialClone) then
+# sees the right one; without a match, the label stands in for it.
+DEFINE = re.compile(r"\bDEFINE_FWK_(?:EVENTSETUP_)?(ALPAKA_)?MODULE\(\s*([\w:]+)\s*\)")
+plugin_types = {}
+
+
+def plugin_type(sub, pkg, label):
+    key = (sub, pkg)
+    if key not in plugin_types:
+        types = plugin_types[key] = {}
+        for root, dirs, files in os.walk(os.path.join(src, sub, pkg)):
+            for name in files:
+                if name.endswith(".cc"):
+                    text = open(os.path.join(root, name), encoding="utf-8", errors="replace").read()
+                    for alpaka, cls in DEFINE.findall(text):
+                        base = cls.split("::")[-1]
+                        types[base[:1].lower() + base[1:]] = cls + ("@alpaka" if alpaka else "")
+    return plugin_types[key].get(label, label)
 
 
 def exists(sub, pkg, rest):
@@ -72,5 +105,6 @@ for (sub, pkg, rest), names in sorted(wanted.items()):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w") as f:
         f.write(TEMPLATE.format(definitions="".join(
-            f'{n} = _NotBuilt("{n}")\n' for n in sorted(names))))
+            f'{n} = _NotBuilt("{plugin_type(sub, pkg, rest[-1][:-len("_cfi")])}")\n'
+            for n in sorted(names))))
     print("placeholder:", ".".join((sub, pkg) + rest), " ".join(sorted(names)))

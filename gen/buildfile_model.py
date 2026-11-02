@@ -35,6 +35,7 @@ PRUNED_EDGES = {
  ("SimG4Core/CustomPhysics", "GeneratorInterface/Pythia8Interface"),
  ("PhysicsTools/PatAlgos", "PhysicsTools/TensorFlow"),
  ("RecoBTag/ONNXRuntime", "HeterogeneousCore/SonicTriton"),
+ ("L1Trigger/L1TMuonEndCap", "PhysicsTools/TensorFlow"),
  # TensorFlow / Triton consumers pruned at prepare time
  ("RecoEcal/EgammaCoreTools", "PhysicsTools/TensorFlow"),
  ("RecoEcal/EgammaClusterAlgos", "HeterogeneousCore/SonicTriton"),

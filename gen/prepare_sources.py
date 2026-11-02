@@ -1354,6 +1354,7 @@ missing_includes = {
     "cmssw/Geometry/HGCalCommonData/interface/HGCalParameters.h": ["<array>"],
     "cmssw/RecoParticleFlow/PFClusterTools/src/PFResolutionMap.cc": ["<array>"],
     "cmssw/Geometry/MTDGeometryBuilder/src/MTDParametersFromDD.cc": ["<array>"],
+    "cmssw/L1Trigger/L1TMuonEndCap/interface/TrackTools.h": ["<utility>"],
     # iterates a reco::TrackCollection with only TrackFwd.h in sight
     "cmssw/RecoTracker/FinalTrackSelectors/interface/TrackMVAClassifier.h":
         ['"DataFormats/TrackReco/interface/Track.h"'],
@@ -1615,16 +1616,20 @@ if os.path.exists(path):
                            + old + "\n#endif")
     edit(path, shufflevector_for_clang)
 
-# --- a non-const comparison operator (10_6) ---------------------------------
-# NanoAOD's ScaleVarWeight declares operator< without const. libstdc++'s
-# std::sort happens never to compare through a const reference; libc++'s
-# does, and finds no usable operator. It compares two members and changes
-# neither.
-path = "cmssw/PhysicsTools/NanoAOD/plugins/GenWeightsTableProducer.cc"
-if os.path.exists(path):
-    edit(path, lambda src: src.replace(
-        "bool operator<(const ScaleVarWeight& other) {",
-        "bool operator<(const ScaleVarWeight& other) const {"))
+# --- non-const comparison operators (all versions) -------------------------
+# NanoAOD's ScaleVarWeight (10_6) and the phase-2 pixel Phase2ITQCore and
+# Phase2ITChipBitStream (20_1) declare operator< without const. libstdc++'s std::sort happens never to
+# compare through a const reference; libc++'s does, and finds no usable
+# operator. Each compares two members and changes neither.
+for path, decl in [
+        ("cmssw/PhysicsTools/NanoAOD/plugins/GenWeightsTableProducer.cc",
+         "bool operator<(const ScaleVarWeight& other)"),
+        ("cmssw/DataFormats/Phase2TrackerDigi/interface/Phase2ITQCore.h",
+         "bool operator<(const Phase2ITQCore& other)"),
+        ("cmssw/DataFormats/Phase2TrackerDigi/interface/Phase2ITChipBitStream.h",
+         "bool operator<(const Phase2ITChipBitStream& other)")]:
+    if os.path.exists(path):
+        edit(path, lambda src, decl=decl: src.replace(decl + " {", decl + " const {"))
 
 # --- a map iterator decremented past begin() (all versions) ---------------
 # HcalPulseContainmentCorrection::getCorrection decrements the result of
@@ -1734,3 +1739,22 @@ if glob.glob(path + "/*Sonic*.cc"):
     for f in glob.glob(path + "/*Sonic*.cc"):
         os.remove(f)
     drop_tool_deps(path + "/BuildFile.xml", TF_TRITON_DEPS)
+
+# --- the EMTF emulator library without TensorFlow (20_1) --------------------
+# L1Trigger/L1TMuonEndCap lists PhysicsTools/TensorFlow among its
+# dependencies, but none of its code uses it. EventFilter/L1TRawToDigi's
+# EMTF unpacker needs the library (the track and hit helpers).
+drop_tool_deps("cmssw/L1Trigger/L1TMuonEndCap/BuildFile.xml", ["PhysicsTools/TensorFlow"])
+
+# --- the MPI accelerator, configuration only (20_1) -------------------------
+# Configuration/StandardSequences/python/Accelerators_cff.py, which every
+# unpacker configuration with an alpaka variant imports, defines the MPI
+# process accelerator next to the CUDA, ROCm and alpaka ones. Its python
+# only sets an environment variable when an MPIService is configured; the
+# service itself needs an MPI implementation, which is not packaged. Keep the
+# package as python only.
+mpi = "cmssw/HeterogeneousCore/MPIServices"
+if os.path.exists(mpi + "/BuildFile.xml"):
+    for d in ("src", "plugins", "interface", "test"):
+        shutil.rmtree(os.path.join(mpi, d), ignore_errors=True)
+    os.remove(mpi + "/BuildFile.xml")
