@@ -76,21 +76,31 @@ drives the Frontier transport against a stub servlet.
   tracking/vertexing machinery, standalone/global muons, e/gamma,
   particle flow, jets/MET with corrections, b/τ-tagging (lwtnn
   DeepFlavour included).
+* **Analysis formats** — the PAT layer (`PhysicsTools/PatAlgos`) and
+  NanoAOD on 20_1, with the DQM core, the L1 menu utilities and the HLT
+  configuration readers they depend on (`DQMServices/Core`,
+  `L1Trigger/L1TGlobal`, `HLTrigger/HLTcore`); NanoAOD on 10_6.
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface` (10_6 era; the 8.3 API break is not
   yet handled for 20_1).
 
 Deliberately out: the TensorFlow C++ and Triton inference backends
 (unbuildable/unfetchable in a sandbox), so their handful of consumers
-(DeepSC, DeepTau, DNN muon seeder, SONIC) are pruned at prepare time and
-fail loudly if configured; the HLT/online, DQM and FastSimulation
-subsystems; and HcalTrigger selection packages that only exist upstream.
+(DeepSC, DeepTau, DNN muon seeder, SONIC, the displaced-tau tagger) are
+pruned at prepare time and fail loudly if configured. Where configuration
+code imports the cfi of such a module anyway (to swap it in under a process
+modifier), the install phase writes a placeholder for it
+([gen/placeholder_cfis.py](gen/placeholder_cfis.py)), so the configuration
+loads and only a job that runs the module fails. Also out: the HLT paths
+and online, the DQM modules beyond the core, FastSimulation, and HcalTrigger
+selection packages that only exist upstream.
 
 External software: almost everything from nixpkgs (ROOT, boost, Geant4,
 ONNXRuntime, XGBoost, fastjet, clhep, …). Packaged here in
 [pkgs/](pkgs/) are only the CMS-specific externals: CORAL, the Fermilab
 frontier client, cms-md5, HepPDT, lwtnn, Pythia 8 (CMS fork), the Xilinx
-HLS headers, DD4hep, and a standalone Minuit2 for the 10_6-era ROOT.
+HLS headers and the hls4ml emulator interface, DD4hep, classlib, the L1 menu
+library utm, vdt, and a standalone Minuit2 for the 10_6-era ROOT.
 
 It is the successor of an earlier Arch Linux PKGBUILD experiment: the
 `BuildFile.xml` → `CMakeLists.txt` conversion script from there lives on

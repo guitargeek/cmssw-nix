@@ -491,13 +491,14 @@ if os.path.exists(path):
                '<use   name="CondCore/DBOutputService"/>\n'
                '<use   name="CondFormats/Alignment"/>\n' + xml))
 
-# --- L1 trigger menu payloads without the utm external (all versions) ------
+# --- L1 trigger menu payloads without the utm external (10_6) --------------
 # CondFormats/L1TObjects carries the L1TUtm* trigger-menu classes, which wrap
-# the CMS utm library. Nothing in the reconstruction reads them, and they are
-# self-contained (their EventSetup records live in their own files), so drop
-# them together with the dependency.
+# the CMS utm library. Nothing in the 10_6 reconstruction reads them, and
+# they are self-contained (their EventSetup records live in their own files),
+# so drop them together with the dependency there. The 20_1 build has utm
+# (pkgs/utm.nix): L1Trigger/L1TGlobal and HLTrigger/HLTcore need them.
 l1t = "cmssw/CondFormats/L1TObjects"
-if os.path.isdir(l1t) and os.path.exists(l1t + "/BuildFile.xml"):
+if release_cycle < (11, 0) and os.path.exists(l1t + "/BuildFile.xml"):
     with open(l1t + "/BuildFile.xml", encoding="latin-1") as f:
         if "utm" in f.read():
             for pat in [l1t + "/interface/*L1TUtm*", l1t + "/src/*L1TUtm*",
@@ -995,14 +996,14 @@ if os.path.exists(p8i):
              '  pdfset_();\n'
              '}\n', ""))
 
-    # PhysicsTools/NanoAOD: the flat-table producers (NanoGen and, later,
-    # nanoAOD production). Two plugins are pruned: the nano DQM module (the
-    # DQM subsystem is not built) and the b-jet energy-regression MVA (its
-    # base template lives in PhysicsTools/PatAlgos, not built yet). The
-    # TensorFlow dependency of the plugins BuildFile is stale in 10_6 -
+    # PhysicsTools/NanoAOD: the flat-table producers (NanoGen and nanoAOD
+    # production). In 10_6, two plugins are pruned: the nano DQM module (the
+    # DQM subsystem is not built there) and the b-jet energy-regression MVA
+    # (its base template lives in PhysicsTools/PatAlgos, not built there).
+    # The TensorFlow dependency of the plugins BuildFile is stale in 10_6 -
     # nothing in the package includes it.
     nano = "cmssw/PhysicsTools/NanoAOD"
-    if os.path.exists(nano):
+    if os.path.exists(nano) and release_cycle < (11, 0):
         for f in ["/plugins/NanoAODDQM.cc", "/plugins/BJetEnergyRegressionMVA.cc"]:
             if os.path.exists(nano + f):
                 os.remove(nano + f)
@@ -1644,3 +1645,92 @@ if os.path.exists(path):
             raise SystemExit("HcalPulseContainmentCorrection.cc: getCorrection not where expected")
         return new
     edit(path, no_decrement_past_begin)
+
+# --- DQMServices/Core: the protobuf code from the protoc at hand (20_1) ------
+# The DQM histogram file format (ROOTFilePB) comes as protoc output checked
+# into the release, and generated protobuf code only compiles against the
+# exact protobuf version that generated it (6.31.1 for 20_1_0_pre4). Generate
+# it again from the .proto with the protoc of the build environment.
+pb = "cmssw/DQMServices/Core"
+if os.path.exists(pb + "/src/ROOTFilePB.proto") and shutil.which("protoc"):
+    import subprocess
+    import tempfile
+    with tempfile.TemporaryDirectory() as out:
+        subprocess.run(["protoc", "-Icmssw", "--cpp_out=" + out,
+                        "DQMServices/Core/src/ROOTFilePB.proto"], check=True)
+        gen = out + "/DQMServices/Core/src/ROOTFilePB.pb"
+        # the release keeps the header in interface/, where its users look
+        with open(gen + ".cc") as f:
+            cc = f.read().replace('"DQMServices/Core/src/ROOTFilePB.pb.h"',
+                                  '"DQMServices/Core/interface/ROOTFilePB.pb.h"')
+        with open(pb + "/src/ROOTFilePB.pb.cc", "w") as f:
+            f.write(cc)
+        shutil.copyfile(gen + ".h", pb + "/interface/ROOTFilePB.pb.h")
+
+# --- the PAT MVA producers without TensorFlow (20_1) ------------------------
+# BaseMVAValueMapProducer, the template behind the PAT and NanoAOD MVA value
+# maps, evaluates with TMVA, ONNXRuntime or TensorFlow. The TensorFlow C++
+# API is not packaged: drop that backend, so a configuration asking for it
+# fails when the module is constructed, and keep the other two.
+path = "cmssw/PhysicsTools/PatAlgos/interface/BaseMVAValueMapProducer.h"
+if os.path.exists(path):
+    def no_tensorflow(src):
+        src = src.replace('#include "PhysicsTools/TensorFlow/interface/TensorFlow.h"\n',
+                          '#include "FWCore/Utilities/interface/Exception.h"\n')
+        src = src.replace(
+            "      graph_.reset(tensorflow::loadGraphDef(model_path));\n"
+            "      tf_session_ = tensorflow::createSession(graph_.get());\n",
+            '      throw cms::Exception("Configuration")\n'
+            '          << "the TF backend needs the TensorFlow C++ API, which is not part of this build";\n')
+        src = src.replace("  ~BaseMVACache() { tensorflow::closeSession(tf_session_); }\n", "")
+        src = src.replace("  tensorflow::Session* getTFSession() const { return tf_session_; }\n", "")
+        src = src.replace("  std::shared_ptr<tensorflow::GraphDef> graph_;\n", "")
+        src = src.replace("  tensorflow::Session* tf_session_ = nullptr;\n", "")
+        # the evaluation branches: "if (tf_) {...} else if (onnx_) {" twice
+        src, n = re.subn(r"if \(tf_\) \{.*?\} else if \(onnx_\) \{", "if (onnx_) {", src,
+                         flags=re.DOTALL)
+        if n != 2 or "tensorflow::" in src:
+            raise SystemExit("BaseMVAValueMapProducer.h: TensorFlow code not where expected")
+        return src
+    edit(path, no_tensorflow)
+    drop_tool_deps("cmssw/PhysicsTools/PatAlgos/BuildFile.xml", ["PhysicsTools/TensorFlow"])
+
+# --- NanoAOD without TauSpinner and the displaced-tau DNN (all versions) ---
+# The tau-spin weight table producer drives the Tauola++ TauSpinner library
+# (the only Tauola++ user in the package), and the displaced-tau tagger
+# evaluates a TensorFlow graph. Neither external is packaged.
+nano = "cmssw/PhysicsTools/NanoAOD"
+if os.path.exists(nano + "/plugins/TauSpinnerTableProducer.cc"):
+    os.remove(nano + "/plugins/TauSpinnerTableProducer.cc")
+    drop_tool_deps(nano + "/plugins/BuildFile.xml", ["tauolapp"])
+if os.path.exists(nano + "/plugins/DisTauTag.cc"):
+    os.remove(nano + "/plugins/DisTauTag.cc")
+
+# --- (re)setiosflags found by argument-dependent lookup only (all versions) -
+# A few files (TKinFitter, TopObjects' printParticle, ...) call setiosflags()
+# and resetiosflags() unqualified. With libstdc++ the argument (std::ios::right,
+# of the enum type _Ios_Fmtflags) brings std into the lookup; with libc++
+# fmtflags is a plain unsigned int, and nothing does. Qualify them wherever
+# no using-directive makes it unnecessary.
+_iosflags = re.compile(r"(?<![:\w])((?:re)?setiosflags)\(")
+for root, dirs, files in os.walk("cmssw"):
+    for name in files:
+        if not name.endswith((".cc", ".h", ".cpp", ".cxx")):
+            continue
+        path = os.path.join(root, name)
+        with open(path, encoding="latin-1") as f:
+            src = f.read()
+        if "setiosflags(" in src and "using namespace std" not in src and _iosflags.search(src):
+            with open(path, "w", encoding="latin-1") as f:
+                f.write(_iosflags.sub(r"std::\1(", src))
+
+# --- b-tagging DNNs without the Triton client (20_1) ------------------------
+# RecoBTag/ONNXRuntime evaluates the ParticleNet / ParticleTransformer
+# taggers in process with ONNXRuntime; its *Sonic* producers are the same
+# taggers offloaded to a Triton inference server, whose client is not
+# packaged.
+path = "cmssw/RecoBTag/ONNXRuntime/plugins"
+if glob.glob(path + "/*Sonic*.cc"):
+    for f in glob.glob(path + "/*Sonic*.cc"):
+        os.remove(f)
+    drop_tool_deps(path + "/BuildFile.xml", TF_TRITON_DEPS)

@@ -33,6 +33,8 @@ PRUNED_EDGES = {
  ("RecoTracker/DeDx", "HLTrigger/HLTcore"),
  ("CondCore/BeamSpotPlugins", "CondCore/Utilities"),
  ("SimG4Core/CustomPhysics", "GeneratorInterface/Pythia8Interface"),
+ ("PhysicsTools/PatAlgos", "PhysicsTools/TensorFlow"),
+ ("RecoBTag/ONNXRuntime", "HeterogeneousCore/SonicTriton"),
  # TensorFlow / Triton consumers pruned at prepare time
  ("RecoEcal/EgammaCoreTools", "PhysicsTools/TensorFlow"),
  ("RecoEcal/EgammaClusterAlgos", "HeterogeneousCore/SonicTriton"),

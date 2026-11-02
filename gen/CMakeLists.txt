@@ -131,6 +131,9 @@ if(CMSSW_WITH_HEPPDT)
   find_library(_heppid NAMES HepPID REQUIRED)
   list(APPEND heppdt_LIBRARIES ${_heppid})
   find_path(heppdt_INCLUDE_DIRECTORIES NAMES HepPDT/ParticleID.hh REQUIRED)
+  # PhysicsTools/RecoUtils spells the tool "HepPDT"
+  set(HepPDT_LIBRARIES ${heppdt_LIBRARIES})
+  set(HepPDT_INCLUDE_DIRECTORIES ${heppdt_INCLUDE_DIRECTORIES})
 endif()
 if(CMSSW_WITH_LWTNN)
   find_library(lwtnn_LIBRARIES NAMES lwtnn REQUIRED)
@@ -154,6 +157,31 @@ if(CMSSW_WITH_XGBOOST)
 endif()
 if(CMSSW_WITH_HLS)
   find_path(hls_INCLUDE_DIRECTORIES NAMES ap_int.h REQUIRED)
+endif()
+if(CMSSW_WITH_HLS4ML_EMULATOR_EXTRAS)
+  find_library(hls4mlEmulatorExtras_LIBRARIES NAMES emulator_interface REQUIRED)
+  find_path(hls4mlEmulatorExtras_INCLUDE_DIRECTORIES NAMES hls4ml/emulator.h REQUIRED)
+  # The AXOL1TL (and CICADA) externals are the trained models, which
+  # L1Trigger/L1TGlobal loads through the emulator interface at run time,
+  # only for menus with those conditions: nothing to compile or link against.
+  set(AXOL1TL_LIBRARIES "")
+endif()
+if(CMSSW_WITH_UTM)
+  foreach(_l tmeventsetup tmtable tmxsd tmgrammar tmutil)
+    find_library(_utm_${_l} NAMES ${_l} REQUIRED)
+    list(APPEND utm_LIBRARIES ${_utm_${_l}})
+  endforeach()
+  find_path(utm_INCLUDE_DIRECTORIES NAMES tmEventSetup/tmEventSetup.hh REQUIRED)
+endif()
+if(CMSSW_WITH_CLASSLIB)
+  find_library(classlib_LIBRARIES NAMES classlib REQUIRED)
+  find_path(classlib_INCLUDE_DIRECTORIES NAMES classlib/iobase/Socket.h REQUIRED)
+endif()
+if(CMSSW_WITH_PROTOBUF)
+  find_package(protobuf CONFIG REQUIRED)
+  set(protobuf_LIBRARIES protobuf::libprotobuf)
+  get_target_property(protobuf_INCLUDE_DIRECTORIES protobuf::libprotobuf
+                      INTERFACE_INCLUDE_DIRECTORIES)
 endif()
 if(CMSSW_WITH_GEANT4)
   find_package(Geant4 REQUIRED)
@@ -298,6 +326,14 @@ foreach(_t root rootcore rootcling rootrflx rootmath rootmathcore
   set(${_t}_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 endforeach()
 # TMVA on top of the common set (CommonTools/MVAUtils)
+# RNTuple (the NanoAOD RNTuple output module), where ROOT has it
+if(TARGET ROOT::ROOTNTuple)
+  set(rootntuple_LIBRARIES ${_root_common_libs} ROOT::ROOTNTuple)
+  set(rootntuple_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+endif()
+# graphics pads (TopQuarkAnalysis/TopTools draws into a TCanvas)
+set(rootgpad_LIBRARIES ${_root_common_libs} ROOT::Gpad)
+set(rootgpad_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 set(roottmva_LIBRARIES ${_root_common_libs} ROOT::TMVA)
 set(roottmva_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 # Minuit/Minuit2 (Hcal method-2 pulse fits) and the TMultiLayerPerceptron
@@ -474,7 +510,9 @@ foreach(dir ${Boost_INCLUDE_DIRS} ${CLHEP_INCLUDE_DIRS} ${eigen_INCLUDE_DIRECTOR
         ${g4hepemcore_INCLUDE_DIRECTORIES}
         ${hepmc3_INCLUDE_DIRECTORIES} ${onnxruntime_INCLUDE_DIRECTORIES}
         ${xgboost_INCLUDE_DIRECTORIES} ${pythia8_INCLUDE_DIRECTORIES}
-        ${lhapdf_INCLUDE_DIRECTORIES} ${sigcpp_INCLUDE_DIRECTORIES})
+        ${lhapdf_INCLUDE_DIRECTORIES} ${sigcpp_INCLUDE_DIRECTORIES}
+        ${hls4mlEmulatorExtras_INCLUDE_DIRECTORIES} ${classlib_INCLUDE_DIRECTORIES}
+        ${protobuf_INCLUDE_DIRECTORIES} ${utm_INCLUDE_DIRECTORIES})
   list(APPEND GENREFLEX_INCLUDE_LIST "-I${dir}")
 endforeach()
 list(REMOVE_DUPLICATES GENREFLEX_INCLUDE_LIST)

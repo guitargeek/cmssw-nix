@@ -17,6 +17,23 @@
         "type": "github"
       }
     },
+    "classlib-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1695386986,
+        "narHash": "sha256-2uZg4CU50Wh+kvjOKH0ppuyIJLC5ctdLwigcGYyUfFI=",
+        "owner": "cms-externals",
+        "repo": "classlib",
+        "rev": "b43e382237aa91d7dfcc9ef4d8642c7abd9b08c4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-externals",
+        "ref": "cms/3.1.3",
+        "repo": "classlib",
+        "type": "github"
+      }
+    },
     "cms-md5-2-src": {
       "flake": false,
       "locked": {
@@ -235,6 +252,23 @@
         "type": "github"
       }
     },
+    "hls4ml-emulator-extras-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1736479226,
+        "narHash": "sha256-mefCXc+j5c7bZnW/Gx7g7UcZFR2LGdqLjO+U2hZFCbk=",
+        "owner": "cms-hls4ml",
+        "repo": "hls4mlEmulatorExtras",
+        "rev": "db92d84a341b782438b9a63c4c429e4c85d53cbf",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-hls4ml",
+        "ref": "v1.1.4",
+        "repo": "hls4mlEmulatorExtras",
+        "type": "github"
+      }
+    },
     "lwtnn-src": {
       "flake": false,
       "locked": {
@@ -337,6 +371,7 @@
     "root": {
       "inputs": {
         "alpaka-src": "alpaka-src",
+        "classlib-src": "classlib-src",
         "cms-md5-2-src": "cms-md5-2-src",
         "cms-md5-src": "cms-md5-src",
         "cmssw-10_6-src": "cmssw-10_6-src",
@@ -350,12 +385,33 @@
         "geant4-10_4-src": "geant4-10_4-src",
         "heppdt-src": "heppdt-src",
         "hls-src": "hls-src",
+        "hls4ml-emulator-extras-src": "hls4ml-emulator-extras-src",
         "lwtnn-src": "lwtnn-src",
         "magfield-data": "magfield-data",
         "magfield-data-10_6": "magfield-data-10_6",
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
-        "pythia8-src": "pythia8-src"
+        "pythia8-src": "pythia8-src",
+        "utm-src": "utm-src"
+      }
+    },
+    "utm-src": {
+      "flake": false,
+      "locked": {
+        "host": "gitlab.cern.ch",
+        "lastModified": 1769443699,
+        "narHash": "sha256-mVpA6xDnhQ653TBYArNUnvZ5Rm8YD2mm+jitkZAKddM=",
+        "owner": "cms-l1t-utm",
+        "repo": "utm",
+        "rev": "7d6f3b4f8f4c83d5c744b1de689213e4df355e83",
+        "type": "gitlab"
+      },
+      "original": {
+        "host": "gitlab.cern.ch",
+        "owner": "cms-l1t-utm",
+        "ref": "utm_0.14.1",
+        "repo": "utm",
+        "type": "gitlab"
       }
     }
   },

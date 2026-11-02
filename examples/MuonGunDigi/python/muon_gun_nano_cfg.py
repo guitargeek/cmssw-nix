@@ -184,6 +184,12 @@ process.genParticles = _genParticles.clone(src=cms.InputTag("generator", "unsmea
 # as examples/NanoGen does it.
 process.load("PhysicsTools.NanoAOD.genparticles_cff")
 process.finalGenParticles.src = cms.InputTag("genParticles")
+# The 20_1 table also has a lepton-isolation column, computed (genIso) from
+# the MiniAOD packedGenParticles. Starting from RECO, there are none. (The
+# 10_6 table has no external variables at all.)
+_external = getattr(process.genParticleTable, "externalVariables", None)
+if _external is not None and hasattr(_external, "iso"):
+    del _external.iso
 
 # --- the nanoAOD tables -----------------------------------------------------
 # The Muon table. The shipped nano muon table (PhysicsTools/NanoAOD/python/

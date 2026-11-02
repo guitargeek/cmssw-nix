@@ -3,9 +3,10 @@
 # by the MyAnalyzer example.
 #
 # Extended to the scope of the 10_6 configuration: the full local and
-# high-level reconstruction chain. Left out are the 20_1-era packages that
-# need inference externals we do not build (TensorFlow, ONNXRuntime,
-# XGBoost, PyTorch, Triton, hls4ml) and the trigger/simulation subsystems.
+# high-level reconstruction chain, then the simulation, and the PAT and
+# NanoAOD layer with what it needs of DQM, L1 and HLT. Left out are the
+# producers that need inference externals we do not build (TensorFlow,
+# PyTorch, Triton) and the rest of the trigger subsystems.
 bins:
   - FWCore/Framework
   - FWCore/PluginManager
@@ -22,6 +23,11 @@ subsystems:
         whitelist:
           - CommonAlignment
           - TrackerAlignment
+    # the top-quark analysis objects, for TopQuarkAnalysis/TopTools (the PAT
+    # jet-parton matching that the NanoAOD configuration imports)
+    AnalysisDataFormats:
+        whitelist:
+          - TopObjects
     CalibCalorimetry:
         no_plugins:
           - EcalTPGTools
@@ -70,7 +76,9 @@ subsystems:
           - Egamma
           - MVAUtils
           - ParticleFlow
+          - PileupAlgos
           - RecoAlgos
+          - RecoUtils
           - Statistics
           - UtilAlgos
           - Utils
@@ -139,7 +147,9 @@ subsystems:
           - SiStripObjects
     CondTools:
         whitelist:
+          - BTau
           - Hcal
+          - RunInfo
     Configuration:
         whitelist:
           - Eras
@@ -152,6 +162,7 @@ subsystems:
           # losing a collection.
           - Geometry
           - ProcessModifiers
+          - StandardSequences
     DataFormats:
         no_plugins: true
         whitelist:
@@ -199,6 +210,7 @@ subsystems:
           - HcalDigi
           - HcalIsolatedTrack
           - HcalRecHit
+          - HeavyIonEvent
           - HepMCCandidate
           - JetMatching
           - JetReco
@@ -250,6 +262,7 @@ subsystems:
           - SoATemplate
           - StdDictionaries
           - Streamer
+          - TCDS
           - TauReco
           - TrackCandidate
           - TrackReco
@@ -269,6 +282,11 @@ subsystems:
           - DDCMS
           - Parser
           - RegressionTest
+    # The DQM core (DQMStore, MonitorElement): the PAT and NanoAOD plugins
+    # book their validation histograms through it.
+    DQMServices:
+        whitelist:
+          - Core
     EventFilter:
         whitelist:
           - SiPixelRawToDigi
@@ -365,6 +383,11 @@ subsystems:
           - AlpakaInterface
           - SonicCore
           - TrivialSerialisation
+    # HLTConfigProvider and the prescale providers, which the PAT trigger
+    # matching reads.
+    HLTrigger:
+        whitelist:
+          - HLTcore
     IOMC:
         whitelist:
           # the particle guns that feed the simulation, and the beam-spot
@@ -381,6 +404,7 @@ subsystems:
     JetMETCorrections:
         whitelist:
           - Algorithms
+          - Configuration
           - JetCorrector
           - JetVertexAssociation
           - MinBias
@@ -388,6 +412,12 @@ subsystems:
           - Objects
           - TauJet
           - Type1MET
+    # the L1 menu utilities behind HLTcore (L1TGlobalUtil)
+    L1Trigger:
+        whitelist:
+          - GlobalTriggerAnalyzer
+          - L1TCommon
+          - L1TGlobal
     MagneticField:
         whitelist:
           - Engine
@@ -408,11 +438,18 @@ subsystems:
           - HepMCCandAlgos
           - IsolationAlgos
           - IsolationUtils
+          - JetMCAlgos
           - JetMCUtils
+          - KinFitter
           - MVAComputer
+          - NanoAOD
           - ONNXRuntime
+          - PatAlgos
+          - PatUtils
           - PythonAnalysis
+          - RecoUtils
           - SelectorUtils
+          - UtilAlgos
           - Utilities
           - XGBoost
     RecoBTag:
@@ -420,7 +457,11 @@ subsystems:
           - BTagTools
           - CTagging
           - Combined
+          - Configuration
+          - FeatureTools
           - ImpactParameter
+          - ONNXRuntime
+          - PixelCluster
           - Records
           - SecondaryVertex
           - SoftLepton
@@ -451,8 +492,15 @@ subsystems:
           - EgammaTools
           - ElectronIdentification
           - PhotonIdentification
+    # imported by the PAT jet and b-tagging configuration (heavy-ion jet
+    # flavour and track settings)
+    RecoHI:
+        whitelist:
+          - HiJetAlgos
+          - HiTracking
     RecoJets:
         whitelist:
+          - Configuration
           - JetAlgorithms
           - JetAssociationAlgorithms
           - JetAssociationProducers
@@ -493,6 +541,7 @@ subsystems:
           - METPUSubtraction
         whitelist:
           - METAlgorithms
+          - METFilters
           - METPUSubtraction
           - METProducers
     RecoMTD:
@@ -534,6 +583,7 @@ subsystems:
           - PFTracking
     RecoTauTag:
         whitelist:
+          - Configuration
           - RecoTau
     RecoTracker:
         no_plugins:
@@ -710,6 +760,9 @@ subsystems:
         no_plugins: true
         whitelist:
           - MCEmbeddingTools
+    TopQuarkAnalysis:
+        whitelist:
+          - TopTools
     TrackPropagation:
         whitelist:
           - RungeKutta

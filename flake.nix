@@ -36,6 +36,22 @@
       flake = false;
     };
 
+    # classlib, for DQMServices/Core (DQMNet); the branch cmsdist builds
+    classlib-src = {
+      url = "github:cms-externals/classlib/cms/3.1.3";
+      flake = false;
+    };
+
+    utm-src = {
+      url = "gitlab:cms-l1t-utm/utm/utm_0.14.1?host=gitlab.cern.ch";
+      flake = false;
+    };
+
+    hls4ml-emulator-extras-src = {
+      url = "github:cms-hls4ml/hls4mlEmulatorExtras/v1.1.4";
+      flake = false;
+    };
+
     coral-src = {
       url = "github:cms-externals/coral/cms/CORAL_2_3_21py3";
       flake = false;
@@ -120,7 +136,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
@@ -377,6 +393,24 @@
             src = heppdt-src;
           };
 
+          classlib = pkgs.callPackage ./pkgs/classlib.nix {
+            src = classlib-src;
+            # classlib's regular expressions are written against PCRE 1, which
+            # nixpkgs has dropped as end of life; build it from the 22.05
+            # recipe with the current toolchain
+            pcre = pkgs.callPackage "${nixpkgs-2205}/pkgs/development/libraries/pcre" {
+              pcre = null;
+            };
+          };
+
+          utm = pkgs.callPackage ./pkgs/utm.nix {
+            src = utm-src;
+          };
+
+          hls4ml-emulator-extras = pkgs.callPackage ./pkgs/hls4ml-emulator-extras.nix {
+            src = hls4ml-emulator-extras-src;
+          };
+
           hls = pkgs.callPackage ./pkgs/hls.nix {
             src = hls-src;
           };
@@ -426,7 +460,10 @@
             heppdt = heppdt_201;
             lwtnn = lwtnn_201;
             openblas = pkgs.openblas;
-            inherit dd4hep hls;
+            inherit dd4hep hls hls4ml-emulator-extras;
+            # DQMServices/Core
+            inherit classlib utm;
+            protobuf = pkgs.protobuf;
             geant4 = geant4_201;
             inherit g4hepem;
             hdf5 = pkgs.hdf5-cpp;
@@ -488,6 +525,10 @@
             hepmc3 = null;
             dd4hep = null;
             hls = null;
+            hls4ml-emulator-extras = null;
+            classlib = null;
+            utm = null;
+            protobuf = null;
             onnxruntime = null;
             xgboost = null;
             nlohmann_json = null;

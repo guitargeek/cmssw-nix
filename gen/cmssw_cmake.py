@@ -343,8 +343,16 @@ def build_xml_to_cmake(root, root_node, config):
 
     global_dependencies = get_global_dependencies(root_node)
 
+    # scram tolerates a target declared twice (CondTools/RunInfo/plugins has
+    # two identical LHCInfoPerLSWriter stanzas); CMake does not
+    seen = set()
     for elem in root_node:
         if elem.tag in ["library", "bin"]:
+            key = (elem.tag, name(elem))
+            if name(elem) is not None:
+                if key in seen:
+                    continue
+                seen.add(key)
             write_cmake_for_target(cmake, root, elem, n_globbed_files, global_dependencies, config)
 
     return cmake

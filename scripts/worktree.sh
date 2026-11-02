@@ -144,7 +144,21 @@ for root, dirs, files in os.walk(new):
         shutil.copyfile(a, b)
         changed += 1
         print("   ", os.path.normpath(os.path.join(rel, name)))
-print(f"{changed} file(s) changed")
+# sources the preparation removes (pruned plugins, ...) must go from the
+# tree too, or the build globs pick them up again (the per-package
+# CMakeLists.txt are written by the configure phase, not the preparation)
+removed = 0
+for root, dirs, files in os.walk(os.path.join(tree, "cmssw")):
+    dirs[:] = [d for d in dirs if d != "__pycache__"]
+    rel = os.path.relpath(root, tree)
+    for name in files:
+        if name == "CMakeLists.txt":
+            continue
+        if not os.path.lexists(os.path.join(new, rel, name)):
+            os.remove(os.path.join(root, name))
+            removed += 1
+            print("   -", os.path.normpath(os.path.join(rel, name)))
+print(f"{changed} file(s) changed, {removed} removed")
 EOF
     remove "$T/.sync"
     echo "==> configure"

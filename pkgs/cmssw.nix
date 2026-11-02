@@ -52,6 +52,17 @@
 # (the HGCal geometry constants use G4 units)
 , hls ? null
 , geant4 ? null
+# the hls4ml model-loading interface: L1Trigger/L1TGlobal's AXOL1TL and
+# CICADA conditions (the models are loaded at run time)
+, hls4ml-emulator-extras ? null
+# utm: the L1 trigger menu library behind the L1TUtm* payloads, which
+# L1Trigger/L1TGlobal and HLTrigger/HLTcore need (without it, the payloads
+# are pruned)
+, utm ? null
+# classlib (DQMNet's sockets) and protobuf (the DQM histogram file format,
+# regenerated with the protoc at hand): DQMServices/Core
+, classlib ? null
+, protobuf ? null
 # G4HepEm: SimG4Core/PhysicsLists includes its headers unconditionally
 , g4hepem ? null
 # HDF5: the 20_1 EcalTrivialConditionRetriever reads its pulse shapes from it
@@ -110,7 +121,8 @@ stdenv.mkDerivation {
   # breaks when sourced at two offsets.
   # clangTools comes last so that the stdenv gcc stays the selected compiler.
   nativeBuildInputs = [ cmake ninja pythonEnv ]
-    ++ lib.optional (clangTools != null) clangTools;
+    ++ lib.optional (clangTools != null) clangTools
+    ++ lib.optional (protobuf != null) protobuf;
 
   buildInputs = [
     root
@@ -140,6 +152,10 @@ stdenv.mkDerivation {
     ++ lib.optional (openblas != null) openblas
     ++ lib.optional (dd4hep != null) dd4hep
     ++ lib.optional (hls != null) hls
+    ++ lib.optional (hls4ml-emulator-extras != null) hls4ml-emulator-extras
+    ++ lib.optional (classlib != null) classlib
+    ++ lib.optional (utm != null) utm
+    ++ lib.optional (protobuf != null) protobuf
     ++ lib.optional (geant4 != null) geant4
     ++ lib.optional (g4hepem != null) g4hepem
     ++ lib.optional (hdf5 != null) hdf5
@@ -228,6 +244,10 @@ stdenv.mkDerivation {
       ${lib.optionalString (openblas != null) "-DCMSSW_WITH_OPENBLAS=ON"} \
       ${lib.optionalString (dd4hep != null) "-DCMSSW_WITH_DD4HEP=ON"} \
       ${lib.optionalString (hls != null) "-DCMSSW_WITH_HLS=ON"} \
+      ${lib.optionalString (hls4ml-emulator-extras != null) "-DCMSSW_WITH_HLS4ML_EMULATOR_EXTRAS=ON"} \
+      ${lib.optionalString (classlib != null) "-DCMSSW_WITH_CLASSLIB=ON"} \
+      ${lib.optionalString (utm != null) "-DCMSSW_WITH_UTM=ON"} \
+      ${lib.optionalString (protobuf != null) "-DCMSSW_WITH_PROTOBUF=ON"} \
       ${lib.optionalString (geant4 != null) "-DCMSSW_WITH_GEANT4=ON"} \
       ${lib.optionalString (g4hepem != null) "-DCMSSW_WITH_G4HEPEM=ON"} \
       ${lib.optionalString (hdf5 != null) "-DCMSSW_WITH_HDF5=ON"} \
@@ -328,6 +348,8 @@ stdenv.mkDerivation {
       export out
       xargs -P 8 -n 2 bash -c 'gen_cfis "$@"' _ < library_manifest.txt
     fi
+    # the cfis of pruned producers that the configuration code imports anyway
+    python3 ${../gen/placeholder_cfis.py} $out
 
     # Python directory structure: make e.g. FWCore.ParameterSet.Config
     # importable from $out/python.
@@ -404,6 +426,11 @@ stdenv.mkDerivation {
       # the plain interpreter's path as its install name, and the job dies
       # on "No module named 'six'". Name it explicitly.
       echo "addToSearchPath PYTHONPATH ${pythonEnv}/${python3.sitePackages}" >> $out/nix-support/setup-hook
+    '')}${lib.optionalString (utm != null) ("
+" + ''
+      # utm validates L1 menus (L1TUtmTriggerMenuESProducer) against its
+      # XML schemas, which it finds through this variable only
+      echo "export UTM_XSD_DIR=${utm}/share/utm/xsd" >> $out/nix-support/setup-hook
     '')}
 
     runHook postInstall
