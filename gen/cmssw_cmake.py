@@ -279,13 +279,19 @@ def get_global_dependencies(root_node):
     return global_dependencies
 
 
+def get_global_libs(root_node):
+    """Top-level <lib name="..."/>: a library every target of the BuildFile
+    links (CalibMuon/DTCalibration/plugins links ROOT's Spectrum this way)."""
+    return [name(elem) for elem in root_node if elem.tag == "lib" and name(elem) != "1"]
+
+
 # (target name, "Subsystem/Package") of every shared library built: used to
 # generate the fillDescriptions-based *_cfi.py files (scram's "cfipython")
 # with edmWriteConfigs at install time and place them in the right package.
 library_manifest = []
 
 
-def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, config):
+def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, global_libs, config):
     target = name(elem)
 
     files = interpret_files(root, elem.get("file"))
@@ -323,6 +329,10 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, 
 
     for dependency in global_dependencies:
         cmake += cmake_dependency_lines(dependency, config)
+    # some BuildFiles name their own library here (Geometry/DTGeometryBuilder)
+    for lib in (l for l in global_libs if l != target):
+        cmake += cmake_dependency_lines(lib, config)
+        cmake += ["target_link_libraries(<target> " + lib + ")"]
 
     cmake += cmake_from_build_file
 
@@ -354,6 +364,7 @@ def build_xml_to_cmake(root, root_node, config):
     cmake += ['list(FILTER SOURCE_FILES EXCLUDE REGEX "/alpaka/")']
 
     global_dependencies = get_global_dependencies(root_node)
+    global_libs = get_global_libs(root_node)
 
     # scram tolerates a target declared twice (CondTools/RunInfo/plugins has
     # two identical LHCInfoPerLSWriter stanzas); CMake does not
@@ -365,7 +376,7 @@ def build_xml_to_cmake(root, root_node, config):
                 if key in seen:
                     continue
                 seen.add(key)
-            write_cmake_for_target(cmake, root, elem, n_globbed_files, global_dependencies, config)
+            write_cmake_for_target(cmake, root, elem, n_globbed_files, global_dependencies, global_libs, config)
 
     return cmake
 

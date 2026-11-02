@@ -1746,15 +1746,95 @@ if glob.glob(path + "/*Sonic*.cc"):
 # EMTF unpacker needs the library (the track and hit helpers).
 drop_tool_deps("cmssw/L1Trigger/L1TMuonEndCap/BuildFile.xml", ["PhysicsTools/TensorFlow"])
 
-# --- the MPI accelerator, configuration only (20_1) -------------------------
-# Configuration/StandardSequences/python/Accelerators_cff.py, which every
-# unpacker configuration with an alpaka variant imports, defines the MPI
-# process accelerator next to the CUDA, ROCm and alpaka ones. Its python
-# only sets an environment variable when an MPIService is configured; the
-# service itself needs an MPI implementation, which is not packaged. Keep the
-# package as python only.
-mpi = "cmssw/HeterogeneousCore/MPIServices"
-if os.path.exists(mpi + "/BuildFile.xml"):
-    for d in ("src", "plugins", "interface", "test"):
-        shutil.rmtree(os.path.join(mpi, d), ignore_errors=True)
-    os.remove(mpi + "/BuildFile.xml")
+# --- packages kept as configuration only -----------------------------------
+def python_only(pkg):
+    """Keep a package's python/ (and data/, and its headers, for code that
+    includes them): no library, no plugins."""
+    pkg = "cmssw/" + pkg
+    if os.path.exists(pkg + "/BuildFile.xml"):
+        for d in ("src", "plugins", "test", "bin"):
+            shutil.rmtree(os.path.join(pkg, d), ignore_errors=True)
+        os.remove(pkg + "/BuildFile.xml")
+
+
+# The MPI accelerator (20_1): Configuration/StandardSequences/python/
+# Accelerators_cff.py, which every unpacker configuration with an alpaka
+# variant imports, defines the MPI process accelerator next to the CUDA, ROCm
+# and alpaka ones. Its python only sets an environment variable when an
+# MPIService is configured; the service itself needs an MPI implementation,
+# which is not packaged.
+python_only("HeterogeneousCore/MPIServices")
+# The legacy CSC track finder (20_1): L1Trigger/L1TMuon/python/simDigis_cff.py,
+# where the Stage-2 muon emulators are defined, imports its cfis for the
+# pre-2016 trigger. The library needs the CSCTrackFinderEmulation external,
+# which is not packaged. RecoMET's CSC halo code uses one of its headers
+# (inline lookup tables), which is why python_only keeps them.
+python_only("L1Trigger/CSCTrackFinder")
+
+# --- the legacy global muon trigger without std::atomic<std::shared_ptr> (20_1)
+# L1MuGlobalMuonTrigger shares its configuration between instances through
+# static std::atomic<std::shared_ptr<T>> members, a C++20 specialisation
+# libc++ does not implement (the primary template then rejects the type as
+# not trivially copyable). The same operations, load and
+# compare_exchange_strong, through the shared_ptr atomic free functions.
+gmt = "cmssw/L1Trigger/GlobalMuonTrigger/interface/L1MuGlobalMuonTrigger.h"
+if os.path.exists(gmt) and "std::atomic<std::shared_ptr<" in open(gmt).read():
+    shim = """
+template <typename T>
+class L1MuGMTAtomicSharedPtr {
+public:
+  std::shared_ptr<T> load() const { return std::atomic_load(&p_); }
+  bool compare_exchange_strong(std::shared_ptr<T>& expected,
+                               std::shared_ptr<T> desired,
+                               std::memory_order success,
+                               std::memory_order failure) {
+    return std::atomic_compare_exchange_strong_explicit(&p_, &expected, std::move(desired), success, failure);
+  }
+
+private:
+  std::shared_ptr<T> p_;
+};
+"""
+    def atomics(src):
+        for t in ("L1MuGMTConfig", "L1MuGMTDebugBlock"):
+            src = src.replace(f"std::atomic<std::shared_ptr<{t}>>", f"L1MuGMTAtomicSharedPtr<{t}>")
+        return src
+    edit(gmt, lambda src: atomics(src.replace("#include <memory>\n", "#include <memory>\n" + shim, 1)))
+    edit("cmssw/L1Trigger/GlobalMuonTrigger/src/L1MuGlobalMuonTrigger.cc", atomics)
+
+# --- the DT trigger primitive configuration from python, marked valid (20_1)
+# DTConfigManager carries a flag saying whether the chamber (CCB)
+# configuration is valid for the run; the DT trigger primitive emulator
+# produces empty collections when it is not. The database producer sets it,
+# the trivial (from-python) producer never does, and the constructor leaves
+# it uninitialised - so whether the emulator runs at all depends on what was
+# in the heap memory (on macOS: it did not). A configuration given in python
+# is valid by construction.
+path = "cmssw/L1TriggerConfig/DTTPGConfigProducers/src/DTConfigTrivialProducer.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace(
+        "  m_manager->setUseAcceptParam(useBtiAcceptParam);  // CB Are these needed here???\n",
+        "  m_manager->setUseAcceptParam(useBtiAcceptParam);  // CB Are these needed here???\n"
+        "  m_manager->setCCBConfigValidity(true);\n", 1))
+
+# --- a map iterator initialised from nullptr (20_1) ------------------------
+# The RPC PAC trigger's RPCStripsRing initialises a std::map iterator with
+# nullptr, which libstdc++'s iterator (a node pointer underneath) accepts and
+# libc++'s does not. A value-initialised iterator is what was meant.
+path = "cmssw/L1Trigger/RPCTrigger/interface/RPCStripsRing.h"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace("m_logplaneSize(0), m_it(nullptr)", "m_logplaneSize(0), m_it()"))
+
+# --- the release version as a string (20_1) --------------------------------
+# The legacy GMT online configuration producer compares the version stored
+# with a trigger key against PROJECT_VERSION, as a string literal: scram
+# defines it with quotes. The CMake build defines it bare, like
+# FWCore/Version, which stringifies it itself; do the same here.
+path = "cmssw/L1TriggerConfig/GMTConfigProducers/src/L1MuGMTParametersOnlineProducer.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace(
+        '#include "L1TriggerConfig/GMTConfigProducers/interface/L1MuGMTParametersOnlineProducer.h"\n',
+        '#include "L1TriggerConfig/GMTConfigProducers/interface/L1MuGMTParametersOnlineProducer.h"\n'
+        '#define L1MUGMT_STRINGIFY_(x) #x\n#define L1MUGMT_STRINGIFY(x) L1MUGMT_STRINGIFY_(x)\n'
+        '#define L1MUGMT_PROJECT_VERSION L1MUGMT_STRINGIFY(PROJECT_VERSION)\n', 1)
+        .replace(" PROJECT_VERSION", " L1MUGMT_PROJECT_VERSION"))

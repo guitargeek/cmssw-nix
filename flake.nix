@@ -87,6 +87,12 @@
       url = "github:cms-data/MagneticField-Interpolation/d26df47beb8fbfcf28b9693a14b9bcba3a2a60bc";
       flake = false;
     };
+    # the lookup tables and firmware parameters of the Stage-2 muon trigger
+    # emulators (BMTF, uGMT, OMTF, EMTF, CPPF)
+    l1tmuon-data = {
+      url = "github:cms-data/L1Trigger-L1TMuon";
+      flake = false;
+    };
 
     # externals for the reco chain: HepPDT (particle data table) and lwtnn
     # (lightweight NN inference, DeepFlavour + track classifier)
@@ -136,7 +142,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, l1tmuon-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
@@ -479,7 +485,8 @@
             pythia8 = null;
             lhapdf = null;
             libsigcxx = null;
-            # The same cms-data externals the 10_6 build carries. These are data
+            # The cms-data externals the 10_6 build carries, and the L1 muon
+            # trigger tables (20_1 builds the emulators). These are data
             # files distributed separately from the release - the magnetic field
             # interpolation tables are the ones with teeth, since without them
             # the volume-based field engine cannot be built at all and every
@@ -488,6 +495,7 @@
               { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
               { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
               { path = "MagneticField/Interpolation"; src = magfield-data; }
+              { path = "L1Trigger/L1TMuon"; src = l1tmuon-data; }
             ];
           };
 

@@ -27,9 +27,11 @@ jobs that each measure something with a known right answer:
 | `muon_gun_nano_cfg.py` | global muons + NanoAOD | 0.87% momentum, in a flat table |
 | `muon_gun_raw_cfg.py` | HCAL DIGI → RAW | packed into FED buffers, a streamer file |
 | `muon_gun_unpack_cfg.py` | RAW → DIGI | every HB/HE/HO channel back, sample for sample |
+| `muon_gun_l1_cfg.py` | L1 muon trigger | 19/20 muons trigger, charge right for all 19 |
 
-The first seven jobs run in both releases, the two raw data jobs in 20_1
-only (the 10_6 configuration does not build the packers). The measured numbers in the table
+The first seven jobs run in both releases, the raw data and L1 trigger jobs
+in 20_1 only (the 10_6 configuration does not build the packers and the
+emulators). The measured numbers in the table
 are the 10_6 ones; the calorimeter job is the
 one where 20_1 differs enough to be worth stating, because the two releases
 simulate with different Geant4 versions (10.4 and 11.4) — see the bounds in
@@ -547,6 +549,51 @@ primitives and selective-readout flags, which this example does not
 emulate; the tracker and muon packers need cabling maps that, like the pixel
 map below, exist only in the database.
 
+## The Level-1 trigger: would the detector have kept the event?
+
+Every job above asks what the offline reconstruction makes of an event that
+was already recorded. The Level-1 trigger is what decides whether it is: of
+the 40 million bunch crossings a second it keeps about 100 000, from coarse
+data the front ends send at every crossing, within 4 µs. An event it
+rejects is gone. `python/muon_gun_l1_cfg.py` emulates the Run 3 barrel muon
+trigger on the simulated DT digis, the same code CMS uses to model the
+hardware bit for bit:
+
+```
+DT digis -> DT trigger primitives -> TwinMux -> Kalman BMTF -> uGMT -> L1 muons
+            (segment per chamber)    (+RPC)     (track finder)  (global muon trigger)
+```
+
+Every parameter comes from the emulators' from-python ("fake") producers and
+the lookup tables of the cms-data package `L1Trigger-L1TMuon`; the uGMT's own
+cfi also defines a Frontier source, which the job leaves out. The overlap and
+endcap track finders, the RPC hits and the calorimeter isolation sums get
+empty inputs (`plugins/EmptyL1MuonInputs.cc`): the gun fires into the
+barrel, and no RPC digis are simulated.
+
+`plugins/L1MuonMatch.cc` asks of each simulated muon what a trigger
+efficiency study asks: is there an L1 muon in the triggered bunch crossing,
+within ΔR 0.3 at the vertex, with the quality the single-muon seeds accept?
+
+```
+L1 muons: 19/20 simulated muons triggered (quality >= 12), 19/19 with the right charge,
+median pt(L1)/pt(true) 1.16; 0 L1 muons outside the triggered bunch crossing
+```
+
+The L1 directions agree with the simulated ones to about 0.06 in η and φ.
+The pt runs high on purpose: the L1 scale is calibrated so that a threshold
+sits at the 90% point of the efficiency turn-on. The one muon that did not
+trigger crossed at η = −0.25, around the gap between wheels 0 and −1.
+
+The first run found nothing, and not because of the physics: the DT trigger
+primitive emulator produced empty collections for every event. The
+`DTConfigManager` the from-python producer builds carries a flag saying
+whether the chamber configuration is valid, which the emulator checks before
+it does anything. The database producer sets it; the from-python one never
+does, and the constructor leaves the `bool` uninitialised - so whether the
+emulator runs depended on whatever was in that heap memory. Here, it did
+not. The flake sets the flag (`gen/prepare_sources.py`).
+
 ## The pixel Lorentz angle, and a conditions bug the residuals caught
 
 The residual test earned its place here. With the pixel digitiser turned
@@ -637,7 +684,7 @@ no-database path this flake is necessarily on.
 ## Building and running
 
 From this directory, inside `nix develop .#cmssw_10_6_30` (or `nix develop
-.#default` for 20_1, which also runs the two raw data jobs):
+.#default` for 20_1, which also runs the raw data and L1 trigger jobs):
 
 ```bash
 cmake -B build -S . -G Ninja
@@ -657,4 +704,5 @@ cmsRun python/muon_gun_nano_cfg.py
 python3 python/muon_gun_nano_cfg_check.py
 cmsRun python/muon_gun_raw_cfg.py      # 20_1 only
 cmsRun python/muon_gun_unpack_cfg.py   # 20_1 only
+cmsRun python/muon_gun_l1_cfg.py       # 20_1 only
 ```

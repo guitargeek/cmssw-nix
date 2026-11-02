@@ -46,6 +46,7 @@ particle through every stage of the experiment's offline software:
 | muon system | the same muons measured a second time in the yoke alone (independent probe of the field where the tracker does not sample it) |
 | calorimeters | the textbook MIP: E/p = 0.9%, HCAL response at the barrel sampling factor |
 | raw data (20_1) | HCAL digis packed into FED buffers, written to an HLT streamer file, unpacked: all 57600 channels back sample for sample |
+| L1 trigger (20_1) | the Run 3 barrel muon trigger emulated on the DT digis (trigger primitives → TwinMux → Kalman BMTF → uGMT): 19 of 20 muons trigger, all with the right charge |
 | combination → ntuple | tracker + standalone fits merged into `reco::Muon`, written to a NanoAOD file, read back by plain ROOT and matched to the generated muons |
 
 Standing alone, [examples/TrackerLocalReco](examples/TrackerLocalReco),
@@ -82,10 +83,15 @@ drives the Frontier transport against a stub servlet.
   configuration readers they depend on (`DQMServices/Core`,
   `L1Trigger/L1TGlobal`, `HLTrigger/HLTcore`); NanoAOD on 10_6.
 * **Raw data** — on 20_1, the packers and unpackers of every subdetector
-  (`EventFilter/*RawToDigi`, `*DigiToRaw`), the L1 trigger emulators the
-  unpacking configuration needs, and the streamer file format
+  (`EventFilter/*RawToDigi`, `*DigiToRaw`) and the streamer file format
   (`IOPool/Streamer`, the DAQ sources in `EventFilter/Utilities`), so the
   standard `RawToDigi` and `DigiToRaw` sequences load.
+* **L1 trigger emulators** — on 20_1, `L1Trigger` and `L1TriggerConfig`:
+  trigger primitives, the muon track finders, the calorimeter layers, the
+  global triggers, Stage-2 and legacy, with the lookup tables of
+  `L1Trigger-L1TMuon`. Not the Phase-2 calorimeter and particle-flow
+  trigger, which need TensorFlow, and the legacy CSC track finder only as
+  configuration (its external is not packaged).
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface` (10_6 era; the 8.3 API break is not
   yet handled for 20_1).
