@@ -394,6 +394,24 @@ process.simSiPixelDigis = simSiPixelDigis
 
 process.simSiStripDigis = simSiStripDigis
 
+# --- the simulated truth, for the validation (20_1 only) -------------------
+# python/muon_gun_validation_cfg.py measures the tracking against what was
+# simulated, and the validation does not read SimTracks directly: it reads
+# TrackingParticles, the simulated charged particles with the tracker hits
+# each one left, which the mixing module assembles alongside the digis (in a
+# pileup job a TrackingParticle can come from any of the mixed events, so it
+# has to). The generator particles give each one its origin, and
+# addPileupInfo records how many pileup interactions were mixed in - none
+# here, but the validation reads the record regardless. None of this draws
+# random numbers, so the digis are the same with it as without.
+# The 10_6 configuration does not build the validation.
+if not _is_10_6:
+    from SimGeneral.MixingModule.trackingTruthProducer_cfi import trackingParticles
+
+    process.mix.digitizers.mergedtruth = cms.PSet(trackingParticles)
+    process.load("PhysicsTools.HepMCCandAlgos.genParticles_cfi")
+    process.load("SimGeneral.PileupInformation.AddPileupSummary_cfi")
+
 # --- what has to be there afterwards ---------------------------------------
 process.digis = cms.EDAnalyzer(
     "DigiCounter",
@@ -427,6 +445,12 @@ process.out = cms.OutputModule(
         "keep *_generator_*_*",
     ),
 )
+if not _is_10_6:
+    process.out.outputCommands += [
+        "keep *_mix_MergedTrackTruth_*",
+        "keep *_genParticles_*_*",
+        "keep *_addPileupInfo_*_*",
+    ]
 
 # 20_1 took the det-info map away from the SiStripDetInfoFileReader service and
 # made it a parameter of each fake ES source instead. Modules loaded from their
@@ -446,4 +470,6 @@ process.p = cms.Path(
     * process.simMuonDTDigis
     * process.digis
 )
+if not _is_10_6:
+    process.p.replace(process.mix, cms.Sequence(process.genParticles * process.mix * process.addPileupInfo))
 process.e = cms.EndPath(process.out)

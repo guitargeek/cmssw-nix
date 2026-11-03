@@ -24,6 +24,8 @@ subsystems:
         whitelist:
           - CommonAlignment
           - TrackerAlignment
+          - LaserAlignment
+          - OfflineValidation
     # the top-quark analysis objects, for TopQuarkAnalysis/TopTools (the PAT
     # jet-parton matching that the NanoAOD configuration imports)
     AnalysisDataFormats:
@@ -70,6 +72,7 @@ subsystems:
           - SiStripCommon
           - SiStripESProducers
           - StandaloneTrackerTopology
+          - SiStripQuality
     Calibration:
         whitelist:
           - Tools
@@ -88,6 +91,9 @@ subsystems:
           - Statistics
           - UtilAlgos
           - Utils
+          - ConditionDBWriter
+          - TrackerMap
+          - TriggerUtils
     CondCore:
         whitelist:
           - BeamSpotPlugins
@@ -294,21 +300,61 @@ subsystems:
           - L1TCalorimeter
           - LTCDigi
           - TotemReco
+          - L1THGCal
+          # the DQM framework's own data formats: DQMServices/Core's headers
+          # include them without declaring the package
+          - Histograms
     DetectorDescription:
         whitelist:
           - Core
           - DDCMS
           - Parser
           - RegressionTest
+    # the strip APV-cycle tools DQMOffline/Trigger and Alignment use
+    DPGAnalysis:
+        whitelist:
+          - SiStripTools
     # the DT phase-2 trigger primitive emulator uses its digi helpers
     DQM:
         whitelist:
           - DTMonitorModule
+          - SiPixelPhase1Common
+          - SiStripCommon
+          - TrackerRemapper
+    # The offline DQM: the histograms the prompt reconstruction books for
+    # every run, and the harvesting that turns them into efficiencies and
+    # summaries. Needs the DQM core (DQM/, DQMServices/) already here.
+    DQMOffline:
+        whitelist:
+          - Alignment
+          - CalibCalo
+          - CalibMuon
+          - CalibTracker
+          - Configuration
+          - EGamma
+          - Ecal
+          - HLTScouting
+          - Hcal
+          - JetMET
+          - Lumi
+          - Muon
+          - MuonDPG
+          - PFTau
+          - ParticleFlow
+          - RecoB
+          - Trigger
     # The DQM core (DQMStore, MonitorElement): the PAT and NanoAOD plugins
     # book their validation histograms through it.
     DQMServices:
         whitelist:
+          # the harvesting clients (DQMGenericClient), the file saver and
+          # the DQM's file formats: what a validation needs after the
+          # histograms are filled
+          - Components
           - Core
+          - FileIO
+          - FwkIO
+          - StreamerIO
     # The raw data layer: the packers and unpackers of every subdetector
     # (what Configuration/StandardSequences' DigiToRaw and RawToDigi load),
     # the event builder, and Utilities' DAQ input sources.
@@ -448,6 +494,10 @@ subsystems:
     HLTrigger:
         whitelist:
           - HLTcore
+    # the scouting DQM, which DQMOffline/HLTScouting imports
+    HLTriggerOffline:
+        whitelist:
+          - Scouting
     IOMC:
         whitelist:
           # the particle guns that feed the simulation, and the beam-spot
@@ -576,6 +626,7 @@ subsystems:
           - UtilAlgos
           - Utilities
           - XGBoost
+          - TagAndProbe
     RecoBTag:
         whitelist:
           - BTagTools
@@ -641,6 +692,12 @@ subsystems:
           - HGCalRecAlgos
           - HcalRecAlgos
           - HcalRecProducers
+          - HGCalRecProducers
+    # the MTD (phase-2 timing layer) clusters, for Validation/MtdValidation
+    RecoLocalFastTime:
+        whitelist:
+          - FTLClusterizer
+          - Records
     RecoLocalMuon:
         whitelist:
           - CSCRecHitD
@@ -705,10 +762,19 @@ subsystems:
           - PFClusterTools
           - PFProducer
           - PFTracking
+          - Benchmark
     RecoTauTag:
         whitelist:
           - Configuration
           - RecoTau
+    # HGCAL's TICL reconstruction (its ONNX inference included), for the
+    # TICL and HGCAL validation
+    RecoTICL:
+        whitelist:
+          - Common
+          - Inference
+          - Linking
+          - Superclustering
     RecoTracker:
         no_plugins:
           - FinalTrackSelectors
@@ -798,6 +864,11 @@ subsystems:
           - TrackingHit
           - Vertex
           - GEMDigiSimLink
+          - ValidationFormats
+    # the MTD simulation helpers, for Validation/MtdValidation
+    SimFastTiming:
+        whitelist:
+          - FastTimingCommon
     # The CMS sensitive detectors: the classes that turn a Geant4 step inside
     # a sensitive volume into a PSimHit or a CaloG4Hit. Calo and Forward carry
     # their data/ directories in the release itself rather than in a cms-data
@@ -862,8 +933,6 @@ subsystems:
           - RPCDigitizer
           - GEMDigitizer
     SimTracker:
-        no_plugins:
-          - TrackAssociation
         whitelist:
           - Common
           - Records
@@ -877,6 +946,9 @@ subsystems:
           - SiStripDigitizer
           - TrackAssociation
           - TrackerHitAssociation
+          - TrackAssociatorProducers
+          - TrackHistory
+          - VertexAssociation
     TauAnalysis:
         # Python only, and not because anything here embeds taus. The
         # release's own local-reco cfis - ecalRecHit, cscRecHitD, cscSegments,
@@ -931,3 +1003,73 @@ subsystems:
           - General
           - OpenSSL
           - Xerces
+
+    # The validation suites: the simulation-aware histograms (efficiencies,
+    # fake rates, resolutions against the simulated truth) every release is
+    # checked with. All of them but HGCalValidation's plugins, which use
+    # L1Trigger/L1THGCal and so TensorFlow.
+    Validation:
+        no_plugins:
+          - HGCalValidation
+        whitelist:
+          - CSCRecHits
+          - CTPPS
+          - CaloTowers
+          - CheckOverlap
+          - Configuration
+          - DTRecHits
+          - EcalClusters
+          - EcalDigis
+          - EcalHits
+          - EcalRecHits
+          - EcalTriggerPrimitives
+          - EventGenerator
+          - Geometry
+          - GlobalDigis
+          - GlobalHits
+          - GlobalRecHits
+          - HGCalValidation
+          - HLTrigger
+          - HcalDigis
+          - HcalHits
+          - HcalRecHits
+          - L1T
+          - Mixing
+          - MtdValidation
+          - MuonCSCDigis
+          - MuonDTDigis
+          - MuonGEMDigis
+          - MuonGEMHits
+          - MuonGEMRecHits
+          - MuonHits
+          - MuonIdentification
+          - MuonIsolation
+          - MuonME0Validation
+          - MuonRPCDigis
+          - MuonRPCGeometry
+          - Performance
+          - RPCRecHits
+          - RecoB
+          - RecoEgamma
+          - RecoHI
+          - RecoJets
+          - RecoMET
+          - RecoMuon
+          - RecoParticleFlow
+          - RecoPixelVertexing
+          - RecoTau
+          - RecoTrack
+          - RecoVertex
+          - SiPixelPhase1ConfigV
+          - SiPixelPhase1DigisV
+          - SiPixelPhase1HitsV
+          - SiPixelPhase1RecHitsV
+          - SiPixelPhase1TrackClustersV
+          - SiPixelPhase1TrackingParticleV
+          - TICLValidation
+          - Tools
+          - TrackerConfiguration
+          - TrackerDigis
+          - TrackerHits
+          - TrackerRecHits
+          - TrackingMCTruth

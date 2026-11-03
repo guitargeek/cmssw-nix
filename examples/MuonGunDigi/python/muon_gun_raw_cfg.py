@@ -70,7 +70,10 @@ process.out = cms.OutputModule(
     outputCommands=cms.untracked.vstring(
         "drop *",
         "keep FEDRawDataCollection_rawDataCollector_*_*",
-        "keep *_mix_*_*",
+        # this process's mix only: the input's (the tracking truth the digi
+        # job's mix wrote) would bring a second process into the file, and a
+        # streamer file's reader cannot order the two
+        "keep *_mix_*_RAW",
     ),
 )
 process.e = cms.EndPath(process.out)

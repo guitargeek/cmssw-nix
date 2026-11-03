@@ -46,6 +46,7 @@ particle through every stage of the experiment's offline software:
 | muon system | the same muons measured a second time in the yoke alone (independent probe of the field where the tracker does not sample it) |
 | calorimeters | the textbook MIP: E/p = 0.9%, HCAL response at the barrel sampling factor |
 | raw data (20_1) | HCAL digis packed into FED buffers, written to an HLT streamer file, unpacked: all 57600 channels back sample for sample |
+| tracking validation (20_1) | the standard release validation (`MultiTrackValidator`, the harvesting, a DQM file): 19 of 20 muons associated to a track by their hits, no fakes, no duplicates |
 | L1 trigger (20_1) | the Run 3 barrel muon trigger emulated on the DT digis (trigger primitives → TwinMux → Kalman BMTF → uGMT): 19 of 20 muons trigger, all with the right charge |
 | combination → ntuple | tracker + standalone fits merged into `reco::Muon`, written to a NanoAOD file, read back by plain ROOT and matched to the generated muons |
 
@@ -92,6 +93,13 @@ drives the Frontier transport against a stub servlet.
   `L1Trigger-L1TMuon`. Not the Phase-2 calorimeter and particle-flow
   trigger, which need TensorFlow, and the legacy CSC track finder only as
   configuration (its external is not packaged).
+* **Validation and offline DQM** — on 20_1, `Validation` and `DQMOffline`,
+  with the truth they compare against (TrackingParticles from the mixing
+  module, the track associators) and the rest of the DQM framework
+  (`DQMServices/Components`, the DQM file formats and sources). Not what
+  validates the Phase-2 L1 trigger, which needs TensorFlow or conifer:
+  `DQMOffline/L1Trigger`, `Validation/SiTrackerPhase2V`, and the plugins
+  of `Validation/HGCalValidation`.
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface` (10_6 era; the 8.3 API break is not
   yet handled for 20_1).
@@ -104,7 +112,7 @@ code imports the cfi of such a module anyway (to swap it in under a process
 modifier), the install phase writes a placeholder for it
 ([gen/placeholder_cfis.py](gen/placeholder_cfis.py)), so the configuration
 loads and only a job that runs the module fails. Also out: the HLT paths
-and online, the DQM modules beyond the core, FastSimulation, and HcalTrigger
+and online, the DQM modules beyond offline and validation, FastSimulation, and HcalTrigger
 selection packages that only exist upstream.
 
 External software: almost everything from nixpkgs (ROOT, boost, Geant4,

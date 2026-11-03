@@ -16,12 +16,14 @@ list(APPEND PLUGIN_FILES ${CMAKE_CURRENT_LIST_DIR}/../common/plugins/PixelLorent
 # that era does not have.
 #
 # L1MuonMatch and EmptyL1MuonInputs serve the L1 trigger job, also 20_1 only
-# (the 10_6 configuration does not build the emulators).
+# (the 10_6 configuration does not build the emulators), and so does
+# TrackValidationCheck the validation job (nor the validation).
 if($ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
   list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/PixelDetVOffWriter.cc)
   list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/HcalSyntheticVMEMap.cc)
   list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/L1MuonMatch.cc)
   list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/EmptyL1MuonInputs.cc)
+  list(REMOVE_ITEM PLUGIN_FILES ${CMAKE_CURRENT_SOURCE_DIR}/plugins/TrackValidationCheck.cc)
 endif()
 add_library(MuonGunDigiTestPlugins SHARED ${PLUGIN_FILES})
 set_target_properties(MuonGunDigiTestPlugins PROPERTIES PREFIX "plugin")
@@ -76,6 +78,8 @@ target_link_libraries(MuonGunDigiTestPlugins
   ${TBB_LIBS}
 )
 # the L1 muon trigger job (plugins/L1MuonMatch.cc, plugins/EmptyL1MuonInputs.cc)
+# and the validation job (plugins/TrackValidationCheck.cc)
 if(NOT $ENV{CMSSW_VERSION} MATCHES "CMSSW_10_")
-  target_link_libraries(MuonGunDigiTestPlugins DataFormatsL1Trigger DataFormatsL1TMuon DataFormatsRPCDigi)
+  target_link_libraries(MuonGunDigiTestPlugins DataFormatsL1Trigger DataFormatsL1TMuon DataFormatsRPCDigi
+    DQMServicesCore)
 endif()

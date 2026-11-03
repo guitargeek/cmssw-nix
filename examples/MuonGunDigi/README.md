@@ -28,10 +28,11 @@ jobs that each measure something with a known right answer:
 | `muon_gun_raw_cfg.py` | HCAL DIGI → RAW | packed into FED buffers, a streamer file |
 | `muon_gun_unpack_cfg.py` | RAW → DIGI | every HB/HE/HO channel back, sample for sample |
 | `muon_gun_l1_cfg.py` | L1 muon trigger | 19/20 muons trigger, charge right for all 19 |
+| `muon_gun_validation_cfg.py` | tracking validation | 19/20 muons associated, no fakes, a DQM file |
 
-The first seven jobs run in both releases, the raw data and L1 trigger jobs
-in 20_1 only (the 10_6 configuration does not build the packers and the
-emulators). The measured numbers in the table
+The first seven jobs run in both releases, the raw data, L1 trigger and
+validation jobs in 20_1 only (the 10_6 configuration does not build the
+packers, the emulators and the validation). The measured numbers in the table
 are the 10_6 ones; the calorimeter job is the
 one where 20_1 differs enough to be worth stating, because the two releases
 simulate with different Geant4 versions (10.4 and 11.4) — see the bounds in
@@ -594,6 +595,55 @@ does, and the constructor leaves the `bool` uninitialised - so whether the
 emulator runs depended on whatever was in that heap memory. Here, it did
 not. The flake sets the flag (`gen/prepare_sources.py`).
 
+## The release validation: the same tracks, judged the standard way
+
+`python/muon_gun_tracks_cfg.py` measures the tracks with an analyzer
+written for this example. That is not how a CMSSW release is accepted. It
+is accepted by a fixed set of validation suites run over standard samples,
+filling histograms into the DQM store; a harvesting step that turns the
+per-event counts into efficiencies and rates; and a comparison of the
+resulting plots against the previous release's. `python/muon_gun_validation_cfg.py`
+runs the first two steps for the tracking:
+
+```
+TrackingParticles -> tpClusterProducer -> quickTrackAssociatorByHits -> MultiTrackValidator -> DQMGenericClient -> DQM file
+(from the mixing      (which particle     (a track and a particle       (simulated, found,      (efficiency,
+ module)               left each cluster)  match by shared hits)          fake, per eta, pt...)   fake rate plots)
+```
+
+The truth it compares against has to come from the digi job: the
+TrackingParticles - the simulated charged particles together with their
+hits - are assembled by the mixing module, next to the digitisers, so
+`muon_gun_digi_cfg.py` on 20_1 now runs the mixing module's truth
+"digitiser" and keeps its output, along with the `genParticles` and the
+pileup summary the validation's particle selection reads.
+
+There is no previous release to compare against, so `plugins/TrackValidationCheck.cc`
+reads the harvested plots back and puts bounds on them:
+
+```
+tracking validation: efficiency 19/20 (harvested 0.95), fake rate 0 of 19 tracks,
+duplicate rate 0, q/p pull RMS 0.875436
+```
+
+The "harvested" number is the efficiency plot weighted back by the number
+of simulated particles in each bin, which has to reproduce the raw counts;
+it is the check that the harvesting ran at all. The association is by hits,
+not by direction as in the tracks job, so it is an independent test of the
+same tracks. Note that this job reconstructs the tracks again from the
+digis, rather than reading the tracks job's output.
+
+This job found the worst bug of the macOS port: the track associator
+crashed, because a `dynamic_cast<const SiPixelRecHit*>` returned null for
+pixel hits whose `typeid` was `SiPixelRecHit`. clang 17 and later compile a
+cast to a `final` class into one comparison of the object's vtable pointer
+against the class's vtable, and on macOS a class whose virtual functions
+are all inline has a separate, hidden vtable in every library that uses
+it. The hits were made in one library and cast in another. Code that
+checks the result of such a cast would simply have skipped the hits, which
+is why nothing else noticed. The whole release is now built with
+`-fno-assume-unique-vtables` on macOS (`gen/CMakeLists.txt`).
+
 ## The pixel Lorentz angle, and a conditions bug the residuals caught
 
 The residual test earned its place here. With the pixel digitiser turned
@@ -684,7 +734,8 @@ no-database path this flake is necessarily on.
 ## Building and running
 
 From this directory, inside `nix develop .#cmssw_10_6_30` (or `nix develop
-.#default` for 20_1, which also runs the raw data and L1 trigger jobs):
+.#default` for 20_1, which also runs the raw data, L1 trigger and
+validation jobs):
 
 ```bash
 cmake -B build -S . -G Ninja
@@ -705,4 +756,5 @@ python3 python/muon_gun_nano_cfg_check.py
 cmsRun python/muon_gun_raw_cfg.py      # 20_1 only
 cmsRun python/muon_gun_unpack_cfg.py   # 20_1 only
 cmsRun python/muon_gun_l1_cfg.py       # 20_1 only
+cmsRun python/muon_gun_validation_cfg.py   # 20_1 only
 ```

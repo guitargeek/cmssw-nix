@@ -42,7 +42,7 @@ process.tracks = cms.EDAnalyzer(
     # generator muons out from the secondaries the shower produced
     simTracks=cms.InputTag("g4SimHits"),
     minPt=cms.double(1.0),
-    # the gun fires two muons per event into opposite hemispheres, so a
+    # the gun's four muons per event are spread in phi and eta, so a
     # generous cone still cannot match the wrong one
     maxDeltaR=cms.double(0.1),
     # Measured: 0.69%, which is what CMS achieves for muons of this
