@@ -569,8 +569,10 @@
           # for its setup hook (PYTHIA8DATA must point at the xmldoc directory for
           # the generator to start). Both carry a Geant4 and its datasets, but not
           # the same ones: 10_6 links Geant4 10.4 (built here, against the CLHEP
-          # the release uses) and 20_1 the nixpkgs Geant4 11.
-          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral geant4_201 geant4-data_201 ];
+          # the release uses) and 20_1 the nixpkgs Geant4 11. 20_1 also needs
+          # classlib, whose headers DQMServices/Core's DQMNet.h includes - so
+          # any DQM module or harvester compiled against the release does.
+          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral classlib geant4_201 geant4-data_201 ];
           # geant4-data is here for its setup hook alone: the ten G4*DATA
           # variables have to be in the environment of anything that runs the
           # simulation. It deliberately does not go in gen/setup-hook.sh, which

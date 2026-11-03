@@ -98,6 +98,10 @@ if(CMSSW_WITH_HEPMC)
   # every one of them fail to dlopen.
   find_library(hepmcfio_LIBRARIES NAMES HepMCfio REQUIRED)
   set(hepmcfio_INCLUDE_DIRECTORIES ${hepmc_INCLUDE_DIRECTORIES})
+  # scram tool names are case-insensitive; the GEM and ME0 validation
+  # plugins spell this one "HepMC"
+  set(HepMC_LIBRARIES ${hepmc_LIBRARIES})
+  set(HepMC_INCLUDE_DIRECTORIES ${hepmc_INCLUDE_DIRECTORIES})
   # the same package (SimDataFormats/GeneratorProducts) also uses liblzma
   # through the scram tool name "xz"
   find_library(xz_LIBRARIES NAMES lzma REQUIRED)
@@ -346,6 +350,19 @@ endif()
 # graphics pads (TopQuarkAnalysis/TopTools draws into a TCanvas)
 set(rootgpad_LIBRARIES ${_root_common_libs} ROOT::Gpad)
 set(rootgpad_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+# the graphics libraries as cmsdist's rootgraphics (Validation/RecoTau's
+# DQMHistPlotter writes TPostScript files)
+set(rootgraphics_LIBRARIES ${_root_common_libs} ROOT::Gpad ROOT::Graf ROOT::Graf3d ROOT::Postscript)
+set(rootgraphics_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+# the histogram painter (CommonTools/TrackerMap) and the geometry library
+# (DetectorDescription/DDCMS)
+set(roothistpainter_LIBRARIES ${_root_common_libs} ROOT::HistPainter)
+set(roothistpainter_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+set(rootgeom_LIBRARIES ${_root_common_libs} ROOT::Geom)
+set(rootgeom_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
+# TDatabasePDG (Validation/MuonGEMHits)
+set(rooteg_LIBRARIES ${_root_common_libs} ROOT::EG)
+set(rooteg_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 set(roottmva_LIBRARIES ${_root_common_libs} ROOT::TMVA)
 set(roottmva_INCLUDE_DIRECTORIES ${ROOT_INCLUDE_DIRS})
 # Minuit/Minuit2 (Hcal method-2 pulse fits) and the TMultiLayerPerceptron
@@ -465,6 +482,25 @@ endif()
 # default.
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-constexpr")
+endif()
+
+# A dynamic_cast to a final class is, since clang 17, a single comparison of
+# the object's vtable pointer against the class's vtable - correct only if a
+# class has exactly one vtable in the process. On macOS it does not: a class
+# with no out-of-line virtual function (no key function) gets a hidden copy
+# of its vtable in every library that uses it, so the cast fails whenever the
+# object was made in a different library than the cast is written in.
+# CMSSW's tracker rec hits are such classes, and code like
+#     auto const* hit = dynamic_cast<const SiPixelRecHit*>(rhit);
+# then gets nullptr for a hit typeid() itself calls a SiPixelRecHit (the
+# track associator crashed on exactly this). ELF platforms merge the copies,
+# so only macOS needs the general comparison.
+if(APPLE)
+  include(CheckCXXCompilerFlag)
+  check_cxx_compiler_flag(-fno-assume-unique-vtables CMSSW_HAVE_NO_ASSUME_UNIQUE_VTABLES)
+  if(CMSSW_HAVE_NO_ASSUME_UNIQUE_VTABLES)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-assume-unique-vtables")
+  endif()
 endif()
 
 # libc++ (the C++ library on macOS) drops the library features C++17 and

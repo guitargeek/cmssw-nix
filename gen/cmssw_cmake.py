@@ -340,6 +340,9 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, 
         # for INTERFACE targets the scope keyword is INTERFACE (injected via
         # fill_target below), so drop the PUBLIC keyword
         cmake._txt = [l.replace("(<target> PUBLIC", "(<target>") for l in cmake._txt]
+        # and there is no file to name: a package with nothing but python/
+        # can still declare EDM_PLUGIN (DQMOffline/HLTScouting)
+        cmake._txt = [l for l in cmake._txt if not l.startswith("set_target_properties(<target>")]
 
     cmake.fill_target(target + " INTERFACE" * (0 + is_interface))
 

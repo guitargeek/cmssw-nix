@@ -1838,3 +1838,42 @@ if os.path.exists(path):
         '#define L1MUGMT_STRINGIFY_(x) #x\n#define L1MUGMT_STRINGIFY(x) L1MUGMT_STRINGIFY_(x)\n'
         '#define L1MUGMT_PROJECT_VERSION L1MUGMT_STRINGIFY(PROJECT_VERSION)\n', 1)
         .replace(" PROJECT_VERSION", " L1MUGMT_PROJECT_VERSION"))
+
+# --- maps keyed on "const int" (20_1) ---------------------------------------
+# CommonTools/TrackerMap declares its maps std::map<const int, T> and walks
+# them with std::map<int, T>::iterator, and DPGAnalysis/SiStripTools does the
+# same with multimap<const uint32_t, T>. libstdc++'s iterator depends only on
+# the value type, pair<const int, T> in both cases, so the two are the same
+# type there; libc++'s also carries the key type, and they are not. A const
+# key type adds nothing (map keys are const anyway): drop it.
+for path in ("cmssw/CommonTools/TrackerMap/interface/TrackerMap.h",
+             "cmssw/CommonTools/TrackerMap/src/TrackerMap.cc",
+             "cmssw/DPGAnalysis/SiStripTools/plugins/TrackerDpgAnalysis.cc"):
+    if os.path.exists(path):
+        edit(path, lambda src: src.replace("map<const int, ", "map<int, ")
+             .replace("map<const uint32_t, ", "map<uint32_t, "))
+
+# --- an ifstream from a boost::filesystem::path (20_1) ----------------------
+# Alignment/OfflineValidation's Trend opens a std::ifstream from a
+# boost::filesystem::path, relying on the path converting implicitly to a
+# std::string - which it does only where boost::filesystem::path::string_type
+# is std::string and the conversion is not disabled. Name the string.
+path = "cmssw/Alignment/OfflineValidation/src/Trend.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace("  ifstream f(file);\n", "  ifstream f(file.string());\n", 1))
+
+# --- headers libstdc++ includes transitively and libc++ does not (20_1) -----
+path = "cmssw/HLTriggerOffline/Scouting/plugins/ScoutingMuonPropertiesAnalyzer.cc"
+if os.path.exists(path):  # std::numbers::pi
+    edit(path, lambda src: src.replace("#include <map>\n", "#include <map>\n#include <numbers>\n", 1))
+for path in ("cmssw/Validation/Geometry/src/MaterialBudgetTree.cc",
+             "cmssw/DQMServices/StreamerIO/plugins/DQMStreamerReader.cc"):
+    if os.path.exists(path):  # unlink()
+        edit(path, lambda src: "#include <unistd.h>\n" + src)
+
+# --- ulong, a glibc typedef (20_1) ------------------------------------------
+# <sys/types.h> on glibc defines ulong as unsigned long; macOS's does not.
+for path in ("cmssw/DQMServices/FileIO/plugins/DQMFileSaverPB.h",
+             "cmssw/DQMServices/FileIO/plugins/DQMFileSaverPB.cc"):
+    if os.path.exists(path):
+        edit(path, lambda src: re.sub(r"\bulong\b", "unsigned long", src))

@@ -168,6 +168,15 @@ same thing on Linux. The ones worth knowing about:
 * **Static destruction order.** Geant4 11 destroys the particle table's
   mutex before the table that locks it; glibc tolerates locking a
   destroyed mutex, macOS does not. The 20_1 Geant4 is patched.
+* **One vtable per class is not a given.** A class whose virtual functions
+  are all inline gets its vtable emitted, with hidden visibility, into every
+  library that uses it. clang 17 and later compile a `dynamic_cast` to a
+  `final` class into a single comparison against the class's vtable, which
+  then fails whenever the object was built in another library: `typeid`
+  says `SiPixelRecHit`, the cast returns null. The track associator found
+  it by crashing; code that checks the cast would just have skipped the
+  object. `gen/CMakeLists.txt` builds with `-fno-assume-unique-vtables` on
+  macOS.
 * **Case-insensitive filesystems**, the nix store included: the generated
   `*_cfi.py` files go into a `cfipython/` tree of their own (as with
   scram), because a generated `siStrip..._cfi.py` and a handwritten
