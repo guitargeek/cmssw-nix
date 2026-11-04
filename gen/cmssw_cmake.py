@@ -204,6 +204,8 @@ def parse_elements(root_node, config):
         if elem.tag == "flags":
             if elem.get("cppflags"):
                 cmake += ['set_target_properties(<target> PROPERTIES COMPILE_FLAGS "' + elem.get("cppflags") + '")']
+            if elem.get("CPPDEFINES"):
+                cmake += ["target_compile_definitions(<target> PRIVATE " + elem.get("CPPDEFINES") + ")"]
             if elem.get("EDM_PLUGIN"):
                 cmake += ['set_target_properties(<target> PROPERTIES PREFIX "plugin")']
             if elem.get("LCG_DICT_HEADER"):

@@ -29,10 +29,11 @@ jobs that each measure something with a known right answer:
 | `muon_gun_unpack_cfg.py` | RAW → DIGI | every HB/HE/HO channel back, sample for sample |
 | `muon_gun_l1_cfg.py` | L1 muon trigger | 19/20 muons trigger, charge right for all 19 |
 | `muon_gun_validation_cfg.py` | tracking validation | 19/20 muons associated, no fakes, a DQM file |
+| `muon_gun_dqm_cfg.py` | tracker DQM | the shifter's histograms: strip charge 131 / 197 ADC (TIB / TOB) |
 
-The first seven jobs run in both releases, the raw data, L1 trigger and
-validation jobs in 20_1 only (the 10_6 configuration does not build the
-packers, the emulators and the validation). The measured numbers in the table
+The first seven jobs run in both releases, the raw data, L1 trigger,
+validation and DQM jobs in 20_1 only (the 10_6 configuration does not build
+the packers, the emulators, the validation and the DQM modules). The measured numbers in the table
 are the 10_6 ones; the calorimeter job is the
 one where 20_1 differs enough to be worth stating, because the two releases
 simulate with different Geant4 versions (10.4 and 11.4) — see the bounds in
@@ -644,6 +645,54 @@ checks the result of such a cast would simply have skipped the hits, which
 is why nothing else noticed. The whole release is now built with
 `-fno-assume-unique-vtables` on macOS (`gen/CMakeLists.txt`).
 
+## The DQM: what the detector groups watch
+
+The validation needs the simulation's truth. Data has none, so during data
+taking the detector groups watch the distributions of what the
+reconstruction produced - digis and clusters, their charge and size, tracks
+per event, hits per track - and compare them with a good run. The modules
+that fill those histograms are the `DQM/` packages, the same ones online
+on a slice of the data and offline on all of it. `python/muon_gun_dqm_cfg.py`
+runs the tracker's on the reconstructed muon gun:
+
+```
+SiPixelPhase1Digis, SiPixelPhase1Clusters   pixel digis and clusters, per layer
+SiStripMonitorCluster                       strip clusters, per subdetector
+TrackingMonitor                             tracks: per event, pt, hits, chi2, ...
+```
+
+They are configured as offline: no histograms per module (15148 strip and
+1856 pixel modules: 80 MB of DQM file for five events - those are for the
+online shifter's drill-down). The trigger and detector-power filters they
+apply in data are switched off, as a simulation has neither a trigger nor
+a power status.
+
+With no good run to compare against, `plugins/DQMHistogramCheck.cc`
+reads histograms back by their DQM path and puts bounds on their entries
+and means; it is a generic harvester, configured per histogram:
+
+```
+PixelPhase1/Phase1_MechanicalView/num_clusters_PXBarrel: 5 entries, mean 17
+PixelPhase1/Phase1_MechanicalView/charge_PXBarrel: 85 entries, mean 26477.5
+PixelPhase1/Phase1_MechanicalView/size_PXBarrel: 85 entries, mean 2.12941
+SiStrip/MechanicalView/TIB/ClusterCharge__TIB: 162 entries, mean 130.772
+SiStrip/MechanicalView/TOB/ClusterCharge__TOB: 183 entries, mean 197.18
+Tracking/GlobalParameters/GeneralProperties/NumberOfTracks_GenTk: 5 entries, mean 3.8
+Tracking/GlobalParameters/GeneralProperties/TrackPt_ImpactPoint_GenTk: 19 entries, mean 33.4734
+Tracking/GlobalParameters/GeneralProperties/NumberOfMeanRecHitsPerTrack_GenTk: 5 entries, mean 19.2167
+Tracking/GlobalParameters/GeneralProperties/Chi2oNDF_GenTk: 19 entries, mean 1.10153
+```
+
+The strip cluster charge is the one with a check built in: a
+minimum-ionising particle's charge scales with the silicon it crosses, and
+the outer barrel's sensors are 500 um thick against the inner's 320 um.
+The ratio of the two means, 1.51, is that of the thicknesses, 1.56.
+
+One trap: the DQM store releases a run's histograms when the run ends.
+Only what a harvester booked lives on to the end of the job, which is why
+the validation job can save at the end of the job and this one has to save
+at the end of the run.
+
 ## The pixel Lorentz angle, and a conditions bug the residuals caught
 
 The residual test earned its place here. With the pixel digitiser turned
@@ -734,8 +783,8 @@ no-database path this flake is necessarily on.
 ## Building and running
 
 From this directory, inside `nix develop .#cmssw_10_6_30` (or `nix develop
-.#default` for 20_1, which also runs the raw data, L1 trigger and
-validation jobs):
+.#default` for 20_1, which also runs the raw data, L1 trigger,
+validation and DQM jobs):
 
 ```bash
 cmake -B build -S . -G Ninja
@@ -757,4 +806,5 @@ cmsRun python/muon_gun_raw_cfg.py      # 20_1 only
 cmsRun python/muon_gun_unpack_cfg.py   # 20_1 only
 cmsRun python/muon_gun_l1_cfg.py       # 20_1 only
 cmsRun python/muon_gun_validation_cfg.py   # 20_1 only
+cmsRun python/muon_gun_dqm_cfg.py          # 20_1 only
 ```

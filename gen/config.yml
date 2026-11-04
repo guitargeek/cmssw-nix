@@ -73,6 +73,7 @@ subsystems:
           - SiStripESProducers
           - StandaloneTrackerTopology
           - SiStripQuality
+          - SiStripAPVAnalysis
     Calibration:
         whitelist:
           - Tools
@@ -301,6 +302,8 @@ subsystems:
           - LTCDigi
           - TotemReco
           - L1THGCal
+          # the pixel vertices' SoA, which the heterogeneous pixel DQM reads
+          - VertexSoA
           # the DQM framework's own data formats: DQMServices/Core's headers
           # include them without declaring the package
           - Histograms
@@ -314,13 +317,76 @@ subsystems:
     DPGAnalysis:
         whitelist:
           - SiStripTools
-    # the DT phase-2 trigger primitive emulator uses its digi helpers
+    # The subsystem monitors and their clients, for every detector and the
+    # L1 trigger. Out: the two that write to the online databases
+    # (EcalMonitorDbModule: Oracle; SiStripCommissioningDbClients: the
+    # tracker's online configuration database). The DT phase-2 trigger
+    # primitive emulator uses DTMonitorModule's digi helpers.
     DQM:
         whitelist:
+          - BeamMonitor
+          - CSCMonitorModule
+          - CTPPS
+          - CastorMonitor
+          - DTMonitorClient
           - DTMonitorModule
+          - DataScouting
+          - EcalCommon
+          - EcalMonitorClient
+          - EcalMonitorTasks
+          - EcalPreshowerMonitorClient
+          - EcalPreshowerMonitorModule
+          - GEM
+          - HGCAL
+          - HLTEvF
+          - HLXMonitor
+          - HcalCommon
+          - HcalTasks
+          - Integration
+          - L1TMonitor
+          - L1TMonitorClient
+          - MuonMonitor
+          - PFTasks
+          - Physics
+          - PhysicsObjectsMonitoring
+          - PixelLumi
+          - RCTMonitor
+          - RPCMonitorClient
+          - RPCMonitorDigi
+          - SiPixelCommon
+          - SiPixelHeterogeneous
+          - SiPixelMonitorClient
+          - SiPixelMonitorCluster
+          - SiPixelMonitorDigi
+          - SiPixelMonitorRawData
+          - SiPixelMonitorRecHit
+          - SiPixelMonitorTrack
           - SiPixelPhase1Common
+          - SiPixelPhase1Config
+          - SiPixelPhase1Summary
+          - SiPixelPhase1Track
+          - SiStripCommissioningAnalysis
+          - SiStripCommissioningClients
+          - SiStripCommissioningSources
+          - SiStripCommissioningSummary
           - SiStripCommon
+          - SiStripMonitorApproximateCluster
+          - SiStripMonitorClient
+          - SiStripMonitorCluster
+          - SiStripMonitorDigi
+          - SiStripMonitorHardware
+          - SiStripMonitorPedestals
+          - SiStripMonitorSummary
+          - SiStripMonitorTrack
+          - SiTrackerPhase2
+          - TrackerCommon
+          - TrackerMonitorTrack
           - TrackerRemapper
+          - TrackingMonitor
+          - TrackingMonitorClient
+          - TrackingMonitorSource
+          - TrigXMonitor
+          - TrigXMonitorClient
     # The offline DQM: the histograms the prompt reconstruction books for
     # every run, and the harvesting that turns them into efficiencies and
     # summaries. Needs the DQM core (DQM/, DQMServices/) already here.
@@ -498,6 +564,7 @@ subsystems:
           - TrackerRecoData
           - TrackerSimData
           - VeryForwardGeometryBuilder
+          - VeryForwardRPTopology
     GeometryReaders:
         whitelist:
           - XMLIdealGeometryESSource
@@ -517,6 +584,7 @@ subsystems:
     HLTrigger:
         whitelist:
           - HLTcore
+          - JetMET
     # the scouting DQM, which DQMOffline/HLTScouting imports
     HLTriggerOffline:
         whitelist:
@@ -740,6 +808,10 @@ subsystems:
           - SiStripClusterizer
           - SiStripRecHitConverter
           - SiStripZeroSuppression
+    # the luminosity monitor's network reader, for DQM/HLXMonitor
+    RecoLuminosity:
+        whitelist:
+          - TCPReceiver
     RecoMET:
         no_plugins:
           - METPUSubtraction
@@ -985,10 +1057,12 @@ subsystems:
         no_plugins: true
         whitelist:
           - MCEmbeddingTools
-    # the ECAL test-beam objects, for EventFilter/EcalTBRawToDigi
+    # the ECAL test-beam objects, for EventFilter/EcalTBRawToDigi, and the
+    # HCAL ones, for DQM/HcalCommon
     TBDataFormats:
         whitelist:
           - EcalTBObjects
+          - HcalTBObjects
     TopQuarkAnalysis:
         whitelist:
           - TopTools

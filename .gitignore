@@ -24,3 +24,4 @@ examples/*/pixel_la.db
 # incremental build trees of scripts/worktree.sh
 /worktree/
 examples/MuonGunDigi/DQM_V0001_R000000001__MuonGun__Validation__RECO.root
+examples/MuonGunDigi/DQM_V0001_R000000001__MuonGun__DQM__RECO.root

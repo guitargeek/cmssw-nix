@@ -47,6 +47,7 @@ particle through every stage of the experiment's offline software:
 | calorimeters | the textbook MIP: E/p = 0.9%, HCAL response at the barrel sampling factor |
 | raw data (20_1) | HCAL digis packed into FED buffers, written to an HLT streamer file, unpacked: all 57600 channels back sample for sample |
 | tracking validation (20_1) | the standard release validation (`MultiTrackValidator`, the harvesting, a DQM file): 19 of 20 muons associated to a track by their hits, no fakes, no duplicates |
+| tracker DQM (20_1) | the detector groups' monitoring of the same events (pixel, strip, tracking): strip cluster charge in the ratio of the sensor thicknesses, outer to inner barrel |
 | L1 trigger (20_1) | the Run 3 barrel muon trigger emulated on the DT digis (trigger primitives → TwinMux → Kalman BMTF → uGMT): 19 of 20 muons trigger, all with the right charge |
 | combination → ntuple | tracker + standalone fits merged into `reco::Muon`, written to a NanoAOD file, read back by plain ROOT and matched to the generated muons |
 
@@ -100,6 +101,11 @@ drives the Frontier transport against a stub servlet.
   validates the Phase-2 L1 trigger, which needs TensorFlow or conifer:
   `DQMOffline/L1Trigger`, `Validation/SiTrackerPhase2V`, and the plugins
   of `Validation/HGCalValidation`.
+* **DQM** — on 20_1, the subsystem monitors and clients of `DQM/` for
+  every detector and the L1 trigger. Not the two that write to the online
+  databases (`EcalMonitorDbModule`, `SiStripCommissioningDbClients`: Oracle
+  and the tracker's online configuration database), the DIP publisher of
+  the beam spot, and the monitors of the legacy CSC track finder.
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface`: the 8.240 CMS fork for 10_6, and
   8.317 for 20_1, the version CMS builds it with. Not the EvtGen, Photos
@@ -114,7 +120,7 @@ code imports the cfi of such a module anyway (to swap it in under a process
 modifier), the install phase writes a placeholder for it
 ([gen/placeholder_cfis.py](gen/placeholder_cfis.py)), so the configuration
 loads and only a job that runs the module fails. Also out: the HLT paths
-and online, the DQM modules beyond offline and validation, FastSimulation, and HcalTrigger
+and online, FastSimulation, and HcalTrigger
 selection packages that only exist upstream.
 
 External software: almost everything from nixpkgs (ROOT, boost, Geant4,

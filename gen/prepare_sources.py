@@ -1746,6 +1746,17 @@ python_only("HeterogeneousCore/MPIServices")
 # which is not packaged. RecoMET's CSC halo code uses one of its headers
 # (inline lookup tables), which is why python_only keeps them.
 python_only("L1Trigger/CSCTrackFinder")
+# Its two monitors in DQM/L1TMonitor, of that trigger and of its emulation,
+# use its lookup tables' code: without them.
+l1tmon = "cmssw/DQM/L1TMonitor"
+if os.path.exists(l1tmon + "/src/L1TCSCTF.cc"):
+    for name in ("L1TCSCTF", "L1TdeCSCTF"):
+        os.remove(f"{l1tmon}/src/{name}.cc")
+        os.remove(f"{l1tmon}/interface/{name}.h")
+        edit(l1tmon + "/plugins/SealModule.cc", lambda src: src.replace(
+            f'#include "DQM/L1TMonitor/interface/{name}.h"\n', "").replace(
+            f"DEFINE_FWK_MODULE({name});\n", ""))
+    drop_tool_deps(l1tmon + "/BuildFile.xml", ["L1Trigger/CSCTrackFinder"])
 
 # --- the legacy global muon trigger without std::atomic<std::shared_ptr> (20_1)
 # L1MuGlobalMuonTrigger shares its configuration between instances through
@@ -1793,13 +1804,18 @@ if os.path.exists(path):
         "  m_manager->setUseAcceptParam(useBtiAcceptParam);  // CB Are these needed here???\n"
         "  m_manager->setCCBConfigValidity(true);\n", 1))
 
-# --- a map iterator initialised from nullptr (20_1) ------------------------
+# --- iterators initialised from nullptr (20_1) ------------------------------
 # The RPC PAC trigger's RPCStripsRing initialises a std::map iterator with
-# nullptr, which libstdc++'s iterator (a node pointer underneath) accepts and
-# libc++'s does not. A value-initialised iterator is what was meant.
+# nullptr, and the ECAL DQM's IntegrityClient a std::vector one (the channel
+# status map's), which libstdc++'s iterators (a pointer underneath) accept
+# and libc++'s do not. A value-initialised iterator is what was meant.
 path = "cmssw/L1Trigger/RPCTrigger/interface/RPCStripsRing.h"
 if os.path.exists(path):
     edit(path, lambda src: src.replace("m_logplaneSize(0), m_it(nullptr)", "m_logplaneSize(0), m_it()"))
+path = "cmssw/DQM/EcalMonitorClient/src/IntegrityClient.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace("EcalChannelStatusMap::const_iterator chIt(nullptr);",
+                                       "EcalChannelStatusMap::const_iterator chIt{};"))
 
 # --- the release version as a string (20_1) --------------------------------
 # The legacy GMT online configuration producer compares the version stored
