@@ -101,8 +101,10 @@ drives the Frontier transport against a stub servlet.
   `DQMOffline/L1Trigger`, `Validation/SiTrackerPhase2V`, and the plugins
   of `Validation/HGCalValidation`.
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
-  Pythia 8 with `GeneratorInterface` (10_6 era; the 8.3 API break is not
-  yet handled for 20_1).
+  Pythia 8 with `GeneratorInterface`: the 8.240 CMS fork for 10_6, and
+  8.317 for 20_1, the version CMS builds it with. Not the EvtGen, Photos
+  and Tauola decay plugins, or the fortran-based Madgraph and Alpgen jet
+  matching (the FastJet-based MLM matching is there).
 
 Deliberately out: the TensorFlow C++ and Triton inference backends
 (unbuildable/unfetchable in a sandbox), so their handful of consumers
@@ -118,7 +120,7 @@ selection packages that only exist upstream.
 External software: almost everything from nixpkgs (ROOT, boost, Geant4,
 ONNXRuntime, XGBoost, fastjet, clhep, …). Packaged here in
 [pkgs/](pkgs/) are only the CMS-specific externals: CORAL, the Fermilab
-frontier client, cms-md5, HepPDT, lwtnn, Pythia 8 (CMS fork), the Xilinx
+frontier client, cms-md5, HepPDT, lwtnn, Pythia 8 (the CMS fork, for 10_6), the Xilinx
 HLS headers and the hls4ml emulator interface, DD4hep, classlib, the L1 menu
 library utm, vdt, and a standalone Minuit2 for the 10_6-era ROOT.
 
@@ -295,9 +297,8 @@ faithful to the sandbox build, not identical to it: once the tree is green,
 
 ## Porting notes: what changed between the releases
 
-Eleven of the twelve examples run on both releases from the same
-configuration file (only NanoGen is 10_6-only, awaiting a Pythia 8 build
-for 20_1). What actually differs, in one list:
+All twelve examples run on both releases from the same configuration
+file. What actually differs, in one list:
 
 * **Geometry.** The muon geometry builders want `MuonGeometryConstants` in
   the `IdealGeometryRecord` on top of the old `MuonNumberingRecord`; the
@@ -313,6 +314,9 @@ for 20_1). What actually differs, in one list:
   `MaxNumberOfStripClusters`; the generic pixel CPE dropped
   `PixelErrorParametrization` and `useLAAlignmentOffsets`, and
   `SiPixelRecHitConverter` dropped `VerboseLevel`.
+* **NanoAOD.** The `GenPart` table gained a lepton isolation column,
+  computed from miniAOD's packed gen particles; a job that starts from
+  the generator drops it, as the shipped `customizeNanoGEN` does.
 * **API.** The legacy `setup.get<Record>().get(handle)` is gone; the token
   `esConsumes` form works in both releases. Only `BeamSpotObjects`' renamed
   accessors and `PoolDBOutputService::writeOne` → `writeOneIOV` need

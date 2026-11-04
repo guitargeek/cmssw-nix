@@ -55,6 +55,11 @@ process.genParticles = _genParticles.clone(src=cms.InputTag("generator", "unsmea
 # freshly produced genParticles instead of pat's prunedGenParticles.
 process.load("PhysicsTools.NanoAOD.genparticles_cff")
 process.finalGenParticles.src = cms.InputTag("genParticles")
+# Later releases add a lepton isolation column computed from miniAOD's packed
+# gen particles, which a gen-only job does not have; drop it, as the shipped
+# nanogen_cff's customizeNanoGEN does.
+if hasattr(getattr(process.genParticleTable, "externalVariables", None), "iso"):
+    delattr(process.genParticleTable.externalVariables, "iso")
 
 # --- gen jets: the standard AK4 clustering on stable gen particles (without
 # neutrinos, as the nano GenJet collection has it). The selector is declared

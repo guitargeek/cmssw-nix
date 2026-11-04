@@ -961,13 +961,22 @@ if os.path.exists(p8i):
     edit(p8i + "/interface/Py8InterfaceBase.h",
          lambda src: src.replace("#include <Dire/Dire.h>\n", ""))
 
-    edit(p8i + "/src/Py8GunBase.cc",
-         lambda src: src.replace('#include "Pythia8Plugins/EvtGen.h"\n', EVTGEN_STUB))
+    # From 11_x on the interface declares the adapter as Pythia8::EvtGenDecays
+    # (where Pythia 8.3 puts it) and includes it from more files.
+    if release_cycle >= (11, 0):
+        EVTGEN_STUB = (STUB_COMMON + "namespace Pythia8 {\n"
+                       + EVTGEN_STUB[len(STUB_COMMON):] + "}\n")
+    for root, _, files in os.walk(p8i):
+        for name in files:
+            if name.endswith(".cc"):
+                # at the start of a line: some files carry it commented out
+                edit(os.path.join(root, name),
+                     lambda src: re.sub(r'^#include "Pythia8Plugins/EvtGen.h"\n',
+                                        lambda m: EVTGEN_STUB, src, flags=re.M))
 
     def _stub_hadronizer(src):
         src = src.replace('#include "Vincia/Vincia.h"\n#include "Dire/Dire.h"\n',
                           SHOWER_STUB)
-        src = src.replace('#include "Pythia8Plugins/EvtGen.h"\n', EVTGEN_STUB)
         return src
     edit(p8i + "/plugins/Pythia8Hadronizer.cc", _stub_hadronizer)
 
@@ -994,7 +1003,9 @@ if os.path.exists(p8i):
              '__attribute__((visibility("hidden"))) void dummy()\n'
              '{\n'
              '  pdfset_();\n'
-             '}\n', ""))
+             '}\n', "").replace(
+             'extern "C" void pdfset_(void);\n'
+             '__attribute__((visibility("hidden"))) void dummy() { pdfset_(); }\n', ""))
 
     # PhysicsTools/NanoAOD: the flat-table producers (NanoGen and nanoAOD
     # production). In 10_6, two plugins are pruned: the nano DQM module (the
@@ -1021,7 +1032,7 @@ if os.path.exists(p8i):
                 os.remove(psv + f)
         drop_tool_deps(psv + "/BuildFile.xml",
                        ["GeneratorInterface/Pythia6Interface",
-                        "GeneratorInterface/AlpgenInterface", "f77compiler"])
+                        "GeneratorInterface/AlpgenInterface", "f77compiler", "pythia6"])
 
         def _prune_matchers(src):
             # the base-class header used to come in through the matcher headers
@@ -1030,6 +1041,12 @@ if os.path.exists(p8i):
                 '#include "GeneratorInterface/PartonShowerVeto/interface/JetMatching.h"\n')
             src = src.replace(
                 '#include "GeneratorInterface/PartonShowerVeto/interface/JetMatchingAlpgen.h"\n', "")
+            for new in ["matching.reset(new JetMatchingMadgraph(params));",
+                        "matching = std::make_unique<JetMatchingMadgraph>(params);"]:
+                src = src.replace(new, "matching.reset(new JetMatchingMadgraph(params));")
+            for new in ["matching.reset(new JetMatchingAlpgen(params));",
+                        "matching = std::make_unique<JetMatchingAlpgen>(params);"]:
+                src = src.replace(new, "matching.reset(new JetMatchingAlpgen(params));")
             src = src.replace(
                 "matching.reset(new JetMatchingMadgraph(params));",
                 'throw cms::Exception("InvalidJetMatching")\n'
@@ -1144,47 +1161,6 @@ if os.path.exists(path):
             "lvCAST(nullptr) {",
             "lvCAST(nullptr), showerLibrary(nullptr) {")
     edit(path, fix_castor_shower_library)
-
-# --- exotic physics without Pythia 8 (20_1 only in practice) ----------------
-# RHadronPythiaDecayer is the only Pythia 8 user in SimG4Core/CustomPhysics,
-# and CustomPhysics is not optional: its plugin library is where the exotic
-# physics lists register, so SimG4Core/Application will not load without it.
-# The file decays R-hadrons - long-lived coloured states from split SUSY -
-# which nothing in these examples produces, and Pythia 8 is not built for the
-# 20_1 package set. Dropping the file and its dependency leaves the rest of
-# CustomPhysics intact.
-#
-# Keyed on the decayer actually being present rather than on release_cycle:
-# the 10_6-era CustomPhysics has no RHadronPythiaDecayer at all, and its
-# CustomPhysicsList.cc has no R-hadron branch to remove, so the whole block
-# is skipped there.
-path = "cmssw/SimG4Core/CustomPhysics"
-decayer = glob.glob(path + "/src/RHadronPythiaDecayer.*") + glob.glob(
-    path + "/interface/RHadronPythiaDecayer.*"
-)
-if decayer:
-    for f in decayer:
-        os.remove(f)
-    edit(path + "/BuildFile.xml", lambda xml: re.sub(
-        r'<use\s+name="GeneratorInterface/Pythia8Interface"\s*/>\n?', "", xml))
-
-    # CustomPhysicsList is the only caller. Its R-hadron branch is a
-    # self-contained block between two GetParticleType() tests, so it comes
-    # out whole rather than being stubbed - a stub would have to substitute
-    # some other decay process and would change the physics silently.
-    def drop_rhadron_decay(src):
-        src = src.replace(
-            '#include "SimG4Core/CustomPhysics/interface/RHadronPythiaDecayer.h"\n', "")
-        src = re.sub(r"\n *bool extRHadronDecayerSet = false;", "", src)
-        src = re.sub(r"\n *G4Decay\* pythiaDecayProcess = nullptr;", "", src)
-        start = src.index('if ((particle->GetParticleType() == "rhadron"')
-        end = src.index('if (particle->GetParticleType() == "darkpho")')
-        return src[:start] + src[end:]
-
-    # .index() raises if a marker is gone, which is the point: a release that
-    # restructures this function should stop the build here rather than have
-    # the prune silently do nothing.
-    edit(path + "/src/CustomPhysicsList.cc", drop_rhadron_decay)
 
 # --- one plugin search path variable on every platform (all versions) ------
 # The plugin manager builds its search path from LD_LIBRARY_PATH, except on

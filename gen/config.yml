@@ -415,6 +415,8 @@ subsystems:
           - Services
           - Sources
           - Utilities
+          - SharedMemory
+          - TestProcessor
           - Version
     FWStorage:
         whitelist:
@@ -422,6 +424,27 @@ subsystems:
           - Services
           - StorageFactory
           - TFileAdaptor
+    GeneratorInterface:
+        # Event generation with Pythia 8 (8.317, as cmsdist). The EvtGen,
+        # Photos and Tauola decay interfaces are built base-classes-only
+        # (no_plugins): the implementations in their plugins/ link externals
+        # that are not packaged, and ExternalDecayDriver creates them through
+        # plugin factories, so a configuration that does not ask for external
+        # decays never notices. Pythia's own EvtGen adapter is stubbed, and the
+        # fortran Madgraph/Alpgen matchers pruned (gen/prepare_sources.py).
+        no_plugins:
+          - EvtGenInterface
+          - PhotosInterface
+          - TauolaInterface
+        whitelist:
+          - Core
+          - EvtGenInterface
+          - ExternalDecays
+          - LHEInterface
+          - PartonShowerVeto
+          - PhotosInterface
+          - Pythia8Interface
+          - TauolaInterface
     Geometry:
         whitelist:
           - CMSCommonData

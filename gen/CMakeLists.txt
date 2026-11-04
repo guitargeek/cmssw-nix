@@ -313,6 +313,11 @@ if(CMSSW_WITH_LHAPDF)
   find_library(lhapdf_LIBRARIES NAMES LHAPDF REQUIRED)
   find_path(lhapdf_INCLUDE_DIRECTORIES NAMES LHAPDF/LHAPDF.h REQUIRED)
 endif()
+if(CMSSW_WITH_HIGHFIVE)
+  # header-only; the HDF5 it wraps is the hdf5 tool
+  find_path(highfive_INCLUDE_DIRECTORIES NAMES highfive/H5File.hpp REQUIRED)
+  set(highfive_LIBRARIES ${hdf5_LIBRARIES})
+endif()
 if(CMSSW_WITH_SIGCPP)
   # libsigc++ 2: headers under include/sigc++-2.0, and the generated
   # sigc++config.h next to the library

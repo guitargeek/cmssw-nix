@@ -77,11 +77,14 @@
 # identification, particle flow) and XGBoost (photon identification)
 , onnxruntime ? null
 , xgboost ? null
-# event generation: Pythia 8 (pkgs/pythia8.nix), LHAPDF and libsigc++
-# (GeneratorInterface/LHEInterface signals) from nixpkgs
+# event generation: Pythia 8 (pkgs/pythia8.nix for 10_6, nixpkgs' for 20_1),
+# LHAPDF and libsigc++ (GeneratorInterface/LHEInterface signals) from
+# nixpkgs, and HighFive (header-only HDF5 C++ interface, the LHE HDF5 reader
+# of 20_1)
 , pythia8 ? null
 , lhapdf ? null
 , libsigcxx ? null
+, highfive ? null
 # CORAL (pkgs/coral.nix), needed by CondCore
 , coral ? null
 # libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
@@ -173,7 +176,8 @@ stdenv.mkDerivation {
     ++ lib.optional (nlohmann_json != null) nlohmann_json
     ++ lib.optional (pythia8 != null) pythia8
     ++ lib.optional (lhapdf != null) lhapdf
-    ++ lib.optional (libsigcxx != null) libsigcxx;
+    ++ lib.optional (libsigcxx != null) libsigcxx
+    ++ lib.optional (highfive != null) highfive;
 
   propagatedBuildInputs = lib.optional (deploymentTargetHook != null) deploymentTargetHook;
 
@@ -267,6 +271,7 @@ stdenv.mkDerivation {
       ${lib.optionalString (pythia8 != null) "-DCMSSW_WITH_PYTHIA8=ON"} \
       ${lib.optionalString (lhapdf != null) "-DCMSSW_WITH_LHAPDF=ON"} \
       ${lib.optionalString (libsigcxx != null) "-DCMSSW_WITH_SIGCPP=ON"} \
+      ${lib.optionalString (highfive != null) "-DCMSSW_WITH_HIGHFIVE=ON"} \
       -DCMSSW_VERSION=${version} \
       -DCMSSW_BUILD_BIN=ON \
       -DCMSSW_BUILD_PLUGINS=ON \

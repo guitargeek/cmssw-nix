@@ -326,6 +326,18 @@
             lhapdf = pkgs2205.lhapdf;
           };
 
+          # Pythia for 20_1: 8.317, the version cmsdist builds the release
+          # with, which is nixpkgs'. The 10_6 recipe's setup hook is added so
+          # PYTHIA8DATA points at the xmldoc directory the generator reads at
+          # startup.
+          pythia8_201 = pkgs.pythia.overrideAttrs (old: {
+            postInstall = (old.postInstall or "") + ''
+              test -f $out/share/Pythia8/xmldoc/Index.xml
+              mkdir -p $out/nix-support
+              echo "export PYTHIA8DATA=$out/share/Pythia8/xmldoc" > $out/nix-support/setup-hook
+            '';
+          });
+
           lwtnn_2205 = pkgs2205.callPackage ./pkgs/lwtnn.nix {
             src = lwtnn-src;
           };
@@ -480,10 +492,12 @@
             hepmc3 = pkgs.hepmc3;
             onnxruntime = pkgs.onnxruntime;
             xgboost = pkgs.xgboost;
-            # 10_6-only externals for now (callPackage would auto-fill lhapdf and
-            # libsigcxx from the unstable package set just because the names exist)
-            pythia8 = null;
-            lhapdf = null;
+            # event generation
+            pythia8 = pythia8_201;
+            lhapdf = pkgs.lhapdf;
+            highfive = pkgs.highfive;
+            # 10_6-only (callPackage would auto-fill it from the unstable
+            # package set just because the name exists)
             libsigcxx = null;
             # The cms-data externals the 10_6 build carries, and the L1 muon
             # trigger tables (20_1 builds the emulators). These are data
@@ -534,6 +548,7 @@
             # from the 22.05 package set just because the names exist there
             hdf5 = null;
             hepmc3 = null;
+            highfive = null;
             dd4hep = null;
             hls = null;
             hls4ml-emulator-extras = null;
@@ -565,14 +580,14 @@
             ps.eigen
           ] ++ extraPackages;
 
-          # 20_1 wants fmt and the oneAPI TBB; 10_6 the classic TBB, and pythia8
+          # 20_1 wants fmt and the oneAPI TBB; 10_6 the classic TBB; both pythia8
           # for its setup hook (PYTHIA8DATA must point at the xmldoc directory for
           # the generator to start). Both carry a Geant4 and its datasets, but not
           # the same ones: 10_6 links Geant4 10.4 (built here, against the CLHEP
           # the release uses) and 20_1 the nixpkgs Geant4 11. 20_1 also needs
           # classlib, whose headers DQMServices/Core's DQMNet.h includes - so
           # any DQM module or harvester compiled against the release does.
-          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral classlib geant4_201 geant4-data_201 ];
+          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral classlib pythia8_201 geant4_201 geant4-data_201 ];
           # geant4-data is here for its setup hook alone: the ten G4*DATA
           # variables have to be in the environment of anything that runs the
           # simulation. It deliberately does not go in gen/setup-hook.sh, which

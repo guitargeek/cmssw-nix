@@ -26,11 +26,16 @@ contain a status-1 μ⁺μ⁻ pair within 15 GeV of the Z mass, and
 (the way an analysis would — no CMSSW) and re-finds the Z peak from the
 `GenPart_*` branches.
 
-This example needs the 10_6 dev shell (`nix develop .#cmssw_10_6_30`).
+It runs on both releases: 10_6 generates with Pythia 8.240, 20_1 with
+8.317. The one difference in the configuration is the `GenPart` table's
+lepton isolation column, which 20_1 computes from miniAOD's packed gen
+particles; a job that starts from the generator has none, so the column is
+dropped, as the shipped `customizeNanoGEN` does.
 
 ## Building and running
 
-From this directory, inside `nix develop .#cmssw_10_6_30`:
+From this directory, inside `nix develop .#cmssw_10_6_30` (10_6) or
+`nix develop .#default` (20_1):
 
 ```bash
 cmake -B build -S . -G Ninja
@@ -43,11 +48,14 @@ cmsRun python/nanogen_cfg.py
 python3 python/nanogen_cfg_check.py
 ```
 
-Expected output (the exact fractions vary with the seed; final-state
-radiation moves a fraction of the events below the mass window):
+Expected output (the exact fractions vary with the seed and the Pythia
+version; final-state radiation moves a fraction of the events below the
+mass window). On 10_6:
 
 ```
-175 of 200 events with m(mumu) within 15 GeV of the Z peak
-nanogen.root: 200 events, 175 with a dimuon mass at the Z (88%)
+173 of 200 events with m(mumu) within 15 GeV of the Z peak
+nanogen.root: 200 events, 173 with a dimuon mass at the Z (86%)
 nanoAOD readback OK
 ```
+
+On 20_1: 169 of 200 (84%).
