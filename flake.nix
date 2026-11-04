@@ -93,6 +93,12 @@
       url = "github:cms-data/L1Trigger-L1TMuon";
       flake = false;
     };
+    # the L1 menus and their prescale and mask tables, for the Global
+    # Trigger emulator
+    l1tglobal-data = {
+      url = "github:cms-data/L1Trigger-L1TGlobal";
+      flake = false;
+    };
 
     # externals for the reco chain: HepPDT (particle data table) and lwtnn
     # (lightweight NN inference, DeepFlavour + track classifier)
@@ -142,7 +148,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, l1tmuon-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, l1tmuon-data, l1tglobal-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
@@ -338,6 +344,17 @@
             '';
           });
 
+          # Of the L1 menus, the one the 20_1 Global Trigger emulator's
+          # defaults name (simGtStage2Digis, PrescalesVetosFract_cff), with
+          # its prescale and mask tables: 11 MB of the repository's 80.
+          l1tglobal-menu_201 = pkgs.runCommand "l1tglobal-menu" { } ''
+            mkdir -p $out/Luminosity/startup
+            for f in L1Menu_Collisions2022_v1_1_0 \
+                     UGT_BASE_RS_{PRESCALES,ALGOBX_MASK,FINOR_MASK,VETO_MASK}_L1MenuCollisions2022_v1_1_0; do
+              cp ${l1tglobal-data}/Luminosity/startup/$f.xml $out/Luminosity/startup/
+            done
+          '';
+
           lwtnn_2205 = pkgs2205.callPackage ./pkgs/lwtnn.nix {
             src = lwtnn-src;
           };
@@ -510,6 +527,7 @@
               { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
               { path = "MagneticField/Interpolation"; src = magfield-data; }
               { path = "L1Trigger/L1TMuon"; src = l1tmuon-data; }
+              { path = "L1Trigger/L1TGlobal"; src = l1tglobal-menu_201; }
             ];
           };
 
@@ -586,8 +604,11 @@
           # the same ones: 10_6 links Geant4 10.4 (built here, against the CLHEP
           # the release uses) and 20_1 the nixpkgs Geant4 11. 20_1 also needs
           # classlib, whose headers DQMServices/Core's DQMNet.h includes - so
-          # any DQM module or harvester compiled against the release does.
-          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral classlib pythia8_201 geant4_201 geant4-data_201 ];
+          # any DQM module or harvester compiled against the release does - and
+          # hls, whose ap_int.h DataFormats/HLTReco's trigger object collections
+          # include (through the Phase-2 GT candidate), so any module reading
+          # HLT filter results does.
+          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral classlib hls pythia8_201 geant4_201 geant4-data_201 ];
           # geant4-data is here for its setup hook alone: the ten G4*DATA
           # variables have to be in the environment of anything that runs the
           # simulation. It deliberately does not go in gen/setup-hook.sh, which

@@ -269,6 +269,22 @@
         "type": "github"
       }
     },
+    "l1tglobal-data": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1666713464,
+        "narHash": "sha256-e8Yhhrx6T/ntyIKHUq8BOjiEDrx/4DBaAcLQZGxBqXg=",
+        "owner": "cms-data",
+        "repo": "L1Trigger-L1TGlobal",
+        "rev": "ac2220616e483bc72dcf5a9d5c5ba84df5b28eb7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-data",
+        "repo": "L1Trigger-L1TGlobal",
+        "type": "github"
+      }
+    },
     "l1tmuon-data": {
       "flake": false,
       "locked": {
@@ -402,6 +418,7 @@
         "heppdt-src": "heppdt-src",
         "hls-src": "hls-src",
         "hls4ml-emulator-extras-src": "hls4ml-emulator-extras-src",
+        "l1tglobal-data": "l1tglobal-data",
         "l1tmuon-data": "l1tmuon-data",
         "lwtnn-src": "lwtnn-src",
         "magfield-data": "magfield-data",

@@ -1757,6 +1757,19 @@ if os.path.exists(l1tmon + "/src/L1TCSCTF.cc"):
             f'#include "DQM/L1TMonitor/interface/{name}.h"\n', "").replace(
             f"DEFINE_FWK_MODULE({name});\n", ""))
     drop_tool_deps(l1tmon + "/BuildFile.xml", ["L1Trigger/CSCTrackFinder"])
+# The legacy HLT muon L1 filter decodes one field of the CSCTF pt LUT address
+# through its data types, whose decoding is out of line in the library:
+# decode the 4 bits inline and the link goes.
+hltl1 = "cmssw/HLTrigger/Muon/plugins/HLTMuonL1Filter"
+if os.path.exists(hltl1 + ".cc"):
+    edit(hltl1 + ".h", lambda src: src.replace(
+        '#include "L1Trigger/CSCTrackFinder/interface/CSCTrackFinderDataTypes.h"\n', ""))
+    edit(hltl1 + ".cc", lambda src: src.replace(
+        "      ptadd thePtAddress(trk->first.ptLUTAddress());\n"
+        "      csctfMode = thePtAddress.track_mode;\n",
+        "      // the track mode: bits 16-19 of the pt LUT address (pt_address)\n"
+        "      csctfMode = (trk->first.ptLUTAddress() >> 16) & 0xf;\n"))
+drop_tool_deps("cmssw/HLTrigger/Muon/plugins/BuildFile.xml", ["L1Trigger/CSCTrackFinder"])
 
 # --- the legacy global muon trigger without std::atomic<std::shared_ptr> (20_1)
 # L1MuGlobalMuonTrigger shares its configuration between instances through
@@ -1844,6 +1857,19 @@ for path in ("cmssw/CommonTools/TrackerMap/interface/TrackerMap.h",
     if os.path.exists(path):
         edit(path, lambda src: src.replace("map<const int, ", "map<int, ")
              .replace("map<const uint32_t, ", "map<uint32_t, "))
+
+# --- the processor model on macOS (20_1) ------------------------------------
+# The FastTimerService reports the processor it ran on. Its macOS branch
+# declares the result string a second time, so it has never compiled
+# there; and the length sysctlbyname returns counts the terminating NUL,
+# which would end up in the string (and in the service's JSON).
+path = "cmssw/HLTrigger/Timer/src/processor_model.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace(
+        '  std::string result;\n  size_t len;\n', '  size_t len;\n', 1).replace(
+        '  sysctlbyname("machdep.cpu.brand_string", result.data(), &len, NULL, 0);\n',
+        '  sysctlbyname("machdep.cpu.brand_string", result.data(), &len, NULL, 0);\n'
+        '  result.resize(len > 0 ? len - 1 : 0);\n', 1))
 
 # --- an ifstream from a boost::filesystem::path (20_1) ----------------------
 # Alignment/OfflineValidation's Trend opens a std::ifstream from a

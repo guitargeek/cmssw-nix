@@ -579,16 +579,41 @@ subsystems:
           - Common
           - MPIServices
           - ROCmCore
-    # HLTConfigProvider and the prescale providers, which the PAT trigger
-    # matching reads.
+    # The High-Level Trigger: its filters and producers, the path
+    # configurations, the FastTimerService. HLTcore (HLTConfigProvider and
+    # the prescale providers) is also what the PAT trigger matching reads.
     HLTrigger:
         whitelist:
+          - btau
+          - Configuration
+          - Egamma
+          - HLTanalyzers
           - HLTcore
+          - HLTfilters
           - JetMET
-    # the scouting DQM, which DQMOffline/HLTScouting imports
+          - JSONMonitoring
+          - Muon
+          - NGTScouting
+          - special
+          - Timer
+          - Tools
+    # the offline monitoring of the HLT paths, per physics group (and the
+    # scouting DQM, which DQMOffline/HLTScouting imports)
     HLTriggerOffline:
         whitelist:
+          - B2G
+          - Btag
+          - Common
+          - Egamma
+          - Exotica
+          - HeavyFlavor
+          - Higgs
+          - JetMET
+          - Muon
           - Scouting
+          - SMP
+          - SUSYBSM
+          - Tau
     IOMC:
         whitelist:
           # the particle guns that feed the simulation, and the beam-spot
@@ -697,6 +722,10 @@ subsystems:
     Mixing:
         whitelist:
           - Base
+    # the muon matchers the HLT muon validation uses
+    MuonAnalysis:
+        whitelist:
+          - MuonAssociators
     PhysicsTools:
         whitelist:
           - FWLite
@@ -718,6 +747,7 @@ subsystems:
           - Utilities
           - XGBoost
           - TagAndProbe
+          - CandUtils
     RecoBTag:
         whitelist:
           - BTagTools

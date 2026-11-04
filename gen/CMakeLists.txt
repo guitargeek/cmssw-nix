@@ -51,7 +51,7 @@ endif()
 
 find_package(ROOT REQUIRED)
 find_package(Boost REQUIRED COMPONENTS
-  filesystem thread regex serialization program_options iostreams date_time)
+  filesystem thread regex serialization program_options iostreams date_time chrono)
 find_package(CLHEP REQUIRED)
 find_package(Eigen3 REQUIRED NO_MODULE)
 find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
@@ -404,6 +404,7 @@ set(boost_program_options_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIRS})
 set(boost_regex_LIBRARIES Boost::regex)
 set(boost_serialization_LIBRARIES Boost::serialization)
 set(boost_iostreams_LIBRARIES Boost::iostreams)
+set(boost_chrono_LIBRARIES Boost::chrono)
 
 if(TBB_FOUND)
   set(tbb_LIBRARIES TBB::tbb)

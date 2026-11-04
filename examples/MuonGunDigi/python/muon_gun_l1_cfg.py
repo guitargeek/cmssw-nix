@@ -29,7 +29,14 @@
 # 20_1 only: the 10_6 configuration does not build the emulators.
 #
 # Reads muon_gun_digi.root, so run python/muon_gun_digi_cfg.py first.
+import os
+import sys
+
 import FWCore.ParameterSet.Config as cms
+
+sys.path.insert(0, globals().get("__file__") and os.path.dirname(os.path.abspath(__file__))
+                or os.path.join(os.getcwd(), "python"))
+from muon_gun_stages import add_l1_muon_emulation
 
 process = cms.Process("L1")
 
@@ -47,49 +54,16 @@ process.load("Configuration.Geometry.GeometryExtended2018_cff")
 process.load("Geometry.MuonNumbering.muonNumberingInitialization_cfi")
 process.load("Geometry.DTGeometryBuilder.dtGeometry_cfi")
 process.DTGeometryESModule.applyAlignment = cms.bool(False)
-# TwinMux maps RPC hits onto DT sectors through the RPC geometry
-process.load("Geometry.RPCGeometryBuilder.rpcGeometry_cfi")
 
-# --- DT trigger primitives ----------------------------------------------------
-# The chamber trigger electronics, configured from python: BTI, TRACO and
-# sector collector settings, and the TRACO lookup tables computed from the
-# geometry rather than read from the database.
-process.load("L1TriggerConfig.DTTPGConfigProducers.L1DTTPGConfig_cff")
-from L1Trigger.DTTrigger.dtTriggerPrimitiveDigis_cfi import dtTriggerPrimitiveDigis
-process.simDtTriggerPrimitiveDigis = dtTriggerPrimitiveDigis.clone(digiTag="simMuonDTDigis")
-
-# --- TwinMux ------------------------------------------------------------------
-# No RPC digis are simulated here (plugins/EmptyL1MuonInputs.cc), so TwinMux
-# passes the DT primitives through.
-process.load("L1Trigger.L1TTwinMux.fakeTwinMuxParams_cff")
-process.simMuonRPCDigis = cms.EDProducer("EmptyRPCDigiProducer")
-from L1Trigger.L1TTwinMux.simTwinMuxDigis_cfi import simTwinMuxDigis
-process.simTwinMuxDigis = simTwinMuxDigis.clone()
-
-# --- the barrel track finder ----------------------------------------------------
-# The stub producer reads the BMTF masks; the Kalman filter's own constants
-# are in its configuration and a lookup table file.
-process.load("L1Trigger.L1TMuonBarrel.fakeBmtfParams_cff")
-from L1Trigger.L1TMuonBarrel.simKBmtfStubs_cfi import simKBmtfStubs
-from L1Trigger.L1TMuonBarrel.simKBmtfDigis_cfi import simKBmtfDigis
-process.simKBmtfStubs = simKBmtfStubs.clone()
-process.simKBmtfDigis = simKBmtfDigis.clone()
-
-# --- the global muon trigger ----------------------------------------------------
-# The overlap and endcap track finders and the calorimeter tower sums get
-# empty inputs: the gun fires into the barrel (plugins/EmptyL1MuonInputs.cc).
-# The uGMT cfi also defines a conditions source reading its prototype
-# parameters from Frontier; only the producer is taken from it.
-process.load("L1Trigger.L1TMuon.fakeGmtParams_cff")
-process.emptyOverlapTF = cms.EDProducer("EmptyRegionalMuonCandProducer")
-process.emptyEndcapTF = cms.EDProducer("EmptyRegionalMuonCandProducer")
-process.emptyCaloTowers = cms.EDProducer("EmptyMuonCaloSumProducer")
-from L1Trigger.L1TMuon.simGmtStage2Digis_cfi import simGmtStage2Digis
-process.simGmtStage2Digis = simGmtStage2Digis.clone(
-    overlapTFInput=cms.InputTag("emptyOverlapTF"),
-    forwardTFInput=cms.InputTag("emptyEndcapTF"),
-    triggerTowerInput=cms.InputTag("emptyCaloTowers"),
-)
+# --- the emulation: muon_gun_stages.add_l1_muon_emulation -----------------------
+# DT trigger primitives -> TwinMux -> Kalman BMTF -> uGMT, each configured
+# from python: the chamber electronics' settings and the TRACO lookup tables
+# computed from the geometry, the BMTF masks and Kalman constants, and the
+# uGMT parameters. No RPC digis are simulated (plugins/EmptyL1MuonInputs.cc),
+# so TwinMux passes the DT primitives through; the overlap and endcap track
+# finders and the calorimeter tower sums get empty inputs, as the gun fires
+# into the barrel.
+process.l1Emulation = add_l1_muon_emulation(process)
 
 # --- the measurement ------------------------------------------------------------
 process.l1Muons = cms.EDAnalyzer(
@@ -115,15 +89,4 @@ process.l1Muons = cms.EDAnalyzer(
     maxMedianPtRatio=cms.double(1.4),
 )
 
-process.p = cms.Path(
-    process.simMuonRPCDigis
-    * process.simDtTriggerPrimitiveDigis
-    * process.simTwinMuxDigis
-    * process.simKBmtfStubs
-    * process.simKBmtfDigis
-    * process.emptyOverlapTF
-    * process.emptyEndcapTF
-    * process.emptyCaloTowers
-    * process.simGmtStage2Digis
-    * process.l1Muons
-)
+process.p = cms.Path(process.l1Emulation * process.l1Muons)

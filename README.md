@@ -49,6 +49,7 @@ particle through every stage of the experiment's offline software:
 | tracking validation (20_1) | the standard release validation (`MultiTrackValidator`, the harvesting, a DQM file): 19 of 20 muons associated to a track by their hits, no fakes, no duplicates |
 | tracker DQM (20_1) | the detector groups' monitoring of the same events (pixel, strip, tracking): strip cluster charge in the ratio of the sensor thicknesses, outer to inner barrel |
 | L1 trigger (20_1) | the Run 3 barrel muon trigger emulated on the DT digis (trigger primitives → TwinMux → Kalman BMTF → uGMT): 19 of 20 muons trigger, all with the right charge |
+| HLT (20_1) | the menu's `HLT_Mu20` through its standalone-muon step, on the L1 Global Trigger emulated with a real L1 menu: 13 of 15 muons above 25 GeV kept |
 | combination → ntuple | tracker + standalone fits merged into `reco::Muon`, written to a NanoAOD file, read back by plain ROOT and matched to the generated muons |
 
 Standing alone, [examples/TrackerLocalReco](examples/TrackerLocalReco),
@@ -91,8 +92,9 @@ drives the Frontier transport against a stub servlet.
 * **L1 trigger emulators** — on 20_1, `L1Trigger` and `L1TriggerConfig`:
   trigger primitives, the muon track finders, the calorimeter layers, the
   global triggers, Stage-2 and legacy, with the lookup tables of
-  `L1Trigger-L1TMuon`. Not the Phase-2 calorimeter and particle-flow
-  trigger, which need TensorFlow, and the legacy CSC track finder only as
+  `L1Trigger-L1TMuon` and the 2022 L1 menu from `L1Trigger-L1TGlobal`.
+  Not the Phase-2 calorimeter and particle-flow trigger, which need
+  TensorFlow, and the legacy CSC track finder only as
   configuration (its external is not packaged).
 * **Validation and offline DQM** — on 20_1, `Validation` and `DQMOffline`,
   with the truth they compare against (TrackingParticles from the mixing
@@ -106,6 +108,11 @@ drives the Frontier transport against a stub servlet.
   databases (`EcalMonitorDbModule`, `SiStripCommissioningDbClients`: Oracle
   and the tracker's online configuration database), the DIP publisher of
   the beam spot, and the monitors of the legacy CSC track finder.
+* **HLT** — on 20_1, `HLTrigger` (the filters and producers, the menus,
+  the `FastTimerService`) and the offline monitoring of the paths in
+  `HLTriggerOffline`. The HLT menus run as far as the modules this build
+  has: not the heterogeneous (alpaka) pixel tracking, and not the
+  TensorFlow-based modules (the L3 muons' DNN seeder among them).
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface`: the 8.240 CMS fork for 10_6, and
   8.317 for 20_1, the version CMS builds it with. Not the EvtGen, Photos
@@ -119,8 +126,8 @@ pruned at prepare time and fail loudly if configured. Where configuration
 code imports the cfi of such a module anyway (to swap it in under a process
 modifier), the install phase writes a placeholder for it
 ([gen/placeholder_cfis.py](gen/placeholder_cfis.py)), so the configuration
-loads and only a job that runs the module fails. Also out: the HLT paths
-and online, FastSimulation, and HcalTrigger
+loads and only a job that runs the module fails. Also out: online,
+FastSimulation, and HcalTrigger
 selection packages that only exist upstream.
 
 External software: almost everything from nixpkgs (ROOT, boost, Geant4,

@@ -642,3 +642,63 @@ def add_detinfo_fixups(process, _is_10_6):
                 if not hasattr(_essrc, "SiStripDetInfoFile"):
                     _essrc.SiStripDetInfoFile = _detinfo
 
+
+def add_l1_muon_emulation(process):
+    """The Run 3 barrel muon trigger on the simulated DT digis, up to the
+    uGMT: python/muon_gun_l1_cfg.py measures it, python/muon_gun_hlt_cfg.py
+    builds the HLT on it. Returns the emulation as a sequence."""
+    # TwinMux maps RPC hits onto DT sectors through the RPC geometry
+    process.load("Geometry.RPCGeometryBuilder.rpcGeometry_cfi")
+
+    # --- DT trigger primitives ----------------------------------------------------
+    # The chamber trigger electronics, configured from python: BTI, TRACO and
+    # sector collector settings, and the TRACO lookup tables computed from the
+    # geometry rather than read from the database.
+    process.load("L1TriggerConfig.DTTPGConfigProducers.L1DTTPGConfig_cff")
+    from L1Trigger.DTTrigger.dtTriggerPrimitiveDigis_cfi import dtTriggerPrimitiveDigis
+    process.simDtTriggerPrimitiveDigis = dtTriggerPrimitiveDigis.clone(digiTag="simMuonDTDigis")
+
+    # --- TwinMux ------------------------------------------------------------------
+    # No RPC digis are simulated here (plugins/EmptyL1MuonInputs.cc), so TwinMux
+    # passes the DT primitives through.
+    process.load("L1Trigger.L1TTwinMux.fakeTwinMuxParams_cff")
+    process.simMuonRPCDigis = cms.EDProducer("EmptyRPCDigiProducer")
+    from L1Trigger.L1TTwinMux.simTwinMuxDigis_cfi import simTwinMuxDigis
+    process.simTwinMuxDigis = simTwinMuxDigis.clone()
+
+    # --- the barrel track finder ----------------------------------------------------
+    # The stub producer reads the BMTF masks; the Kalman filter's own constants
+    # are in its configuration and a lookup table file.
+    process.load("L1Trigger.L1TMuonBarrel.fakeBmtfParams_cff")
+    from L1Trigger.L1TMuonBarrel.simKBmtfStubs_cfi import simKBmtfStubs
+    from L1Trigger.L1TMuonBarrel.simKBmtfDigis_cfi import simKBmtfDigis
+    process.simKBmtfStubs = simKBmtfStubs.clone()
+    process.simKBmtfDigis = simKBmtfDigis.clone()
+
+    # --- the global muon trigger ----------------------------------------------------
+    # The overlap and endcap track finders and the calorimeter tower sums get
+    # empty inputs: the gun fires into the barrel (plugins/EmptyL1MuonInputs.cc).
+    # The uGMT cfi also defines a conditions source reading its prototype
+    # parameters from Frontier; only the producer is taken from it.
+    process.load("L1Trigger.L1TMuon.fakeGmtParams_cff")
+    process.emptyOverlapTF = cms.EDProducer("EmptyRegionalMuonCandProducer")
+    process.emptyEndcapTF = cms.EDProducer("EmptyRegionalMuonCandProducer")
+    process.emptyCaloTowers = cms.EDProducer("EmptyMuonCaloSumProducer")
+    from L1Trigger.L1TMuon.simGmtStage2Digis_cfi import simGmtStage2Digis
+    process.simGmtStage2Digis = simGmtStage2Digis.clone(
+        overlapTFInput=cms.InputTag("emptyOverlapTF"),
+        forwardTFInput=cms.InputTag("emptyEndcapTF"),
+        triggerTowerInput=cms.InputTag("emptyCaloTowers"),
+    )
+
+    return cms.Sequence(
+        process.simMuonRPCDigis
+        * process.simDtTriggerPrimitiveDigis
+        * process.simTwinMuxDigis
+        * process.simKBmtfStubs
+        * process.simKBmtfDigis
+        * process.emptyOverlapTF
+        * process.emptyEndcapTF
+        * process.emptyCaloTowers
+        * process.simGmtStage2Digis
+    )

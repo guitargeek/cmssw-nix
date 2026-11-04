@@ -30,10 +30,12 @@ jobs that each measure something with a known right answer:
 | `muon_gun_l1_cfg.py` | L1 muon trigger | 19/20 muons trigger, charge right for all 19 |
 | `muon_gun_validation_cfg.py` | tracking validation | 19/20 muons associated, no fakes, a DQM file |
 | `muon_gun_dqm_cfg.py` | tracker DQM | the shifter's histograms: strip charge 131 / 197 ADC (TIB / TOB) |
+| `muon_gun_hlt_cfg.py` | HLT | HLT_Mu20 through its L2 filter: 13/15 muons above 25 GeV |
 
 The first seven jobs run in both releases, the raw data, L1 trigger,
-validation and DQM jobs in 20_1 only (the 10_6 configuration does not build
-the packers, the emulators, the validation and the DQM modules). The measured numbers in the table
+validation, DQM and HLT jobs in 20_1 only (the 10_6 configuration does not
+build the packers, the emulators, the validation, the DQM modules and the
+HLT). The measured numbers in the table
 are the 10_6 ones; the calorimeter job is the
 one where 20_1 differs enough to be worth stating, because the two releases
 simulate with different Geant4 versions (10.4 and 11.4) — see the bounds in
@@ -596,6 +598,48 @@ does, and the constructor leaves the `bool` uninitialised - so whether the
 emulator runs depended on whatever was in that heap memory. Here, it did
 not. The flake sets the flag (`gen/prepare_sources.py`).
 
+## The High-Level Trigger: what CMS records
+
+The L1 trigger keeps about 100 000 events a second. The HLT - this same
+framework, on a farm of computers - reconstructs each of them in a few
+hundred milliseconds and keeps about one in a hundred. A path is a sequence
+of reconstruction steps and filters, cheapest first; the event is recorded
+if any path accepts it. `python/muon_gun_hlt_cfg.py` runs the first half of
+`HLT_Mu20` from the release's menu (`HLT_GRun`), with the menu's own
+modules:
+
+```
+uGMT muons -> L1 Global Trigger -> L1 seed       -> L1 filter       -> L2 seeds -> L2 muons -> L2 filter
+(the L1 job)  (L1_SingleMu18 on  (did the algorithm (which L1 muons    (DT segments  (standalone fit
+               the 2022 L1 menu)  fire?)             fired it)          an L1 muon     in the chambers)
+                                                                        points at)
+```
+
+The menu is not loaded whole: it declares several hundred EventSetup
+components, many for packages and conditions this build does not have. The
+job copies the modules it names and follows their string parameters to the
+propagators, fitters and hit builders they use - fourteen components - and
+renames the inputs the menu unpacks from raw data to the emulated L1 and the
+offline local reconstruction. The L1 menu comes from the cms-data package
+`L1Trigger-L1TGlobal`, of which the flake installs the one menu and its
+prescale and mask tables. The second half of the path, the L3 muon with the
+tracker and the 20 GeV cut, needs the pixel tracking in its heterogeneous
+(alpaka) form, which is not built, and a DNN seeder whose TensorFlow
+inference is pruned.
+
+`plugins/HLTMuonMatch.cc` matches the trigger objects the filters stored -
+what analyses later match their muons to - to the simulated muons:
+
+```
+HLT: 5/5 events accepted; muons above 25 GeV: 14/15 at L1, 13/15 at L2; below: 3/5 at L2;
+median pt(L2)/pt(true) 1.00795
+```
+
+The muon L1 misses is the one the L1 job misses, in the gap between two
+wheels. The one L2 misses fired L1, but the local reconstruction found a DT
+segment for it in one station only: the segment-based seeding makes no seed
+from that, and the menu does not seed from an L1 muon alone.
+
 ## The release validation: the same tracks, judged the standard way
 
 `python/muon_gun_tracks_cfg.py` measures the tracks with an analyzer
@@ -784,7 +828,7 @@ no-database path this flake is necessarily on.
 
 From this directory, inside `nix develop .#cmssw_10_6_30` (or `nix develop
 .#default` for 20_1, which also runs the raw data, L1 trigger,
-validation and DQM jobs):
+validation, DQM and HLT jobs):
 
 ```bash
 cmake -B build -S . -G Ninja
@@ -807,4 +851,5 @@ cmsRun python/muon_gun_unpack_cfg.py   # 20_1 only
 cmsRun python/muon_gun_l1_cfg.py       # 20_1 only
 cmsRun python/muon_gun_validation_cfg.py   # 20_1 only
 cmsRun python/muon_gun_dqm_cfg.py          # 20_1 only
+cmsRun python/muon_gun_hlt_cfg.py          # 20_1 only
 ```
