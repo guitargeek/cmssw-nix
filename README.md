@@ -50,6 +50,7 @@ particle through every stage of the experiment's offline software:
 | tracker DQM (20_1) | the detector groups' monitoring of the same events (pixel, strip, tracking): strip cluster charge in the ratio of the sensor thicknesses, outer to inner barrel |
 | L1 trigger (20_1) | the Run 3 barrel muon trigger emulated on the DT digis (trigger primitives → TwinMux → Kalman BMTF → uGMT): 19 of 20 muons trigger, all with the right charge |
 | HLT (20_1) | the menu's `HLT_Mu20` through its standalone-muon step, on the L1 Global Trigger emulated with a real L1 menu: 13 of 15 muons above 25 GeV kept |
+| fast simulation (20_1) | the same muons through FastSim instead of Geant4, digitisation and clustering, into the same tracking: 180 of 200 tracked at 0.65% momentum resolution (the full chain: 19 of 20 at 0.44%), in under a millisecond an event |
 | combination → ntuple | tracker + standalone fits merged into `reco::Muon`, written to a NanoAOD file, read back by plain ROOT and matched to the generated muons |
 
 Standing alone, [examples/TrackerLocalReco](examples/TrackerLocalReco),
@@ -113,6 +114,13 @@ drives the Frontier transport against a stub servlet.
   `HLTriggerOffline`. The HLT menus run as far as the modules this build
   has: not the heterogeneous (alpaka) pixel tracking, and not the
   TensorFlow-based modules (the L3 muons' DNN seeder among them).
+* **Fast simulation** — on 20_1, `FastSimulation` and `FastSimDataFormats`,
+  with the pixel resolution histograms from cms-data
+  (`FastSimulation-TrackingRecHitProducer`) and two of its pixel templates
+  (`CalibTracker-SiPixelESProducers`). Not the CTPPS proton tracking's
+  plugin (Hector is not packaged), and not the nuclear interactions of
+  hadrons, whose library of Geant4 events is not distributed with the
+  release.
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface`: the 8.240 CMS fork for 10_6, and
   8.317 for 20_1, the version CMS builds it with. Not the EvtGen, Photos
@@ -126,9 +134,8 @@ pruned at prepare time and fail loudly if configured. Where configuration
 code imports the cfi of such a module anyway (to swap it in under a process
 modifier), the install phase writes a placeholder for it
 ([gen/placeholder_cfis.py](gen/placeholder_cfis.py)), so the configuration
-loads and only a job that runs the module fails. Also out: online,
-FastSimulation, and HcalTrigger
-selection packages that only exist upstream.
+loads and only a job that runs the module fails. Also out: online and
+HcalTrigger selection packages that only exist upstream.
 
 External software: almost everything from nixpkgs (ROOT, boost, Geant4,
 ONNXRuntime, XGBoost, fastjet, clhep, …). Packaged here in
@@ -395,6 +402,6 @@ file. What actually differs, in one list:
   with `-DGEANT4_BUILD_TLS_MODEL=global-dynamic` would fix it at the
   source, at the price of never substituting the stock Geant4 — or
   anything built on it — from a binary cache again.
-* Extending the scope (HLT, DQM, FastSimulation, …) means editing
+* Extending the scope (the conditions tools, the event display, …) means editing
   `gen/config.yml` and the dependency list in `pkgs/cmssw.nix` +
   `gen/CMakeLists.txt`.

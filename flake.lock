@@ -168,6 +168,22 @@
         "type": "github"
       }
     },
+    "fastsim-rechit-data": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1774010749,
+        "narHash": "sha256-MjdzwvJ5CR3TWpZlySQHCmygqhD0QnsaGpx9VEZijtg=",
+        "owner": "cms-data",
+        "repo": "FastSimulation-TrackingRecHitProducer",
+        "rev": "71c0e822b7eed781d001f15016d14e8bc8caec68",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-data",
+        "repo": "FastSimulation-TrackingRecHitProducer",
+        "type": "github"
+      }
+    },
     "frontier-src": {
       "flake": false,
       "locked": {
@@ -412,6 +428,7 @@
         "dd4hep-src": "dd4hep-src",
         "ecal-deadchannel-data": "ecal-deadchannel-data",
         "ecal-trivialcond-data": "ecal-trivialcond-data",
+        "fastsim-rechit-data": "fastsim-rechit-data",
         "frontier-src": "frontier-src",
         "g4hepem-src": "g4hepem-src",
         "geant4-10_4-src": "geant4-10_4-src",
@@ -426,7 +443,24 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-2205": "nixpkgs-2205",
         "pythia8-src": "pythia8-src",
+        "sipixel-templates-data": "sipixel-templates-data",
         "utm-src": "utm-src"
+      }
+    },
+    "sipixel-templates-data": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1724705838,
+        "narHash": "sha256-xQngUKcYMUNhdF3OaDiwNMVPRsXoFqoBc53I4GvXjYU=",
+        "owner": "cms-data",
+        "repo": "CalibTracker-SiPixelESProducers",
+        "rev": "74c07dd2e857c86784bb3dfc194c967e8287aa11",
+        "type": "github"
+      },
+      "original": {
+        "owner": "cms-data",
+        "repo": "CalibTracker-SiPixelESProducers",
+        "type": "github"
       }
     },
     "utm-src": {

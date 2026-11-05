@@ -167,6 +167,8 @@ subsystems:
           - L1Trigger
           - DT
           - L1TriggerExt
+          # the pixel template uploader, for the muon gun's FastSim job
+          - SiPixel
     Configuration:
         whitelist:
           - Eras
@@ -459,6 +461,47 @@ subsystems:
           - ScalersRawToDigi
           - SiStripChannelChargeFilter
           - Utilities
+    FastSimDataFormats:
+        whitelist:
+          - CTPPSFastSim
+          - External
+          - L1GlobalMuonTrigger
+          - NuclearInteractions
+          - PileUpEvents
+    # The fast simulation: parametrised material effects, tracker hits and
+    # calorimeter showers in place of Geant4. The CTPPS proton tracking's
+    # plugin transports protons through the beam line with Hector, which is
+    # not packaged; its configuration stays.
+    FastSimulation:
+        no_plugins:
+          - CTPPSFastTrackingProducer
+        whitelist:
+          - CTPPSFastGeometry
+          - CTPPSFastTrackingProducer
+          - CTPPSRecHitProducer
+          - CTPPSSimHitProducer
+          - CaloGeometryTools
+          - CaloHitMakers
+          - CalorimeterProperties
+          - Calorimetry
+          - Configuration
+          - Event
+          - ForwardDetectors
+          - HighLevelTrigger
+          - MaterialEffects
+          - MuonSimHitProducer
+          - Muons
+          - Particle
+          - ParticleDecay
+          - ParticlePropagator
+          - ShowerDevelopment
+          - SimplifiedGeometryPropagator
+          - TrackerSetup
+          - Tracking
+          - TrackingRecHitProducer
+          - TrajectoryManager
+          - Utilities
+          - Validation
     FWCore:
         whitelist:
           - AbstractServices

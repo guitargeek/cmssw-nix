@@ -1888,6 +1888,12 @@ for path in ("cmssw/Validation/Geometry/src/MaterialBudgetTree.cc",
              "cmssw/DQMServices/StreamerIO/plugins/DQMStreamerReader.cc"):
     if os.path.exists(path):  # unlink()
         edit(path, lambda src: "#include <unistd.h>\n" + src)
+# libc++'s <string> declares operator<<(ostream&, const string&) but defines it
+# only in <ostream>: without that, the compiler leaves an undefined reference
+# to a template nothing instantiates, which only dlopen finds.
+path = "cmssw/FastSimulation/SimplifiedGeometryPropagator/interface/InteractionModel.h"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace("#include <string>\n", "#include <ostream>\n#include <string>\n", 1))
 
 # --- ulong, a glibc typedef (20_1) ------------------------------------------
 # <sys/types.h> on glibc defines ulong as unsigned long; macOS's does not.
@@ -1895,3 +1901,26 @@ for path in ("cmssw/DQMServices/FileIO/plugins/DQMFileSaverPB.h",
              "cmssw/DQMServices/FileIO/plugins/DQMFileSaverPB.cc"):
     if os.path.exists(path):
         edit(path, lambda src: re.sub(r"\bulong\b", "unsigned long", src))
+
+# --- the FastSim decayer without Pythia 6 (20_1) ----------------------------
+# FastSimulation/ParticleDecay decays with Pythia 8 alone since Pythia 6 left
+# the release, but its BuildFile still asks for Pythia 6's particle data
+# (pydata) and the Fortran compiler that came with it.
+path = "cmssw/FastSimulation/ParticleDecay"
+if os.path.exists(path + "/src/PythiaDecays.cc") and "pydata" not in open(path + "/src/PythiaDecays.cc").read():
+    drop_tool_deps(path + "/BuildFile.xml", ["pydata", "f77compiler"])
+
+# --- FastSim's SimTracks marked as primaries (20_1) -------------------------
+# SimTrack::genpartIndex() returns the generator particle's index only when
+# the track is flagged primary (SimTrack::setIsPrimary), which the Geant4
+# simulation sets on the particles it took from the generator. FastSim's
+# ParticleManager stores the index but never sets the flag, so every FastSim
+# SimTrack reads as having no generator particle, and the TrackingParticles
+# built from them lose their link to it. Set it where the index is set.
+path = "cmssw/FastSimulation/SimplifiedGeometryPropagator/src/ParticleManager.cc"
+if os.path.exists(path) and "setIsPrimary" not in open(path).read():
+    edit(path, lambda src: src.replace(
+        "  simTracks_->back().setTrackId(simTrackIndex);\n",
+        "  simTracks_->back().setTrackId(simTrackIndex);\n"
+        "  if (particle->genParticleIndex() >= 0)\n"
+        "    simTracks_->back().setIsPrimary();\n", 1))

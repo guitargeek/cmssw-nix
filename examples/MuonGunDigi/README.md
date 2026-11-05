@@ -31,6 +31,7 @@ jobs that each measure something with a known right answer:
 | `muon_gun_validation_cfg.py` | tracking validation | 19/20 muons associated, no fakes, a DQM file |
 | `muon_gun_dqm_cfg.py` | tracker DQM | the shifter's histograms: strip charge 131 / 197 ADC (TIB / TOB) |
 | `muon_gun_hlt_cfg.py` | HLT | HLT_Mu20 through its L2 filter: 13/15 muons above 25 GeV |
+| `muon_gun_fastsim_cfg.py` | FastSim + tracking | the same gun without Geant4: 180/200 muons tracked, 0.65% momentum |
 
 The first seven jobs run in both releases, the raw data, L1 trigger,
 validation, DQM and HLT jobs in 20_1 only (the 10_6 configuration does not
@@ -640,6 +641,56 @@ wheels. The one L2 misses fired L1, but the local reconstruction found a DT
 segment for it in one station only: the segment-based seeding makes no seed
 from that, and the menu does not seed from an L1 muon alone.
 
+## The fast simulation: the same muons, without Geant4
+
+Geant4, the digitisers and the clustering cost seconds per event; CMS
+simulates the billions of events of its signal scans with FastSim instead,
+which replaces each of them by a parametrisation tuned on the full chain.
+`python/muon_gun_fastsim_cfg.py` fires the digi job's gun through it and
+into the same tracking:
+
+```
+gun -> FastSimProducer          -> TrackingRecHitProducer -> pixel triplet seeds -> candidates     -> Kalman fit
+       (material as cylinders     (SimHits smeared into     (the full job's      (the seed's         (the full
+        and disks, parametrised    rec hits: no digis,       layers and triplet   particle's hits:    job's)
+        scattering, energy loss)   no clusters)              generator)           no pattern
+                                                                                  recognition)
+```
+
+`plugins/TrackResolution.cc` measures the tracks as in the tracking job:
+
+```
+full simulation (20_1):  19/20 muons (95%), median |dpt|/pt = 0.44%, chi2/ndof 0.98, 14 tracker / 4 pixel layers
+fast simulation:       180/200 muons (90%), median |dpt|/pt = 0.65%, chi2/ndof 0.98, 14 tracker / 4 pixel layers
+```
+
+The resolution agrees within what twenty full-simulation muons can tell.
+Eighteen of the twenty muons FastSim loses are the seeding's: the layer
+combinations are the phase-0 ones the full job uses, without the fourth
+barrel layer, so a muon that crosses one of the first three through a gap
+has no seed - with the fourth layer's triplets added, 198 of 200 are found.
+They are kept, so that the two simulations go through the same
+reconstruction. After the first event, the job takes under a millisecond
+per event, tracking included.
+
+Only the tracker is simulated. The pixel smearing needs the pixel
+templates, which come from a conditions payload: the conditions job writes
+one with CMS's own uploader, from two template files of the cms-data
+package `CalibTracker-SiPixelESProducers` - an unirradiated barrel one for
+the whole barrel and a forward one for the disks, where production maps
+them per layer and run period. The model of nuclear interactions draws on a
+library of Geant4 events that is not distributed with the release; muons
+do not interact strongly, so the job leaves it out.
+
+One fix to the release was needed for the measurement to see the muons at
+all: `SimTrack::genpartIndex()` returns the generator index only for tracks
+flagged as primary, a flag the Geant4 simulation sets and FastSim's
+`ParticleManager` does not, so every FastSim SimTrack read as having no
+generator particle, and the TrackingParticles built from them lost their
+link to it.
+`gen/prepare_sources.py` sets the flag where the index is set; CMSSW master
+is unchanged.
+
 ## The release validation: the same tracks, judged the standard way
 
 `python/muon_gun_tracks_cfg.py` measures the tracks with an analyzer
@@ -828,7 +879,7 @@ no-database path this flake is necessarily on.
 
 From this directory, inside `nix develop .#cmssw_10_6_30` (or `nix develop
 .#default` for 20_1, which also runs the raw data, L1 trigger,
-validation, DQM and HLT jobs):
+validation, DQM, HLT and FastSim jobs):
 
 ```bash
 cmake -B build -S . -G Ninja
@@ -852,4 +903,5 @@ cmsRun python/muon_gun_l1_cfg.py       # 20_1 only
 cmsRun python/muon_gun_validation_cfg.py   # 20_1 only
 cmsRun python/muon_gun_dqm_cfg.py          # 20_1 only
 cmsRun python/muon_gun_hlt_cfg.py          # 20_1 only
+cmsRun python/muon_gun_fastsim_cfg.py      # 20_1 only
 ```

@@ -99,6 +99,18 @@
       url = "github:cms-data/L1Trigger-L1TGlobal";
       flake = false;
     };
+    # the pixel hit resolution histograms the fast simulation smears its
+    # tracker hits with
+    fastsim-rechit-data = {
+      url = "github:cms-data/FastSimulation-TrackingRecHitProducer";
+      flake = false;
+    };
+    # the pixel cluster templates, from which the fast simulation's pixel
+    # hit smearing takes its cluster shapes
+    sipixel-templates-data = {
+      url = "github:cms-data/CalibTracker-SiPixelESProducers";
+      flake = false;
+    };
 
     # externals for the reco chain: HepPDT (particle data table) and lwtnn
     # (lightweight NN inference, DeepFlavour + track classifier)
@@ -148,7 +160,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, l1tmuon-data, l1tglobal-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, l1tmuon-data, l1tglobal-data, fastsim-rechit-data, sipixel-templates-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
@@ -355,6 +367,16 @@
             done
           '';
 
+          # Of the pixel templates, one 3.8 T barrel and one forward template of
+          # the 2021 set, which the muon gun's FastSim job maps onto every
+          # module: 2 MB of the repository's 65.
+          sipixel-templates_201 = pkgs.runCommand "sipixel-templates" { } ''
+            mkdir -p $out/templates_38T_2021_IOV0
+            for n in 1009 1016; do
+              cp ${sipixel-templates-data}/templates_38T_2021_IOV0/template_summary_zp$n.out $out/templates_38T_2021_IOV0/
+            done
+          '';
+
           lwtnn_2205 = pkgs2205.callPackage ./pkgs/lwtnn.nix {
             src = lwtnn-src;
           };
@@ -516,8 +538,9 @@
             # 10_6-only (callPackage would auto-fill it from the unstable
             # package set just because the name exists)
             libsigcxx = null;
-            # The cms-data externals the 10_6 build carries, and the L1 muon
-            # trigger tables (20_1 builds the emulators). These are data
+            # The cms-data externals the 10_6 build carries, the L1 muon
+            # trigger tables and menu (20_1 builds the emulators), and the
+            # fast simulation's pixel resolutions and templates. These are data
             # files distributed separately from the release - the magnetic field
             # interpolation tables are the ones with teeth, since without them
             # the volume-based field engine cannot be built at all and every
@@ -528,6 +551,8 @@
               { path = "MagneticField/Interpolation"; src = magfield-data; }
               { path = "L1Trigger/L1TMuon"; src = l1tmuon-data; }
               { path = "L1Trigger/L1TGlobal"; src = l1tglobal-menu_201; }
+              { path = "FastSimulation/TrackingRecHitProducer"; src = fastsim-rechit-data; }
+              { path = "CalibTracker/SiPixelESProducers"; src = sipixel-templates_201; }
             ];
           };
 

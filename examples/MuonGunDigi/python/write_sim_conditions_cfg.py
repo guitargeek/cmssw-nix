@@ -98,6 +98,11 @@ process.PoolDBOutputService = cms.Service(
             record=cms.string("SiPixelDetVOffRcd"),
             tag=cms.string("SiPixelDetVOff_empty"),
         ),
+        cms.PSet(
+            # 20_1 only - the pixel templates, see below
+            record=cms.string("SiPixelTemplateDBObjectRcd"),
+            tag=cms.string("SiPixelTemplateDBObject_38T_2021"),
+        ),
     ),
 )
 
@@ -152,6 +157,39 @@ if not _is_10_6:
         record=cms.string("SiPixelDetVOffRcd"),
     )
 
+# The pixel templates for python/muon_gun_fastsim_cfg.py: the fast
+# simulation smears each pixel hit with the cluster shapes of the template
+# its module is mapped to, and reads them from SiPixelTemplateDBObjectRcd
+# whether or not it would use them. CMS's uploader packs template files and
+# a module-to-template map into the payload. The map is one template for
+# the whole barrel (1009, unirradiated, as the digitiser simulates the
+# sensors) and one for the forward disks (1016, the least irradiated of the
+# forward ones): a production map assigns them per layer and per run period.
+if not _is_10_6:
+    _templates = "CalibTracker/SiPixelESProducers/data/templates_38T_2021_IOV0/template_summary_zp%d.out"
+    # every phase-1 module, as layer_ladder_module and disk_blade_side_panel
+    _barrel = ["%d_%d_%d" % (layer, ladder, module)
+               for layer, ladders in enumerate((12, 28, 44, 64), start=1)
+               for ladder in range(1, ladders + 1)
+               for module in range(1, 9)]
+    _endcap = ["%d_%d_%d_%d" % (disk, blade, side, panel)
+               for disk in (1, 2, 3)
+               for blade in range(1, 57)
+               for side in (1, 2)
+               for panel in (1, 2)]
+    process.pixelTemplateWriter = cms.EDAnalyzer(
+        "SiPixelTemplateDBObjectUploader",
+        siPixelTemplateCalibrations=cms.vstring(_templates % 1009, _templates % 1016),
+        theTemplateBaseString=cms.string("template_summary_zp"),
+        Version=cms.double(1.0),
+        # in tenths of a tesla, only compared with the files' headers
+        MagField=cms.double(38.0),
+        barrelLocations=cms.vstring(*_barrel),
+        endcapLocations=cms.vstring(*_endcap),
+        barrelTemplateIds=cms.vuint32(*[1009] * len(_barrel)),
+        endcapTemplateIds=cms.vuint32(*[1016] * len(_endcap)),
+    )
+
 process.p = cms.Path(
     process.writer
     * process.gainWriter
@@ -159,4 +197,4 @@ process.p = cms.Path(
     * process.pixelLorentzAngleWriter
 )
 if not _is_10_6:
-    process.p *= process.pixelDetVOffWriter
+    process.p *= process.pixelDetVOffWriter * process.pixelTemplateWriter
