@@ -28,7 +28,30 @@ stdenv.mkDerivation {
   postPatch = ''
     grep -q 'dd4hep_add_plugin(DDCoreGraphics' DDCore/CMakeLists.txt
     sed -i '/dd4hep_add_plugin(DDCoreGraphics/,+2d' DDCore/CMakeLists.txt
+
+    # The plugin manager finds factories through <library>.components files
+    # in the directories of a search path variable, which outside the
+    # thisdd4hep.sh environment holds neither DD4hep's own lib/ (the XML
+    # processor, the shape constructors) nor anything else. Always look in
+    # lib/ as well.
+    substituteInPlace GaudiPluginService/src/PluginServiceV2.cpp \
+      --replace-fail 'search_path = envPtr ? envPtr : "/usr/lib64:/usr/lib:/usr/local/lib";' \
+                     'search_path = std::string(envPtr ? envPtr : "") + sep + "'"$out"'/lib";'
+    substituteInPlace GaudiPluginService/src/PluginServiceV1.cpp \
+      --replace-fail 'std::string path = search_path ? std::string(search_path) : "/usr/lib64:/usr/lib:/usr/local/lib";' \
+                     'std::string path = (search_path ? std::string(search_path) : std::string()) + sep + "'"$out"'/lib";'
   '' + lib.optionalString stdenv.hostPlatform.isDarwin ''
+
+    # On macOS the search path variable is DYLD_LIBRARY_PATH, which System
+    # Integrity Protection strips from the environment of anything started
+    # through /bin or /usr/bin, and which redirects every library lookup of
+    # the process when set. DD4hep's own environment scripts set
+    # DD4HEP_LIBRARY_PATH for this (thisdd4hep.sh); read that one instead.
+    substituteInPlace GaudiPluginService/src/PluginServiceV1.cpp \
+      --replace-fail 'const char* envVar = "DYLD_LIBRARY_PATH";' 'const char* envVar = "DD4HEP_LIBRARY_PATH";'
+    substituteInPlace GaudiPluginService/src/PluginServiceV2.cpp \
+      --replace-fail 'const std::string envVar = "DYLD_LIBRARY_PATH";' 'const std::string envVar = "DD4HEP_LIBRARY_PATH";'
+
 
     # DDCore loads its plugin manager by bare name through gSystem->Load
     # (unless DD4HEP_PLUGINMGR says otherwise). On Linux the name resolves
@@ -59,6 +82,13 @@ stdenv.mkDerivation {
   # only DDRec, which then fails much later as a missing libDDG4.so.
   preConfigure = ''
     cmakeFlagsArray+=("-DDD4HEP_BUILD_PACKAGES=DDRec DDG4")
+  '';
+
+  # The .components files name each factory's library by file name, which
+  # the plugin manager dlopens as is; on darwin a bare name is only looked
+  # up on the dyld search paths. Name them absolutely.
+  postInstall = ''
+    sed -i "s|^v2::lib|v2::$out/lib/lib|" $out/lib/*.components
   '';
 
   # the ROOT setup hook must not run at two offsets (see pkgs/cmssw.nix)

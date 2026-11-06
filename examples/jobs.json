@@ -26,7 +26,8 @@
     { "dir": "ConditionsSqlite", "cfgs": ["python/write_conditions_cfg.py", "python/read_conditions_cfg.py"] },
     { "dir": "ConditionsFrontier", "cfgs": ["python/frontier_conditions_cfg.py"] },
     { "dir": "MuonGunSim",       "cfgs": ["python/muon_gun_sim_cfg.py"] },
-    { "dir": "MuonGunDigi",      "cfgs": ["python/write_sim_conditions_cfg.py", "python/muon_gun_digi_cfg.py", "python/muon_gun_reco_cfg.py", "python/muon_gun_tracks_cfg.py", "python/muon_gun_muons_cfg.py", "python/muon_gun_calo_cfg.py", "python/muon_gun_nano_cfg.py", "python/muon_gun_raw_cfg.py", "python/muon_gun_unpack_cfg.py", "python/muon_gun_l1_cfg.py", "python/muon_gun_validation_cfg.py", "python/muon_gun_dqm_cfg.py", "python/muon_gun_hlt_cfg.py", "python/muon_gun_fastsim_cfg.py"] }
+    { "dir": "MuonGunDigi",      "cfgs": ["python/write_sim_conditions_cfg.py", "python/muon_gun_digi_cfg.py", "python/muon_gun_reco_cfg.py", "python/muon_gun_tracks_cfg.py", "python/muon_gun_muons_cfg.py", "python/muon_gun_calo_cfg.py", "python/muon_gun_nano_cfg.py", "python/muon_gun_raw_cfg.py", "python/muon_gun_unpack_cfg.py", "python/muon_gun_l1_cfg.py", "python/muon_gun_validation_cfg.py", "python/muon_gun_dqm_cfg.py", "python/muon_gun_hlt_cfg.py", "python/muon_gun_fastsim_cfg.py"] },
+    { "dir": "CmsDriverChain",   "cfgs": ["python/step1_offline_cfg.py", "python/step2_offline_cfg.py", "python/step3_offline_cfg.py", "python/step4_offline_cfg.py"], "data": ["cms-data-reco"] }
   ],
 
   "_excluded": {

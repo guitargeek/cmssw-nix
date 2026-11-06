@@ -26,6 +26,12 @@ subsystems:
           - TrackerAlignment
           - LaserAlignment
           - OfflineValidation
+          - CommonAlignmentAlgorithm
+          - CommonAlignmentMonitor
+          - CommonAlignmentParametrization
+          - CommonAlignmentProducer
+          - MuonAlignment
+          - MuonAlignmentAlgorithms
     # the top-quark analysis objects, for TopQuarkAnalysis/TopTools (the PAT
     # jet-parton matching that the NanoAOD configuration imports)
     AnalysisDataFormats:
@@ -59,6 +65,12 @@ subsystems:
           - CSCCalibration
           - DTDigiSync
           - DTCalibration
+    # the PPS (forward proton) alignment and optics conditions producers,
+    # and the standard sequences' PPS simulation and reconstruction below
+    CalibPPS:
+        whitelist:
+          - AlignmentGlobal
+          - ESProducers
     CalibTracker:
         whitelist:
           # SiStripCommon builds WITH its plugins here, as in the 10_6
@@ -74,6 +86,7 @@ subsystems:
           - StandaloneTrackerTopology
           - SiStripQuality
           - SiStripAPVAnalysis
+          - Configuration
     Calibration:
         whitelist:
           - Tools
@@ -96,6 +109,40 @@ subsystems:
           - TrackerMap
           - TriggerUtils
     CondCore:
+        # the payload inspectors in plugins/ (CondCore/Utilities) are a
+        # conditions browsing tool, not needed to read the conditions
+        # (GeometryPlugins has its proxies there, and no inspectors)
+        no_plugins:
+          - AlignmentPlugins
+          - BTauPlugins
+          - BaseKeyedPlugins
+          - BasicCondPlugins
+          - CSCPlugins
+          - CTPPSPlugins
+          - CalibPlugins
+          - CastorPlugins
+          - DQMPlugins
+          - DTPlugins
+          - ESPlugins
+          - EcalPlugins
+          - EgammaPlugins
+          - GBRForestPlugins
+          - GEMPlugins
+          - HIPlugins
+          - HLTPlugins
+          - HcalPlugins
+          - JetMETPlugins
+          - L1TPlugins
+          - LuminosityPlugins
+          - MLObjectsPlugins
+          - MTDPlugins
+          - OptAlignPlugins
+          - PCLConfigPlugins
+          - PhysicsToolsPlugins
+          - RPCPlugins
+          - RecoMuonPlugins
+          - RunInfoPlugins
+          - SiPhase2TrackerPlugins
         whitelist:
           - BeamSpotPlugins
           - CondDB
@@ -119,6 +166,41 @@ subsystems:
           # does the same job for the pixel records.
           - SiStripPlugins
           - PopCon
+          # the conditions proxies of every other record a global tag
+          # holds (src/plugin.cc); without them a job reading one
+          # warns 'Plugin for Record ... has not been found' and dies on
+          # the first module that gets the record
+          - AlignmentPlugins
+          - BTauPlugins
+          - BaseKeyedPlugins
+          - BasicCondPlugins
+          - CSCPlugins
+          - CTPPSPlugins
+          - CalibPlugins
+          - CastorPlugins
+          - DQMPlugins
+          - DTPlugins
+          - ESPlugins
+          - EcalPlugins
+          - EgammaPlugins
+          - GBRForestPlugins
+          - GEMPlugins
+          - GeometryPlugins
+          - HIPlugins
+          - HLTPlugins
+          - HcalPlugins
+          - JetMETPlugins
+          - L1TPlugins
+          - LuminosityPlugins
+          - MLObjectsPlugins
+          - MTDPlugins
+          - OptAlignPlugins
+          - PCLConfigPlugins
+          - PhysicsToolsPlugins
+          - RPCPlugins
+          - RecoMuonPlugins
+          - RunInfoPlugins
+          - SiPhase2TrackerPlugins
     CondFormats:
         whitelist:
           - Alignment
@@ -159,6 +241,9 @@ subsystems:
           - SiPixelTransient
           - SiStripObjects
           - MTDObjects
+          - DQMObjects
+          - MLObjects
+          - OptAlignObjects
     CondTools:
         whitelist:
           - BTau
@@ -182,6 +267,13 @@ subsystems:
           - Geometry
           - ProcessModifiers
           - StandardSequences
+          - AlCa
+          - Applications
+          - DataProcessing
+          - EventContent
+          - Generator
+          - HLT
+          - Skimming
     DataFormats:
         no_plugins: true
         whitelist:
@@ -309,6 +401,8 @@ subsystems:
           # the DQM framework's own data formats: DQMServices/Core's headers
           # include them without declaring the package
           - Histograms
+          - FTLDigi
+          - L1TCalorimeterPhase2
     DetectorDescription:
         whitelist:
           - Core
@@ -316,9 +410,12 @@ subsystems:
           - Parser
           - RegressionTest
     # the strip APV-cycle tools DQMOffline/Trigger and Alignment use
+    # SiStripTools; Skims for the RECO step's primary-vertex and
+    # too-many-clusters filters
     DPGAnalysis:
         whitelist:
           - SiStripTools
+          - Skims
     # The subsystem monitors and their clients, for every detector and the
     # L1 trigger. Out: the two that write to the online databases
     # (EcalMonitorDbModule: Oracle; SiStripCommissioningDbClients: the
@@ -411,6 +508,7 @@ subsystems:
           - ParticleFlow
           - RecoB
           - Trigger
+          - L1Trigger
     # The DQM core (DQMStore, MonitorElement): the PAT and NanoAOD plugins
     # book their validation histograms through it.
     DQMServices:
@@ -534,17 +632,16 @@ subsystems:
           - StorageFactory
           - TFileAdaptor
     GeneratorInterface:
-        # Event generation with Pythia 8 (8.317, as cmsdist). The EvtGen,
-        # Photos and Tauola decay interfaces are built base-classes-only
-        # (no_plugins): the implementations in their plugins/ link externals
-        # that are not packaged, and ExternalDecayDriver creates them through
-        # plugin factories, so a configuration that does not ask for external
-        # decays never notices. Pythia's own EvtGen adapter is stubbed, and the
+        # Event generation with Pythia 8 (8.317, as cmsdist). The EvtGen and
+        # Photos decay interfaces are built base-classes-only (no_plugins):
+        # the implementations in their plugins/ link externals that are not
+        # packaged, and ExternalDecayDriver creates them through plugin
+        # factories, so a configuration that does not ask for external
+        # decays never notices. Tauola's are built (pkgs/tauolapp.nix). Pythia's own EvtGen adapter is stubbed, and the
         # fortran Madgraph/Alpgen matchers pruned (gen/prepare_sources.py).
         no_plugins:
           - EvtGenInterface
           - PhotosInterface
-          - TauolaInterface
         whitelist:
           - Core
           - EvtGenInterface
@@ -554,6 +651,9 @@ subsystems:
           - PhotosInterface
           - Pythia8Interface
           - TauolaInterface
+          - Configuration
+          - HiGenCommon
+          - RivetInterface
     Geometry:
         whitelist:
           - CMSCommonData
@@ -608,11 +708,29 @@ subsystems:
           - TrackerSimData
           - VeryForwardGeometryBuilder
           - VeryForwardRPTopology
+          - VeryForwardGeometry
     GeometryReaders:
         whitelist:
           - XMLIdealGeometryESSource
+    # the onia skim and PAT customisations the event content imports
+    HeavyFlavorAnalysis:
+        whitelist:
+          - Onia2MuMu
     HeterogeneousCore:
-        no_plugins: true
+        # the plugins of the GPU frameworks need their toolkits; alpaka's
+        # (the module type resolver, the serial backend's service and ES
+        # modules) are built
+        no_plugins:
+          - SonicCore
+          - TrivialSerialisation
+          - CUDACore
+          - Common
+          - MPIServices
+          - ROCmCore
+          - CUDAServices
+          - ROCmServices
+          - ROCmUtilities
+          - SonicTriton
         whitelist:
           - AlpakaCore
           - AlpakaInterface
@@ -622,6 +740,11 @@ subsystems:
           - Common
           - MPIServices
           - ROCmCore
+          - AlpakaServices
+          - CUDAServices
+          - ROCmServices
+          - ROCmUtilities
+          - SonicTriton
     # The High-Level Trigger: its filters and producers, the path
     # configurations, the FastTimerService. HLTcore (HLTConfigProvider and
     # the prescale providers) is also what the PAT trigger matching reads.
@@ -684,10 +807,14 @@ subsystems:
           - Type1MET
     # the L1 menu utilities behind HLTcore (L1TGlobalUtil), and the L1
     # emulators: trigger primitives, track finders, calorimeter layers, the
-    # global triggers, legacy and Stage-2 (not the Phase-2 calorimeter and
-    # particle-flow trigger, which need TensorFlow; the legacy CSC track
-    # finder is configuration only)
+    # global triggers, legacy and Stage-2, and the Phase-2 ones the standard
+    # sequences import. Not built: the Phase-2 particle-flow trigger and the
+    # track matching, and the calorimeter trigger plugins that use them (the
+    # conifer BDT external); the legacy CSC track finder is configuration
+    # only.
     L1Trigger:
+        no_plugins:
+          - L1CaloTrigger
         whitelist:
           - GlobalTriggerAnalyzer
           - L1TCommon
@@ -730,6 +857,14 @@ subsystems:
           - RPCTrigger
           - RegionalCaloTrigger
           - Skimmer
+          - L1CaloTrigger
+          - L1THGCal
+          - L1TMuonEndCapPhase2
+          - L1TNtuples
+          - L1TTrackMatch
+          - Phase2L1GMT
+          - Phase2L1ParticleFlow
+          - VertexFinder
     # the emulators' configuration producers, and the scouting utilities the
     # L1 unpackers need
     L1TriggerConfig:
@@ -748,9 +883,14 @@ subsystems:
           - RCTConfigProducers
           - RPCTriggerConfig
           - Utilities
+    # the L1 analysers the trigger validation sequences import
+    L1TriggerOffline:
+        whitelist:
+          - L1Analyzer
     L1TriggerScouting:
         whitelist:
           - Utilities
+          - NanoAOD
     MagneticField:
         whitelist:
           - Engine
@@ -791,6 +931,12 @@ subsystems:
           - XGBoost
           - TagAndProbe
           - CandUtils
+          - PatFromScouting
+          - RecoAlgos
+          - Scouting
+          - TensorFlow
+          - TruthInfo
+          - JetCharge
     RecoBTag:
         whitelist:
           - BTagTools
@@ -809,6 +955,7 @@ subsystems:
     RecoBTau:
         whitelist:
           - JetTagComputer
+          - Configuration
     RecoCaloTools:
         whitelist:
           - Navigation
@@ -818,6 +965,7 @@ subsystems:
           - EgammaClusterAlgos
           - EgammaClusterProducers
           - EgammaCoreTools
+          - Configuration
     RecoEgamma:
         whitelist:
           - EgammaElectronAlgos
@@ -831,12 +979,20 @@ subsystems:
           - EgammaTools
           - ElectronIdentification
           - PhotonIdentification
+          - Configuration
+    # configuration imported by the standard reconstruction (Phase-2 only)
+    RecoHGCal:
+        whitelist:
+          - Configuration
     # imported by the PAT jet and b-tagging configuration (heavy-ion jet
     # flavour and track settings)
     RecoHI:
         whitelist:
           - HiJetAlgos
           - HiTracking
+          - HiCentralityAlgos
+          - HiEgammaAlgos
+          - HiEvtPlaneAlgos
     RecoJets:
         whitelist:
           - Configuration
@@ -857,11 +1013,17 @@ subsystems:
           - HcalRecAlgos
           - HcalRecProducers
           - HGCalRecProducers
+          - Castor
+          - CastorReco
+          - Configuration
     # the MTD (phase-2 timing layer) clusters, for Validation/MtdValidation
     RecoLocalFastTime:
         whitelist:
           - FTLClusterizer
           - Records
+          - Configuration
+          - FTLCommonAlgos
+          - FTLRecProducers
     RecoLocalMuon:
         whitelist:
           - CSCRecHitD
@@ -871,6 +1033,7 @@ subsystems:
           - GEMRecHit
           - GEMSegment
           - RPCRecHit
+          - Configuration
     RecoLocalTracker:
         whitelist:
           - ClusterParameterEstimator
@@ -881,18 +1044,23 @@ subsystems:
           - SiStripClusterizer
           - SiStripRecHitConverter
           - SiStripZeroSuppression
+          - Configuration
+          - SiPhase2Clusterizer
+          - SiPhase2VectorHitBuilder
+          - SiPixelDigiReProducers
+          - SubCollectionProducers
     # the luminosity monitor's network reader, for DQM/HLXMonitor
     RecoLuminosity:
         whitelist:
           - TCPReceiver
+          - LumiProducer
     RecoMET:
-        no_plugins:
-          - METPUSubtraction
         whitelist:
           - METAlgorithms
           - METFilters
           - METPUSubtraction
           - METProducers
+          - Configuration
     RecoMTD:
         whitelist:
           - DetLayers
@@ -901,6 +1069,8 @@ subsystems:
           - TimingTools
           - TrackExtender
           - TransientTrackingRecHit
+          - Configuration
+          - TimingIDTools
     RecoMuon:
         whitelist:
           - DetLayers
@@ -925,27 +1095,49 @@ subsystems:
           - TrackerSeedGenerator
           - TrackingTools
           - TransientTrackingRecHit
+          - Configuration
+          - CosmicMuonProducer
     RecoParticleFlow:
         whitelist:
           - PFClusterTools
           - PFProducer
           - PFTracking
           - Benchmark
+          - Configuration
+          - PFClusterProducer
+          - PFRecHitProducer
+          - PFSimProducer
+    # the forward proton reconstruction of the standard sequences
+    RecoPPS:
+        whitelist:
+          - Configuration
+          - Local
+          - ProtonReconstruction
     RecoTauTag:
         whitelist:
           - Configuration
           - RecoTau
+          - HLTProducers
     # HGCAL's TICL reconstruction (its ONNX inference included), for the
-    # TICL and HGCAL validation
+    # TICL and HGCAL validation; the layer clustering's plugins need the CLUE
+    # external
     RecoTICL:
+        no_plugins:
+          - LayerClustering
         whitelist:
           - Common
           - Inference
           - Linking
           - Superclustering
+          - ClusterFilters
+          - Configuration
+          - Geometry
+          - Interpretation
+          - LayerClustering
+          - ParticleFlow
+          - PatternRecognition
+          - SeedingRegions
     RecoTracker:
-        no_plugins:
-          - FinalTrackSelectors
         whitelist:
           - CkfPattern
           - ConversionSeedGenerators
@@ -968,6 +1160,15 @@ subsystems:
           - TkTrackingRegions
           - TrackProducer
           - TransientTrackingRecHit
+          - Configuration
+          - DisplacedRegionalTracking
+          - IterativeTracking
+          - LST
+          - LSTCore
+          - LSTGeometry
+          - MkFit
+          - MkFitCMS
+          - MkFitCore
     RecoVertex:
         whitelist:
           - AdaptiveVertexFinder
@@ -987,6 +1188,8 @@ subsystems:
           - V0Producer
           - VertexPrimitives
           - VertexTools
+          - Configuration
+          - PixelVertexFinding
     SimCalorimetry:
         whitelist:
           - CaloSimAlgos
@@ -1009,6 +1212,17 @@ subsystems:
           - EcalTrigPrimProducers
           - HcalTrigPrimAlgos
           - HcalTrigPrimProducers
+          - CastorSim
+          - CastorTechTrigProducer
+          - Configuration
+          - EcalEBTrigPrimAlgos
+          - EcalEBTrigPrimProducers
+          - EcalSelectiveReadoutAlgos
+          - EcalSelectiveReadoutProducers
+          - EcalZeroSuppressionProducers
+          - HGCalAssociatorProducers
+          - HcalZeroSuppressionProducers
+          - TICLSimProducers
     SimDataFormats:
         whitelist:
           - Associations
@@ -1033,10 +1247,13 @@ subsystems:
           - Vertex
           - GEMDigiSimLink
           - ValidationFormats
+          - TruthInfo
     # the MTD simulation helpers, for Validation/MtdValidation
     SimFastTiming:
         whitelist:
           - FastTimingCommon
+          - Configuration
+          - MtdAssociatorProducers
     # The CMS sensitive detectors: the classes that turn a Geant4 step inside
     # a sensitive volume into a PSimHit or a CaloG4Hit. Calo and Forward carry
     # their data/ directories in the release itself rather than in a cms-data
@@ -1077,6 +1294,7 @@ subsystems:
           - PhysicsLists
           - SensitiveDetector
           - Watcher
+          - Configuration
     SimGeneral:
         whitelist:
           # parameterised shower description, used by the calorimeter
@@ -1091,6 +1309,7 @@ subsystems:
           - PileupInformation
           - PreMixingModule
           - TrackingAnalysis
+          - Configuration
     SimMuon:
         whitelist:
           - CSCDigitizer
@@ -1100,6 +1319,15 @@ subsystems:
           - Neutron
           - RPCDigitizer
           - GEMDigitizer
+          - Configuration
+    # the forward proton detectors' digitisation in the standard sequences
+    SimPPS:
+        whitelist:
+          - Configuration
+          - PPSPixelDigiProducer
+          # LHCTransport, the PPS proton transport every GEN-SIM schedules
+          - PPSSimTrackProducer
+          - RPDigiProducer
     SimTracker:
         whitelist:
           - Common
@@ -1117,6 +1345,12 @@ subsystems:
           - TrackAssociatorProducers
           - TrackHistory
           - VertexAssociation
+          - Configuration
+    # the proton transport to the PPS stations (configuration only: Hector)
+    SimTransport:
+        whitelist:
+          - PPSProtonTransport
+          - TotemRPProtonTransportParametrization
     TauAnalysis:
         # Python only, and not because anything here embeds taus. The
         # release's own local-reco cfis - ecalRecHit, cscRecHitD, cscSegments,
@@ -1167,6 +1401,7 @@ subsystems:
           - TrajectoryState
           - TransientTrack
           - TransientTrackingRecHit
+          - Configuration
     Utilities:
         whitelist:
           - BinningTools
@@ -1176,11 +1411,11 @@ subsystems:
 
     # The validation suites: the simulation-aware histograms (efficiencies,
     # fake rates, resolutions against the simulated truth) every release is
-    # checked with. All of them but HGCalValidation's plugins, which use
-    # L1Trigger/L1THGCal and so TensorFlow.
+    # checked with. All of them but the Phase-2 tracker validation's
+    # plugins, which use the track-trigger associations (conifer).
     Validation:
         no_plugins:
-          - HGCalValidation
+          - SiTrackerPhase2V
         whitelist:
           - CSCRecHits
           - CTPPS
@@ -1243,3 +1478,4 @@ subsystems:
           - TrackerHits
           - TrackerRecHits
           - TrackingMCTruth
+          - SiTrackerPhase2V

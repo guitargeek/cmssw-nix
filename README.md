@@ -64,6 +64,15 @@ field profile; [ConditionsSqlite](examples/ConditionsSqlite) writes and
 reads a conditions payload; [ConditionsFrontier](examples/ConditionsFrontier)
 drives the Frontier transport against a stub servlet.
 
+On 20_1, [examples/CmsDriverChain](examples/CmsDriverChain) runs what
+`cmsDriver.py` writes, unmodified: a 2024 MC production in four steps,
+GEN-SIM, DIGI-L1-DIGI2RAW-HLT, RECO-PAT and NANO, with the whole standard
+sequences of the release (the 2024 HLT menu, the TensorFlow and ONNX
+networks of the reconstruction, the alpaka modules on the CPU, NanoAOD).
+The flake check constructs every module of the four jobs offline; run with
+conditions from the global tag over Frontier, 10 muon-gun events come out
+of the NanoAOD with every generated muon reconstructed.
+
 ## What is packaged
 
 * **Framework and I/O** — full `FWCore`, plugin manager, python
@@ -94,9 +103,10 @@ drives the Frontier transport against a stub servlet.
   trigger primitives, the muon track finders, the calorimeter layers, the
   global triggers, Stage-2 and legacy, with the lookup tables of
   `L1Trigger-L1TMuon` and the 2022 L1 menu from `L1Trigger-L1TGlobal`.
-  Not the Phase-2 calorimeter and particle-flow trigger, which need
-  TensorFlow, and the legacy CSC track finder only as
-  configuration (its external is not packaged).
+  The trained models the Run 3 emulation loads at run time are packaged too
+  (CICADA, AXOL1TL, the EMTF network). Not the Phase-2 calorimeter and
+  particle-flow trigger, which need the conifer BDT library, and the legacy
+  CSC track finder only as configuration (its external is not packaged).
 * **Validation and offline DQM** — on 20_1, `Validation` and `DQMOffline`,
   with the truth they compare against (TrackingParticles from the mixing
   module, the track associators) and the rest of the DQM framework
@@ -112,8 +122,8 @@ drives the Frontier transport against a stub servlet.
 * **HLT** — on 20_1, `HLTrigger` (the filters and producers, the menus,
   the `FastTimerService`) and the offline monitoring of the paths in
   `HLTriggerOffline`. The HLT menus run as far as the modules this build
-  has: not the heterogeneous (alpaka) pixel tracking, and not the
-  TensorFlow-based modules (the L3 muons' DNN seeder among them).
+  has: the alpaka modules on the CPU backend (no GPU backends), and not
+  the L3 muons' DNN seeder, which needs conifer.
 * **Fast simulation** — on 20_1, `FastSimulation` and `FastSimDataFormats`,
   with the pixel resolution histograms from cms-data
   (`FastSimulation-TrackingRecHitProducer`) and two of its pixel templates
@@ -123,14 +133,19 @@ drives the Frontier transport against a stub servlet.
   release.
 * **Simulation and generation** — Geant4 with `SimG4Core`/`SimG4CMS`, and
   Pythia 8 with `GeneratorInterface`: the 8.240 CMS fork for 10_6, and
-  8.317 for 20_1, the version CMS builds it with. Not the EvtGen, Photos
-  and Tauola decay plugins, or the fortran-based Madgraph and Alpgen jet
-  matching (the FastJet-based MLM matching is there).
+  8.317 for 20_1, the version CMS builds it with; on 20_1 also Tauola++
+  (with TauSpinner) and Rivet. Not the EvtGen and Photos decay plugins, or
+  the fortran-based Madgraph and Alpgen jet matching (the FastJet-based
+  MLM matching is there).
 
-Deliberately out: the TensorFlow C++ and Triton inference backends
-(unbuildable/unfetchable in a sandbox), so their handful of consumers
-(DeepSC, DeepTau, DNN muon seeder, SONIC, the displaced-tau tagger) are
-pruned at prepare time and fail loudly if configured. Where configuration
+Machine learning: on 20_1 the TensorFlow C++ API (from nixpkgs' binary
+wheel, [pkgs/tensorflow-cc.nix](pkgs/tensorflow-cc.nix)), ONNX Runtime and
+XGBoost, so the reconstruction's networks (the tracking DNNs, mkFit,
+DeepCore, DeepTau, DeepMET, DeepSC) are built. One protobuf runs in the
+process, TensorFlow's 6.31.1, which ONNX Runtime and the release are built
+against too ([flake.nix](flake.nix)). Deliberately out: the Triton
+inference client (SONIC), PyTorch, and the conifer BDT library, whose
+consumers are pruned at prepare time and fail loudly if configured. Where configuration
 code imports the cfi of such a module anyway (to swap it in under a process
 modifier), the install phase writes a placeholder for it
 ([gen/placeholder_cfis.py](gen/placeholder_cfis.py)), so the configuration
@@ -141,8 +156,12 @@ External software: almost everything from nixpkgs (ROOT, boost, Geant4,
 ONNXRuntime, XGBoost, fastjet, clhep, …). Packaged here in
 [pkgs/](pkgs/) are only the CMS-specific externals: CORAL, the Fermilab
 frontier client, cms-md5, HepPDT, lwtnn, Pythia 8 (the CMS fork, for 10_6), the Xilinx
-HLS headers and the hls4ml emulator interface, DD4hep, classlib, the L1 menu
-library utm, vdt, and a standalone Minuit2 for the 10_6-era ROOT.
+HLS headers, the hls4ml emulator interface and the L1 trigger's hls4ml
+models, DD4hep, classlib, the L1 menu library utm, vdt, Tauola++, the
+TensorFlow C++ API out of its wheel, and a standalone Minuit2 for the
+10_6-era ROOT. The cms-data the standard Run 3 sequences read (some 2 GB)
+is a package of its own, outside the release
+([pkgs/cms-data.nix](pkgs/cms-data.nix)).
 
 It is the successor of an earlier Arch Linux PKGBUILD experiment: the
 `BuildFile.xml` → `CMakeLists.txt` conversion script from there lives on
@@ -161,6 +180,10 @@ echo $CMSSW_BASE   # -> /nix/store/...-cmssw-CMSSW_20_1_0_pre4
 # the same for the 10_6 era:
 nix build .#cmssw_10_6_30
 nix develop .#cmssw_10_6_30
+
+# 20_1 with the cms-data the standard Run 3 sequences read, for jobs that
+# cmsDriver.py writes (see examples/CmsDriverChain)
+nix develop .#with-reco-data
 ```
 
 See [examples/MyAnalyzer](examples/MyAnalyzer) for how to build and run an

@@ -36,6 +36,13 @@ if [ -d @out@/SITECONF ]; then
 fi
 addToSearchPath PATH @out@/bin
 addToSearchPath LD_LIBRARY_PATH @out@/lib
+# where DD4hep looks for the .components files of the release's DD4hep
+# plugins: DD4HEP_LIBRARY_PATH on macOS (pkgs/dd4hep.nix), LD_LIBRARY_PATH
+# on Linux
+if [ -d @out@/dd4hep ]; then
+    addToSearchPath DD4HEP_LIBRARY_PATH @out@/dd4hep
+    addToSearchPath LD_LIBRARY_PATH @out@/dd4hep
+fi
 addToSearchPath PYTHONPATH @out@/python
 addToSearchPath PYTHONPATH @out@/lib
 addToSearchPath ROOT_INCLUDE_PATH @out@/src

@@ -1,10 +1,31 @@
 <!-- Minimal site configuration for running cmsRun outside of a CMS site.
      PoolSource requires a SiteLocalConfig with at least one data catalog,
-     even when all input files are given as physical file names (file:...). -->
+     even when all input files are given as physical file names (file:...).
+
+     calib-data: where a global tag's frontier://FrontierProd/... (and
+     FrontierPrep, ...) connect strings go. A CMS site lists its squid caches
+     here as <proxy> entries; outside one, the frontier client talks to the
+     CERN servers directly. Only jobs that read conditions over Frontier (a
+     cmsDriver configuration's GlobalTag) contact them. Without a squid in
+     between, the large payloads (the e/gamma regression forests) can take
+     longer than the client's default timeouts of 5 s to connect and 10 s
+     to read; each element/attribute pair becomes one frontier_client
+     keyword (connecttimeout secs -> connecttimeoutsecs). -->
 <site-local-config>
   <site name="T3_NIX_Local">
     <data-access>
       <catalog volume="LocalDisk" protocol="file"/>
     </data-access>
+    <calib-data>
+      <frontier-connect>
+        <load balance="proxies"/>
+        <connecttimeout secs="30"/>
+        <readtimeout secs="60"/>
+        <server url="http://cmsfrontier.cern.ch:8000/FrontierInt"/>
+        <server url="http://cmsfrontier1.cern.ch:8000/FrontierInt"/>
+        <server url="http://cmsfrontier2.cern.ch:8000/FrontierInt"/>
+        <server url="http://cmsfrontier3.cern.ch:8000/FrontierInt"/>
+      </frontier-connect>
+    </calib-data>
   </site>
 </site-local-config>

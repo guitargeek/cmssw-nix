@@ -77,6 +77,17 @@
 # identification, particle flow) and XGBoost (photon identification)
 , onnxruntime ? null
 , xgboost ? null
+# TensorFlow (pkgs/tensorflow-cc.nix): the 20_1 reconstruction's DNNs. Without
+# it, gen/prepare_sources.py prunes the TensorFlow users.
+, tensorflow-cc ? null
+# Tauola++ (pkgs/tauolapp.nix): the tau decays of GeneratorInterface/
+# TauolaInterface and NanoAOD's TauSpinner table. Without it both are pruned.
+, tauolapp ? null
+# Rivet (with YODA) and tinyxml2: GeneratorInterface/RivetInterface's
+# particle-level producers, which NanoAOD's MC sequence schedules
+, rivet ? null
+, yoda ? null
+, tinyxml2 ? null
 # event generation: Pythia 8 (pkgs/pythia8.nix for 10_6, nixpkgs' for 20_1),
 # LHAPDF and libsigc++ (GeneratorInterface/LHEInterface signals) from
 # nixpkgs, and HighFive (header-only HDF5 C++ interface, the LHE HDF5 reader
@@ -171,6 +182,9 @@ stdenv.mkDerivation {
     ++ lib.optional (hepmc3 != null) hepmc3
     ++ lib.optionals (onnxruntime != null) [ onnxruntime onnxruntime.dev ]
     ++ lib.optional (xgboost != null) xgboost
+    ++ lib.optional (tensorflow-cc != null) tensorflow-cc
+    ++ lib.optional (tauolapp != null) tauolapp
+    ++ lib.optionals (rivet != null) [ rivet yoda tinyxml2 ]
     ++ lib.optional (coral != null) coral
     ++ lib.optional (curl != null) curl
     ++ lib.optional (nlohmann_json != null) nlohmann_json
@@ -204,7 +218,7 @@ stdenv.mkDerivation {
 
     # Trim to the plain cmsRun binary, drop the XrdAdaptor dependency and
     # apply version-specific fixups.
-    python3 ${../gen/prepare_sources.py} ${version}
+    python3 ${../gen/prepare_sources.py} ${version}${lib.optionalString (tensorflow-cc != null) " --with-tensorflow"}${lib.optionalString (tauolapp != null) " --with-tauolapp"}
 
     ${lib.optionalString (libclangPython != null) ''
       # Generate the conditions serialization code (src/Serialization.cc per
@@ -266,6 +280,9 @@ stdenv.mkDerivation {
       ${lib.optionalString (hepmc3 != null) "-DCMSSW_WITH_HEPMC3=ON"} \
       ${lib.optionalString (onnxruntime != null) "-DCMSSW_WITH_ONNXRUNTIME=ON"} \
       ${lib.optionalString (xgboost != null) "-DCMSSW_WITH_XGBOOST=ON"} \
+      ${lib.optionalString (tensorflow-cc != null) "-DCMSSW_WITH_TENSORFLOW=ON"} \
+      ${lib.optionalString (tauolapp != null) "-DCMSSW_WITH_TAUOLAPP=ON"} \
+      ${lib.optionalString (rivet != null) "-DCMSSW_WITH_RIVET=ON"} \
       ${lib.optionalString (coral != null) "-DCMSSW_WITH_CORAL=ON"} \
       ${lib.optionalString (curl != null) "-DCMSSW_WITH_CURL=ON"} \
       ${lib.optionalString (pythia8 != null) "-DCMSSW_WITH_PYTHIA8=ON"} \
@@ -360,6 +377,15 @@ stdenv.mkDerivation {
       export -f gen_cfis
       export out
       xargs -P 8 -n 2 bash -c 'gen_cfis "$@"' _ < library_manifest.txt
+      # and scram's modules.py next to them, which imports every module
+      # type of the package (from IOPool.Input.modules import PoolSource)
+      for d in $out/cfipython/*/*; do
+        types=$(cd $d && for f in *.py; do
+          case $f in *_cfi.py|modules.py) ;; *) echo "''${f%.py}" ;; esac
+        done)
+        [ -n "$types" ] || continue
+        for t in $types; do echo "from .$t import $t"; done > $d/modules.py
+      done
     fi
     # the cfis of pruned producers that the configuration code imports anyway
     python3 ${../gen/placeholder_cfis.py} $out
@@ -382,12 +408,34 @@ stdenv.mkDerivation {
     done
     touch $out/python/__init__.py
 
-    # Useful scripts (edmDumpEventContent etc.)
-    if [ -d $out/src/FWCore/PythonUtilities/scripts ]; then
-      for f in $out/src/FWCore/PythonUtilities/scripts/*; do
+    # Useful scripts (edmDumpEventContent etc., and cmsDriver.py)
+    for d in FWCore/PythonUtilities Configuration/Applications; do
+      [ -d $out/src/$d/scripts ] || continue
+      for f in $out/src/$d/scripts/*; do
+        # (the sources do not carry the executable bit; scram sets it)
+        chmod +x $f
         ln -s $f $out/bin/$(basename $f)
       done
-    fi
+    done
+
+    # Register the DD4hep factories of the release (the DD4HEP_PLUGIN
+    # libraries: the DDCMS XML converters and geometry algorithms the
+    # magnetic field and the DD4hep geometry are built with). DD4hep finds
+    # them through <library>.components files in its search path, which
+    # scram writes with this tool; given an absolute path, it names the
+    # library absolutely. They go in a directory of their own, not lib/,
+    # where edmPluginRefresh would try to load them.
+    ${lib.optionalString (dd4hep != null) ''
+      if [ -f dd4hep_plugins.txt ]; then
+        mkdir -p $out/dd4hep
+        while read -r t; do
+          for so in $out/lib/plugin$t.so $out/lib/lib$t.so; do
+            [ -f "$so" ] || continue
+            ${dd4hep}/bin/listcomponents_dd4hep -o "$out/dd4hep/$(basename "''${so%.so}").components" "$so"
+          done
+        done < dd4hep_plugins.txt
+      fi
+    ''}
 
     # Register the EDM plugins.
     export LD_LIBRARY_PATH=$out/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
@@ -453,13 +501,14 @@ stdenv.mkDerivation {
   # bare python3 interpreter; the scripts (edmDumpEventContent & friends)
   # need the environment with six/future on the path instead.
   postFixup = ''
-    if [ -d $out/src/FWCore/PythonUtilities/scripts ]; then
-      for f in $out/src/FWCore/PythonUtilities/scripts/*; do
+    for d in FWCore/PythonUtilities Configuration/Applications; do
+      [ -d $out/src/$d/scripts ] || continue
+      for f in $out/src/$d/scripts/*; do
         if [ -f "$f" ] && head -1 "$f" | grep -q python; then
           sed -i "1s|.*|#!${pythonEnv}/bin/python|" "$f"
         fi
       done
-    fi
+    done
   '';
 
   passthru = { inherit pythonEnv; };

@@ -167,6 +167,45 @@ if(CMSSW_WITH_ONNXRUNTIME)
   # CMSSW includes it as <onnxruntime/onnxruntime_cxx_api.h>
   find_path(onnxruntime_INCLUDE_DIRECTORIES NAMES onnxruntime/onnxruntime_cxx_api.h REQUIRED)
 endif()
+if(CMSSW_WITH_RIVET)
+  # Rivet and YODA (nixpkgs), and tinyxml2: GeneratorInterface/RivetInterface,
+  # whose particle-level producers NanoAOD's MC sequence schedules
+  find_library(rivet_LIBRARIES NAMES Rivet REQUIRED)
+  find_path(rivet_INCLUDE_DIRECTORIES NAMES Rivet/Rivet.hh REQUIRED)
+  find_library(yoda_LIBRARIES NAMES YODA REQUIRED)
+  find_path(yoda_INCLUDE_DIRECTORIES NAMES YODA/Histo.h REQUIRED)
+  find_library(tinyxml2_LIBRARIES NAMES tinyxml2 REQUIRED)
+  find_path(tinyxml2_INCLUDE_DIRECTORIES NAMES tinyxml2.h REQUIRED)
+endif()
+if(CMSSW_WITH_TAUOLAPP)
+  # pkgs/tauolapp.nix; the libraries of cmsdist's tauolapp tool
+  set(tauolapp_LIBRARIES "")
+  foreach(l TauolaCxxInterface TauolaFortran TauolaTauSpinner TauolaHepMC TauolaHEPEVT)
+    find_library(tauolapp_${l} NAMES ${l} REQUIRED)
+    list(APPEND tauolapp_LIBRARIES ${tauolapp_${l}})
+  endforeach()
+  find_path(tauolapp_INCLUDE_DIRECTORIES NAMES Tauola/Tauola.h REQUIRED)
+endif()
+if(CMSSW_WITH_TENSORFLOW)
+  # pkgs/tensorflow-cc.nix: the C++ libraries and headers of the binary wheel.
+  # The headers directory also holds the Eigen, absl and protobuf versions
+  # TensorFlow was built with, which its users must find before the build's
+  # own: its Eigen is 3.5-dev (ml_dtypes needs it), the build's 3.4. (The
+  # protobuf is the same 6.31.1 as the build's, see flake.nix.) As an -I,
+  # it comes before the wrapper's -isystem directories; but then clang no
+  # longer treats it as a
+  # system header and reports what scram's -isystem hides: Eigen 3.5's
+  # TensorMap narrows the size_t indices CMSSW passes to Index, an error by
+  # default. Its users get that one turned off.
+  find_library(tensorflow-cc_TF_CC NAMES tensorflow_cc REQUIRED)
+  find_library(tensorflow-cc_TF_FRAMEWORK NAMES tensorflow_framework REQUIRED)
+  add_library(tensorflow-cc INTERFACE)
+  target_link_libraries(tensorflow-cc INTERFACE ${tensorflow-cc_TF_CC} ${tensorflow-cc_TF_FRAMEWORK})
+  target_compile_options(tensorflow-cc INTERFACE -Wno-c++11-narrowing)
+  set(tensorflow-cc_LIBRARIES tensorflow-cc)
+  find_path(tensorflow-cc_INCLUDE_DIRECTORIES NAMES tensorflow/core/public/session.h
+            PATH_SUFFIXES tensorflow-cc REQUIRED)
+endif()
 if(CMSSW_WITH_XGBOOST)
   find_library(xgboost_LIBRARIES NAMES xgboost REQUIRED)
   find_path(xgboost_INCLUDE_DIRECTORIES NAMES xgboost/c_api.h REQUIRED)
@@ -312,6 +351,15 @@ endif()
 if(CMSSW_WITH_LHAPDF)
   find_library(lhapdf_LIBRARIES NAMES LHAPDF REQUIRED)
   find_path(lhapdf_INCLUDE_DIRECTORIES NAMES LHAPDF/LHAPDF.h REQUIRED)
+endif()
+if(CMSSW_WITH_TAUOLAPP)
+  # cmsdist's tauolapp tool uses hepmc, pythia8 and lhapdf: its users call
+  # into them too (the TauSpinner table initialises its PDF through LHAPDF).
+  # Without them the link still succeeds (-undefined dynamic_lookup), and the
+  # call jumps to a null address in a job that loads no LHAPDF otherwise.
+  list(APPEND tauolapp_LIBRARIES ${hepmc_LIBRARIES} ${pythia8_LIBRARIES} ${lhapdf_LIBRARIES})
+  list(APPEND tauolapp_INCLUDE_DIRECTORIES ${hepmc_INCLUDE_DIRECTORIES} ${pythia8_INCLUDE_DIRECTORIES}
+       ${lhapdf_INCLUDE_DIRECTORIES})
 endif()
 if(CMSSW_WITH_HIGHFIVE)
   # header-only; the HDF5 it wraps is the hdf5 tool

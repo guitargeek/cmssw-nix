@@ -1,7 +1,10 @@
 """Small source-tree adjustments before generating the CMake files.
 
 Run from the directory that contains the cmssw/ source tree, with the CMSSW
-version string as argument (e.g. CMSSW_10_6_30). Common to all versions:
+version string as argument (e.g. CMSSW_10_6_30), and --with-tensorflow when
+the build has the TensorFlow C++ API (pkgs/tensorflow-cc.nix), and
+--with-tauolapp when it has Tauola++ (pkgs/tauolapp.nix): their users are
+then kept rather than pruned. Common to all versions:
 
 * Reduce FWCore/Framework/bin/BuildFile.xml to just the plain cmsRun binary
   (upstream also defines cmsRunTC, cmsRunJE, ... linked against different
@@ -20,6 +23,8 @@ import sys
 
 version = sys.argv[1] if len(sys.argv) > 1 else "CMSSW_20_1_0"
 release_cycle = tuple(int(x) for x in version.split("_")[1:3])
+with_tensorflow = "--with-tensorflow" in sys.argv[2:]
+with_tauolapp = "--with-tauolapp" in sys.argv[2:]
 
 
 def edit(path, editor):
@@ -412,17 +417,17 @@ if os.path.isdir(rdir):
             r'<use\s+name="TrackingTools/TrackRefitter"\s*/>\n?', "", xml))
 
 # --- full reco chain without TensorFlow / alignment refit / HLT ------------
-# The DNN-based producers need the TensorFlow C++ external, which we do not
-# build: drop them (DeepMET, DeepTau/DPFIsolation) together with the
-# TensorFlow dependency declarations.
+# The DNN-based producers need the TensorFlow C++ external: without it, drop
+# them (DeepMET, DeepTau/DPFIsolation) together with the TensorFlow
+# dependency declarations.
 path = "cmssw/RecoMET/METPUSubtraction/plugins"
-if os.path.isdir(path):
+if os.path.isdir(path) and not with_tensorflow:
     for f in glob.glob(path + "/DeepMETProducer.*"):
         os.remove(f)
     edit(path + "/BuildFile.xml", lambda xml: re.sub(
         r'<use\s+name="PhysicsTools/TensorFlow"\s*/>\n?', "", xml))
 rtau = "cmssw/RecoTauTag/RecoTau"
-if os.path.isdir(rtau):
+if os.path.isdir(rtau) and not with_tensorflow:
     for f in (glob.glob(rtau + "/src/DeepTauBase.cc")
               + glob.glob(rtau + "/interface/DeepTauBase.h")
               + glob.glob(rtau + "/plugins/DeepTauId.cc")
@@ -436,10 +441,10 @@ if os.path.isdir(rtau):
 # DeepCore is the jet-core seeding DNN, and it is the only TensorFlow user in
 # RecoTracker/TkSeedGenerator/plugins - a library of fifteen other seeding
 # producers, including the one that turns pixel proto-tracks into trajectory
-# seeds. Without this prune the whole library is unbuildable and the CKF
-# seeding chain has no seed producer at all.
+# seeds. Without TensorFlow and without this prune the whole library is
+# unbuildable and the CKF seeding chain has no seed producer at all.
 path = "cmssw/RecoTracker/TkSeedGenerator/plugins"
-if os.path.isdir(path):
+if os.path.isdir(path) and not with_tensorflow:
     for f in glob.glob(path + "/DeepCoreSeedGenerator.*"):
         os.remove(f)
     edit(path + "/BuildFile.xml", lambda xml: re.sub(
@@ -544,14 +549,17 @@ def drop_tool_deps(path, deps):
         "", xml))
 
 
-TF_TRITON_DEPS = ["PhysicsTools/TensorFlow", "HeterogeneousCore/SonicTriton",
-                  "HeterogeneousCore/SonicCore", "tensorflow-cc",
-                  "triton-inference-client"]
+TRITON_DEPS = ["HeterogeneousCore/SonicTriton", "HeterogeneousCore/SonicCore",
+               "triton-inference-client"]
+TF_TRITON_DEPS = TRITON_DEPS + ["PhysicsTools/TensorFlow", "tensorflow-cc"]
+# what is pruned along with the files below: the TensorFlow dependencies
+# only when the build has no TensorFlow
+PRUNED_DEPS = TRITON_DEPS if with_tensorflow else TF_TRITON_DEPS
 
 # the DeepSC clustering: its graph classes live in EgammaCoreTools and are
 # used from one method of the supercluster algorithm
 ecore = "cmssw/RecoEcal/EgammaCoreTools"
-if os.path.exists(ecore + "/interface/EcalClustersGraph.h"):
+if os.path.exists(ecore + "/interface/EcalClustersGraph.h") and not with_tensorflow:
     for pat in ["/interface/EcalClustersGraph.*", "/src/EcalClustersGraph.*",
                 "/interface/DeepSCGraphEvaluation.*", "/src/DeepSCGraphEvaluation.*"]:
         for f in glob.glob(ecore + pat):
@@ -613,14 +621,18 @@ namespace reco {
             return src
         edit(path, fix_pfecal)
 
-# SONIC (Triton) producers and the DNN-based tau/muon modules
+# SONIC (Triton) producers and the DNN-based tau/muon modules. The DNN muon
+# seeder goes either way: it also needs the phase-2 track-trigger
+# associations (below).
 for path, patterns in [
     ("cmssw/RecoEcal/EgammaClusterAlgos", ["/interface/SCEnergyCorrectorDRN.*",
                                            "/src/SCEnergyCorrectorDRN.*"]),
     ("cmssw/RecoEcal/EgammaClusterProducers", ["/src/SCEnergyCorrectorDRNProducer.*"]),
     ("cmssw/RecoEgamma/EgammaTools", ["/plugins/DRNCorrectionProducerT.*"]),
-    ("cmssw/RecoTauTag/RecoTau", ["/plugins/DeepTauId*.cc", "/interface/DeepTauId*.h",
+    ("cmssw/RecoTauTag/RecoTau", ["/plugins/DeepTauIdSONIC.cc"] if with_tensorflow else
+                                 ["/plugins/DeepTauId*.cc", "/interface/DeepTauId*.h",
                                   "/interface/DeepTauScaling.h"]),
+    ("cmssw/RecoMET/METPUSubtraction", ["/plugins/DeepMETSonicProducer.cc"]),
     ("cmssw/RecoMuon/TrackerSeedGenerator", ["/plugins/TSGForOIDNN.*"]),
 ]:
     if not os.path.isdir(path):
@@ -629,7 +641,7 @@ for path, patterns in [
         for f in glob.glob(path + pat):
             os.remove(f)
     for bf in [path + "/BuildFile.xml", path + "/plugins/BuildFile.xml"]:
-        drop_tool_deps(bf, TF_TRITON_DEPS)
+        drop_tool_deps(bf, PRUNED_DEPS)
 # the DNN muon seeder was the only user of the phase-2 track-trigger
 # associations (which need the conifer external)
 drop_tool_deps("cmssw/RecoMuon/TrackerSeedGenerator/BuildFile.xml",
@@ -637,11 +649,26 @@ drop_tool_deps("cmssw/RecoMuon/TrackerSeedGenerator/BuildFile.xml",
 drop_tool_deps("cmssw/RecoMuon/TrackerSeedGenerator/plugins/BuildFile.xml",
                ["SimTracker/TrackTriggerAssociation"])
 
-# --- no alpaka backend variants (all versions) ------------------------------
+# --- only the serial alpaka backend (all versions) --------------------------
 # Libraries flagged ALPAKA_BACKENDS are built once per accelerator backend by
-# scram, each with its own ALPAKA_ACC_* defines and namespace. We build the
-# host code only, so drop those stanzas (their sources live in alpaka/
-# subdirectories, which the generator already keeps out of the plain globs).
+# scram, each with its own ALPAKA_ACC_* defines and namespace. Of the
+# backends this build has the serial one, the CPU (gen/cmssw_cmake.py
+# builds it, as <library>SerialSync); drop the stanzas that are for the GPU
+# backends only (ALPAKA_BACKENDS="cuda", "!serial", ...).
+def serial_backend(value):
+    value = value.strip()
+    if value == "1":
+        return True
+    if value.startswith("!"):
+        return "serial" not in value[1:].split()
+    return "serial" in value.split()
+
+
+def drop_gpu_only_stanza(m):
+    flag = re.search(r'ALPAKA_BACKENDS\s*=\s*"([^"]*)"', m.group(0))
+    return m.group(0) if serial_backend(flag.group(1)) else ""
+
+
 for root, dirs, files in os.walk("cmssw"):
     if "BuildFile.xml" not in files:
         continue
@@ -652,6 +679,14 @@ for root, dirs, files in os.walk("cmssw"):
         continue
     edit(path, lambda x: re.sub(
         r'<library[^>]*>(?:(?!</library>).)*ALPAKA_BACKENDS(?:(?!</library>).)*</library>\n?',
+        drop_gpu_only_stanza, x, flags=re.DOTALL))
+
+# The alpaka track classifier of the final track selection evaluates its
+# network with PyTorch, which is not packaged (20_1).
+path = "cmssw/RecoTracker/FinalTrackSelectors/plugins/BuildFile.xml"
+if os.path.exists(path):
+    edit(path, lambda x: re.sub(
+        r'<library[^>]*name="RecoTrackerFinalTrackSelectorsAlpakaPlugins"[^>]*>(?:(?!</library>).)*</library>\n?',
         "", x, flags=re.DOTALL))
 
 # A couple of plugins BuildFiles (DetectorDescription/Core, Geometry/
@@ -990,9 +1025,11 @@ if os.path.exists(p8i):
         drop_tool_deps(bf, ["mcdb", "libhepml"])
 
     # base-classes-only decay interfaces (the concrete implementations in
-    # plugins/ link the externals; no_plugins in the configuration)
+    # plugins/ link the externals; no_plugins in the configuration). Tauola++
+    # is there when the build has it (--with-tauolapp).
     drop_tool_deps("cmssw/GeneratorInterface/EvtGenInterface/BuildFile.xml", ["evtgen"])
-    drop_tool_deps("cmssw/GeneratorInterface/TauolaInterface/BuildFile.xml", ["tauolapp"])
+    if not with_tauolapp:
+        drop_tool_deps("cmssw/GeneratorInterface/TauolaInterface/BuildFile.xml", ["tauolapp"])
 
     # LHAPDF 6.4 no longer carries the PDFLIB-era pdfset_ glue symbol this
     # linker-bait references (it exists only to force the archive lhapdf
@@ -1331,6 +1368,7 @@ missing_includes = {
     "cmssw/RecoParticleFlow/PFClusterTools/src/PFResolutionMap.cc": ["<array>"],
     "cmssw/Geometry/MTDGeometryBuilder/src/MTDParametersFromDD.cc": ["<array>"],
     "cmssw/L1Trigger/L1TMuonEndCap/interface/TrackTools.h": ["<utility>"],
+    "cmssw/RecoTracker/LSTCore/src/ModuleMethods.h": ["<fstream>"],
     # iterates a reco::TrackCollection with only TrackFwd.h in sight
     "cmssw/RecoTracker/FinalTrackSelectors/interface/TrackMVAClassifier.h":
         ['"DataFormats/TrackReco/interface/Track.h"'],
@@ -1346,6 +1384,61 @@ for path, headers in missing_includes.items():
         new = [f"#include {h}" for h in headers if f"#include {h}" not in src]
         return "\n".join(lines[:last + 1] + new + lines[last + 1:])
     edit(path, add_includes)
+
+# --- a non-const operator< (20_1) ------------------------------------------
+# RecoPPS/Local partial_sorts CTPPSPixelLocalTracks with std::less<>, which
+# libc++ calls on const references; libstdc++ compares through the iterators.
+for path, sig in [("cmssw/DataFormats/CTPPSReco/interface/CTPPSPixelLocalTrack.h",
+                   "bool operator<(const CTPPSPixelLocalTrack& r)"),
+                  ("cmssw/DataFormats/CTPPSReco/src/CTPPSPixelLocalTrack.cc",
+                   "bool CTPPSPixelLocalTrack::operator<(const CTPPSPixelLocalTrack &r)")]:
+    if os.path.exists(path):
+        edit(path, lambda src, sig=sig: src.replace(sig + ";", sig + " const;")
+             .replace(sig + " {", sig + " const {"))
+# LST's output converter takes std::ranges::size of a TrajectorySeed's hit
+# range, whose OwnVector iterators libc++ does not count as a sized range.
+path = "cmssw/RecoTracker/LST/plugins/LSTOutputConverter.cc"
+if os.path.exists(path):
+    edit(path, lambda src: src.replace("std::ranges::size(pixelSeeds[iSeed].recHits())",
+                                       "pixelSeeds[iSeed].nHits()"))
+
+# --- a persistent std::atomic<int> under libc++ (20_1) ---------------------
+# DetSetVectorNew's Item keeps its data offset in a std::atomic<int>, which
+# is written out (the clusters and digis of every RAW and RECO file). ROOT
+# has no notion of atomics: it streams the class the standard library
+# implements std::atomic<int> with. libstdc++'s base class holds a plain int
+# (_M_i), which ROOT can write; libc++'s holds a __cxx_atomic_impl wrapper,
+# which has no dictionary, so writing a DetSetVectorNew fails ("data member
+# __a_ will not be saved", a fatal ROOT error in cmsRun). Under libc++, let
+# ROOT (rootcling and the interpreter, which define __CLING__) see the int
+# the atomic holds - same size, alignment and offset - and initialize()
+# without the atomic exchange; the compiled code, the dictionary's
+# included, keeps the atomic.
+path = "cmssw/DataFormats/Common/interface/DetSetVectorNew.h"
+if os.path.exists(path):
+    def int_for_root(src):
+        decl = ("        mutable std::atomic<int> offset;\n"
+                "        bool initialize() const {\n"
+                "          int expected = -1;\n"
+                "          return offset.compare_exchange_strong(expected, -2);\n"
+                "        }\n")
+        if decl not in src:
+            # 10_6 does it already: the atomic only #ifdef DSVN_USE_ATOMIC,
+            # which its dictionaries do not define
+            if "DSVN_USE_ATOMIC" in src:
+                return src
+            raise SystemExit(f"{path}: Item::offset not where expected")
+        return src.replace(decl,
+            "#if defined(__CLING__) && defined(_LIBCPP_VERSION)\n"
+            "        mutable int offset;\n"
+            "        bool initialize() const {\n"
+            "          if (offset != -1)\n"
+            "            return false;\n"
+            "          offset = -2;\n"
+            "          return true;\n"
+            "        }\n"
+            "#else\n" + decl + "#endif\n")
+    edit(path, int_for_root)
 
 # --- the vector-extension SIMD types on Apple arm64 (all versions) ---------
 # SIMDVec.h falls back to the scalar Basic2DVector/Basic3DVector when
@@ -1411,6 +1504,25 @@ if os.path.exists(path):
             raise SystemExit("CondDB Utils.h: <climits> include not where expected")
         return src.replace(anchor, anchor + "#ifndef HOST_NAME_MAX\n#define HOST_NAME_MAX _POSIX_HOST_NAME_MAX\n#endif\n")
     edit(path, host_name_max)
+
+# --- payload type names without libc++'s inline namespace (all versions) ---
+# The conditions database stores each payload's C++ type name as libstdc++
+# spells it, and the reader compares it with the demangled typeid of the
+# type it asks for (cond::demangledName). libc++ demangles its containers
+# inside its inline namespace, std::__1::vector<...>, so every payload of a
+# standard type (DT's KeyList: std::vector<unsigned long long>) is refused
+# with "Type mismatch". Drop the inline namespace, as libstdc++'s names have
+# none for these types.
+if os.path.exists(path):
+    def without_libcxx_namespace(src):
+        # (10_6 spells the line with spaces inside the parentheses)
+        m = re.search(r"\n[ \t]*ret\.erase\(\s*std::remove\(\s*ret\.begin\(\),\s*ret\.end\(\),\s*' '\s*\),\s*ret\.end\(\)\s*\);[ \t]*\n", src)
+        if m is None:
+            raise SystemExit("CondDB Utils.h: the demangled name's clean-up not where expected")
+        return (src[:m.end()] +
+                "      for (std::string::size_type p; (p = ret.find(\"std::__1::\")) != std::string::npos;)\n"
+                "        ret.erase(p + 5, 5);\n" + src[m.end():])
+    edit(path, without_libcxx_namespace)
 
 # --- the stack-trace helper process outside Linux (all versions) ------------
 # InitRootHandlers forks a helper for stack traces. Two Linux-isms in it:
@@ -1654,7 +1766,7 @@ if os.path.exists(pb + "/src/ROOTFilePB.proto") and shutil.which("protoc"):
 # API is not packaged: drop that backend, so a configuration asking for it
 # fails when the module is constructed, and keep the other two.
 path = "cmssw/PhysicsTools/PatAlgos/interface/BaseMVAValueMapProducer.h"
-if os.path.exists(path):
+if os.path.exists(path) and not with_tensorflow:
     def no_tensorflow(src):
         src = src.replace('#include "PhysicsTools/TensorFlow/interface/TensorFlow.h"\n',
                           '#include "FWCore/Utilities/interface/Exception.h"\n')
@@ -1679,12 +1791,13 @@ if os.path.exists(path):
 # --- NanoAOD without TauSpinner and the displaced-tau DNN (all versions) ---
 # The tau-spin weight table producer drives the Tauola++ TauSpinner library
 # (the only Tauola++ user in the package), and the displaced-tau tagger
-# evaluates a TensorFlow graph. Neither external is packaged.
+# evaluates a TensorFlow graph: unless the build has the externals
+# (--with-tauolapp, --with-tensorflow).
 nano = "cmssw/PhysicsTools/NanoAOD"
-if os.path.exists(nano + "/plugins/TauSpinnerTableProducer.cc"):
+if os.path.exists(nano + "/plugins/TauSpinnerTableProducer.cc") and not with_tauolapp:
     os.remove(nano + "/plugins/TauSpinnerTableProducer.cc")
     drop_tool_deps(nano + "/plugins/BuildFile.xml", ["tauolapp"])
-if os.path.exists(nano + "/plugins/DisTauTag.cc"):
+if os.path.exists(nano + "/plugins/DisTauTag.cc") and not with_tensorflow:
     os.remove(nano + "/plugins/DisTauTag.cc")
 
 # --- (re)setiosflags found by argument-dependent lookup only (all versions) -
@@ -1714,7 +1827,7 @@ path = "cmssw/RecoBTag/ONNXRuntime/plugins"
 if glob.glob(path + "/*Sonic*.cc"):
     for f in glob.glob(path + "/*Sonic*.cc"):
         os.remove(f)
-    drop_tool_deps(path + "/BuildFile.xml", TF_TRITON_DEPS)
+    drop_tool_deps(path + "/BuildFile.xml", PRUNED_DEPS)
 
 # --- the EMTF emulator library without TensorFlow (20_1) --------------------
 # L1Trigger/L1TMuonEndCap lists PhysicsTools/TensorFlow among its
@@ -1746,6 +1859,9 @@ python_only("HeterogeneousCore/MPIServices")
 # which is not packaged. RecoMET's CSC halo code uses one of its headers
 # (inline lookup tables), which is why python_only keeps them.
 python_only("L1Trigger/CSCTrackFinder")
+# The L1 ntuples link it for their CSCTF tree; the standard sequences only
+# import their configuration (DQMOffline/L1Trigger's jet and sum monitor).
+python_only("L1Trigger/L1TNtuples")
 # Its two monitors in DQM/L1TMonitor, of that trigger and of its emulation,
 # use its lookup tables' code: without them.
 l1tmon = "cmssw/DQM/L1TMonitor"
@@ -1770,6 +1886,32 @@ if os.path.exists(hltl1 + ".cc"):
         "      // the track mode: bits 16-19 of the pt LUT address (pt_address)\n"
         "      csctfMode = (trk->first.ptLUTAddress() >> 16) & 0xf;\n"))
 drop_tool_deps("cmssw/HLTrigger/Muon/plugins/BuildFile.xml", ["L1Trigger/CSCTrackFinder"])
+# The Phase-2 L1 particle-flow trigger and track matching, and the L1 DQM
+# that monitors them (20_1): the standard sequences import their
+# configuration under the Phase-2 modifiers; their code needs the conifer
+# BDT external. SONIC's Triton client (the producers' remote-inference
+# variants, behind process modifiers) likewise.
+for pkg in ("L1Trigger/Phase2L1ParticleFlow", "L1Trigger/L1TTrackMatch",
+            "DQMOffline/L1Trigger", "HeterogeneousCore/SonicTriton"):
+    python_only(pkg)
+
+# --- the PPS proton transport without Hector (20_1) ------------------------
+# Every GEN-SIM step since 2016 schedules LHCTransport, which carries the
+# protons to the PPS stations. It has three methods; Run 3 (ctpps_2022) uses
+# the optical functions, only the 2016-2018 eras Hector, an external that is
+# not packaged. Without it, asking for Hector is a configuration error. (So
+# is Utilities/PPS's library, whose one function only Hector's transport
+# calls; the unit conversions the others use are a header.)
+ppst = "cmssw/SimTransport/PPSProtonTransport"
+if os.path.exists(ppst + "/src/HectorTransport.cc"):
+    os.remove(ppst + "/src/HectorTransport.cc")
+    os.remove(ppst + "/interface/HectorTransport.h")
+    edit(ppst + "/src/ProtonTransport.cc", lambda src: src.replace(
+        '#include "SimTransport/PPSProtonTransport/interface/HectorTransport.h"\n', "").replace(
+        "    instance_ = std::make_unique<HectorTransport>(iConfig, iC);\n",
+        '    throw cms::Exception("ProtonTransport") << "This build has no Hector: use the optical functions";\n'))
+    for bf in (ppst + "/BuildFile.xml", "cmssw/SimPPS/PPSSimTrackProducer/plugins/BuildFile.xml"):
+        drop_tool_deps(bf, ["hector", "Utilities/PPS"])
 
 # --- the legacy global muon trigger without std::atomic<std::shared_ptr> (20_1)
 # L1MuGlobalMuonTrigger shares its configuration between instances through

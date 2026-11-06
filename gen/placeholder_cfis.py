@@ -26,10 +26,14 @@ import sys
 out = sys.argv[1]
 src = os.path.join(out, "src")
 
-TEMPLATE = """import FWCore.ParameterSet.Config as cms
+# One class for all placeholders, in a module of its own: configuration code
+# that swaps one placeholder for another (toReplaceWith, as the Phase-2
+# pixel rechits do for the Phase-1 ones) requires both to be of one class.
+SHARED = ("FWCore", "ParameterSet", "notBuiltPlaceholder")
+SHARED_MODULE = """import FWCore.ParameterSet.Config as cms
 
-# Placeholder: the plugin behind this cfi is not part of this build (it needs
-# an external the build does not have; see gen/placeholder_cfis.py).
+# The module of the cfis whose plugin is not part of this build (it needs an
+# external the build does not have; see gen/placeholder_cfis.py).
 class _NotBuilt(cms.EDProducer):
     def clone(self, *args, **params):
         return _NotBuilt(self.type_())
@@ -43,16 +47,54 @@ class _NotBuilt(cms.EDProducer):
         except TypeError:
             pass
 
+    # and reads its parameters to derive its own: the DRN correctors clone
+    # their SONIC producer's client PSet (patPhotonDRNCorrectionProducer
+    # .Client.clone(...)). Only that one: the framework probes modules with
+    # hasattr (the alpaka accelerator asks for an "alpaka" PSet), which has
+    # to stay false.
+    def __getattr__(self, name):
+        if name != "Client":
+            raise AttributeError(name)
+        return _Unknown()
+
+
+class _Unknown:
+    \"\"\"A parameter of a placeholder: anything read from it, or a clone of
+    it, is another one.\"\"\"
+    def clone(self, *args, **params):
+        return _Unknown()
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return _Unknown()
+"""
+
+TEMPLATE = """# Placeholder: the plugin behind this cfi is not part of this build (it needs
+# an external the build does not have; see gen/placeholder_cfis.py).
+from FWCore.ParameterSet.notBuiltPlaceholder import _NotBuilt
+
 {definitions}"""
 
 
 # The plugin type behind a cfi, from the package's (installed) sources: the
-# generated cfi is named after the plugin class with its first letter in
-# lower case, and an alpaka module registers as "<class>@alpaka". Code that
-# inspects the type (HeterogeneousCore/AlpakaCore's makeSerialClone) then
-# sees the right one; without a match, the label stands in for it.
+# generated cfi is named after the plugin's default module label, and an
+# alpaka module registers as "<class>@alpaka". Code that inspects the type
+# (HeterogeneousCore/AlpakaCore's makeSerialClone) then sees the right one;
+# without a match, the label stands in for it.
 DEFINE = re.compile(r"\bDEFINE_FWK_(?:EVENTSETUP_)?(ALPAKA_)?MODULE\(\s*([\w:]+)\s*\)")
 plugin_types = {}
+
+
+def default_module_label(cls):
+    """edm::defaultModuleLabel: HBHERecHitProducerPortable ->
+    hbheRecHitProducerPortable, all of a leading run of capitals but the
+    last one in lower case."""
+    label = cls.replace(":", "")
+    ups = len(label) - len(label.lstrip("ABCDEFGHIJKLMNOPQRSTUVWXYZ"))
+    if 1 < ups < len(label):
+        ups -= 1
+    return label[:ups].lower() + label[ups:]
 
 
 def plugin_type(sub, pkg, label):
@@ -64,8 +106,7 @@ def plugin_type(sub, pkg, label):
                 if name.endswith(".cc"):
                     text = open(os.path.join(root, name), encoding="utf-8", errors="replace").read()
                     for alpaka, cls in DEFINE.findall(text):
-                        base = cls.split("::")[-1]
-                        types[base[:1].lower() + base[1:]] = cls + ("@alpaka" if alpaka else "")
+                        types[default_module_label(cls)] = cls + ("@alpaka" if alpaka else "")
     return plugin_types[key].get(label, label)
 
 
@@ -97,6 +138,11 @@ for root, dirs, files in os.walk(src):
                 continue
             names = wanted.setdefault((sub, pkg, tuple(rest)), set())
             names.update(a.name for a in node.names if a.name != "*")
+
+shared = os.path.join(out, "cfipython", *SHARED) + ".py"
+os.makedirs(os.path.dirname(shared), exist_ok=True)
+with open(shared, "w") as f:
+    f.write(SHARED_MODULE)
 
 for (sub, pkg, rest), names in sorted(wanted.items()):
     # a star import gets the label the cfi is named after

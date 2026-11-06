@@ -135,6 +135,42 @@ def cmake_dependency_lines(dependency, config):
     return cmake
 
 
+# The alpaka backend this build has: the serial one, the CPU. scram builds a
+# library flagged ALPAKA_BACKENDS once per backend, as <library><Backend>
+# (SerialSync, CudaAsync, ...), with the backend's ALPAKA_ACC_* define,
+# which selects the namespace its modules register in
+# (alpaka_serial_sync::); <use name="X"/> then also links X's library for
+# the same backend, if X has one.
+ALPAKA_BACKEND = "serial"
+ALPAKA_SUFFIX = "SerialSync"
+ALPAKA_DEFINE = "ALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED"
+
+
+def alpaka_backend_selected(value):
+    """Whether an ALPAKA_BACKENDS flag value ("1", "!serial", "cuda rocm")
+    includes the serial backend."""
+    value = value.strip()
+    if value == "1":
+        return True
+    if value.startswith("!"):
+        return ALPAKA_BACKEND not in value[1:].split()
+    return ALPAKA_BACKEND in value.split()
+
+
+def for_this_target(elem, backend):
+    """A <use for="alpaka/<backend>"/> belongs to that backend's library only."""
+    f = elem.get("for")
+    if f is None or not f.startswith("alpaka/"):
+        return True
+    return backend is not None and f == "alpaka/" + backend
+
+
+def alpaka_dependency_lines(dependency):
+    if "/" not in dependency:
+        return []
+    return ["target_link_libraries(<target> $<TARGET_NAME_IF_EXISTS:" + dependency.replace("/", "") + ALPAKA_SUFFIX + ">)"]
+
+
 def complete_build_file(build_file, default_lib_name=None, in_plugin_dir=False):
     with open(build_file) as f:
         xml = f.read()
@@ -196,7 +232,7 @@ def complete_build_file(build_file, default_lib_name=None, in_plugin_dir=False):
     return xml
 
 
-def parse_elements(root_node, config):
+def parse_elements(root_node, config, backend=None):
     cmake = []
     flags = {"LCG_DICT_HEADER": [], "LCG_DICT_XML": []}
 
@@ -212,10 +248,16 @@ def parse_elements(root_node, config):
                 flags["LCG_DICT_HEADER"] += elem.get("LCG_DICT_HEADER").split()
             if elem.get("LCG_DICT_XML"):
                 flags["LCG_DICT_XML"] += elem.get("LCG_DICT_XML").split()
+            if elem.get("DD4HEP_PLUGIN") == "1":
+                flags["DD4HEP_PLUGIN"] = True
+            if elem.get("ALPAKA_BACKENDS") is not None:
+                flags["ALPAKA_BACKENDS"] = elem.get("ALPAKA_BACKENDS")
         if elem.tag == "use" or elem.tag == "lib" and name(elem) != "1":
-            if elem.get("source_only") == "1":
+            if elem.get("source_only") == "1" or not for_this_target(elem, backend):
                 continue
             cmake += cmake_dependency_lines(name(elem), config)
+            if backend is not None and elem.tag == "use":
+                cmake += alpaka_dependency_lines(name(elem))
         if elem.tag == "lib":
             cmake += ["target_link_libraries(<target> " + name(elem) + ")"]
 
@@ -267,18 +309,25 @@ def lcg_dict_generation(headers, xmls):
     return cmake
 
 
-def get_global_dependencies(root_node):
+def get_global_dependencies(root_node, backend=None):
     global_dependencies = []
 
     for elem in root_node:
-        if elem.tag == "use" and elem.get("source_only") != "1":
+        if elem.tag == "use" and elem.get("source_only") != "1" and for_this_target(elem, backend):
             global_dependencies.append(name(elem))
         if elem.tag == "environment":
             for sub_elem in elem:
-                if sub_elem.tag == "use":
+                if sub_elem.tag == "use" and for_this_target(sub_elem, backend):
                     global_dependencies.append(name(sub_elem))
 
     return global_dependencies
+
+
+def get_global_flag(root_node, flag):
+    for elem in root_node:
+        if elem.tag == "flags" and elem.get(flag) is not None:
+            return elem.get(flag)
+    return None
 
 
 def get_global_libs(root_node):
@@ -291,9 +340,12 @@ def get_global_libs(root_node):
 # generate the fillDescriptions-based *_cfi.py files (scram's "cfipython")
 # with edmWriteConfigs at install time and place them in the right package.
 library_manifest = []
+# the libraries that register DD4hep factories (DD4HEP_PLUGIN="1"): the
+# install phase writes the <library>.components file DD4hep finds them by
+library_dd4hep_plugins = []
 
 
-def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, global_libs, config):
+def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_libs, config, alpaka_stanzas=False):
     target = name(elem)
 
     files = interpret_files(root, elem.get("file"))
@@ -302,6 +354,18 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, 
         target = files[0].split(".")[0]
 
     cmake_from_build_file, flags = parse_elements(elem, config)
+
+    # A plugins/ stanza flagged ALPAKA_BACKENDS is built for the backends
+    # only, not as a host library: here as <name>SerialSync, from the same
+    # sources (the .dev.cc files are plain C++ for the serial backend).
+    backend = None
+    if alpaka_stanzas and "ALPAKA_BACKENDS" in flags:
+        if not alpaka_backend_selected(flags["ALPAKA_BACKENDS"]):
+            return
+        backend = ALPAKA_BACKEND
+        target += ALPAKA_SUFFIX
+        cmake_from_build_file, flags = parse_elements(elem, config, backend)
+    global_dependencies = get_global_dependencies(root_node, backend)
 
     # If no dictionary headers were declared explicitly, but the conventional
     # classes.h / classes_def.xml pair exists, generate a dictionary for it.
@@ -326,11 +390,22 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, global_dependencies, 
             parts = os.path.normpath(root).split(os.sep)
             if len(parts) >= 2:
                 library_manifest.append((target, parts[0] + "/" + parts[1]))
+            if flags.get("DD4HEP_PLUGIN"):
+                library_dd4hep_plugins.append(target)
     if elem.tag == "bin":
         cmake.add_executable(files)
 
     for dependency in global_dependencies:
         cmake += cmake_dependency_lines(dependency, config)
+        if backend is not None:
+            cmake += alpaka_dependency_lines(dependency)
+    if backend is not None:
+        # the package's own libraries, host and serial (scram links the
+        # parent of an alpaka product)
+        parts = os.path.normpath(root).split(os.sep)
+        cmake += alpaka_dependency_lines("/".join(parts[:2]))
+        cmake += ["target_link_libraries(<target> $<TARGET_NAME_IF_EXISTS:" + "".join(parts[:2]) + ">)"]
+        cmake += ["target_compile_definitions(<target> PRIVATE " + ALPAKA_DEFINE + ")"]
     # some BuildFiles name their own library here (Geometry/DTGeometryBuilder)
     for lib in (l for l in global_libs if l != target):
         cmake += cmake_dependency_lines(lib, config)
@@ -368,20 +443,51 @@ def build_xml_to_cmake(root, root_node, config):
     # part of the base (host) library.
     cmake += ['list(FILTER SOURCE_FILES EXCLUDE REGEX "/alpaka/")']
 
-    global_dependencies = get_global_dependencies(root_node)
     global_libs = get_global_libs(root_node)
+    in_plugins = os.path.basename(os.path.normpath(root)) == "plugins"
 
     # scram tolerates a target declared twice (CondTools/RunInfo/plugins has
     # two identical LHCInfoPerLSWriter stanzas); CMake does not
     seen = set()
-    for elem in root_node:
+    # targets can also sit in an <environment> block, as the uses do
+    # (GeneratorInterface/Core/plugins, whose library holds the
+    # generatorSmeared producer every GEN step schedules)
+    elems = [sub for elem in root_node for sub in (elem if elem.tag == "environment" else [elem])]
+    for elem in elems:
         if elem.tag in ["library", "bin"]:
             key = (elem.tag, name(elem))
             if name(elem) is not None:
                 if key in seen:
                     continue
                 seen.add(key)
-            write_cmake_for_target(cmake, root, elem, n_globbed_files, global_dependencies, global_libs, config)
+            write_cmake_for_target(cmake, root, elem, n_globbed_files, root_node, global_libs, config,
+                                   alpaka_stanzas=in_plugins)
+
+    # A package flagged ALPAKA_BACKENDS builds its src/alpaka/ sources once
+    # per backend, as <package><Backend>, next to the host library: the
+    # backend's code for the data formats and algorithms (scram's
+    # alpaka_template_generic, which globs src/alpaka/ non-recursively).
+    # (complete_build_file has wrapped the package BuildFile's flags and
+    # uses into the library element it generated)
+    parts = os.path.normpath(root).split(os.sep)
+    package = "".join(parts)
+    host = [e for e in elems if e.tag == "library" and name(e) == package]
+    backends = get_global_flag(host[0], "ALPAKA_BACKENDS") if host else None
+    if (len(parts) == 2 and backends is not None and alpaka_backend_selected(backends)
+            and os.path.isdir(os.path.join(root, "src", "alpaka"))):
+        target = package + ALPAKA_SUFFIX
+        cmake += ['file(GLOB ALPAKA_SOURCE_FILES "src/alpaka/*.cc")']
+        cmake.add_library(["${ALPAKA_SOURCE_FILES}"])
+        library_manifest.append((target, "/".join(parts)))
+        for node in (root_node, host[0]):
+            for dependency in get_global_dependencies(node, ALPAKA_BACKEND):
+                cmake += cmake_dependency_lines(dependency, config)
+                cmake += alpaka_dependency_lines(dependency)
+        for lib in global_libs + [name(e) for e in host[0] if e.tag == "lib" and name(e) != "1"]:
+            cmake += ["target_link_libraries(<target> " + lib + ")"]
+        cmake += ["target_link_libraries(<target> $<TARGET_NAME_IF_EXISTS:" + package + ">)"]
+        cmake += ["target_compile_definitions(<target> PRIVATE " + ALPAKA_DEFINE + ")"]
+        cmake.fill_target(target)
 
     return cmake
 
@@ -496,3 +602,6 @@ if __name__ == "__main__":
     with open("library_manifest.txt", "w") as f:
         for target, pkg in library_manifest:
             f.write(f"{target} {pkg}\n")
+    with open("dd4hep_plugins.txt", "w") as f:
+        for target in library_dd4hep_plugins:
+            f.write(f"{target}\n")

@@ -51,6 +51,20 @@
       url = "github:cms-hls4ml/hls4mlEmulatorExtras/v1.1.4";
       flake = false;
     };
+    # the hls4ml models the L1 emulation loads at run time (the versions of
+    # cmsdist's CICADA.spec, AXOL1TL.spec and EMTF_NN.spec for 20_1)
+    cicada-src = {
+      url = "github:cms-hls4ml/CICADA/1.4.0";
+      flake = false;
+    };
+    axol1tl-src = {
+      url = "github:cms-hls4ml/AXOL1TL/v6.0.4";
+      flake = false;
+    };
+    emtf-nn-src = {
+      url = "github:cms-hls4ml/EMTF_NN/v1.0.2";
+      flake = false;
+    };
 
     coral-src = {
       url = "github:cms-externals/coral/cms/CORAL_2_3_21py3";
@@ -112,6 +126,127 @@
       flake = false;
     };
 
+    # The cms-data the standard Run 3 sequences read (examples/CmsDriverChain),
+    # at the versions cmsdist's data/cmsswdata.txt gives for
+    # CMSSW_20_1_0_pre4: the models and weight files of the reconstruction,
+    # PAT and NanoAOD. They are not part of the release (pkgs/cms-data.nix).
+    cmsdata-CalibPPS-ESProducers = {
+      url = "github:cms-data/CalibPPS-ESProducers/V01-05-00";
+      flake = false;
+    };
+    cmsdata-DataFormats-PatCandidates = {
+      url = "github:cms-data/DataFormats-PatCandidates/V01-01-00";
+      flake = false;
+    };
+    cmsdata-L1Trigger-CSCTriggerPrimitives = {
+      url = "github:cms-data/L1Trigger-CSCTriggerPrimitives/V00-13-00";
+      flake = false;
+    };
+    cmsdata-L1Trigger-DTTriggerPhase2 = {
+      url = "github:cms-data/L1Trigger-DTTriggerPhase2/V00-04-00";
+      flake = false;
+    };
+    cmsdata-L1Trigger-L1THGCal = {
+      url = "github:cms-data/L1Trigger-L1THGCal/V01-08-00";
+      flake = false;
+    };
+    cmsdata-L1Trigger-L1TTrackMatch = {
+      url = "github:cms-data/L1Trigger-L1TTrackMatch/V00-03-00";
+      flake = false;
+    };
+    cmsdata-L1Trigger-Phase2L1ParticleFlow = {
+      url = "github:cms-data/L1Trigger-Phase2L1ParticleFlow/V00-10-01";
+      flake = false;
+    };
+    cmsdata-PhysicsTools-NanoAOD = {
+      url = "github:cms-data/PhysicsTools-NanoAOD/V01-07-01";
+      flake = false;
+    };
+    cmsdata-RecoBTag-CTagging = {
+      url = "github:cms-data/RecoBTag-CTagging/V01-00-03";
+      flake = false;
+    };
+    cmsdata-RecoBTag-Combined = {
+      url = "github:cms-data/RecoBTag-Combined/V01-33-01";
+      flake = false;
+    };
+    cmsdata-RecoBTag-SecondaryVertex = {
+      url = "github:cms-data/RecoBTag-SecondaryVertex/V02-00-04";
+      flake = false;
+    };
+    cmsdata-RecoBTag-SoftLepton = {
+      url = "github:cms-data/RecoBTag-SoftLepton/V01-00-01";
+      flake = false;
+    };
+    cmsdata-RecoEgamma-ElectronIdentification = {
+      url = "github:cms-data/RecoEgamma-ElectronIdentification/V01-15-00";
+      flake = false;
+    };
+    cmsdata-RecoEgamma-PhotonIdentification = {
+      url = "github:cms-data/RecoEgamma-PhotonIdentification/V01-09-00";
+      flake = false;
+    };
+    cmsdata-RecoHGCal-TICL = {
+      url = "github:cms-data/RecoHGCal-TICL/V00-10-00";
+      flake = false;
+    };
+    cmsdata-RecoJets-JetProducers = {
+      url = "github:cms-data/RecoJets-JetProducers/V05-15-00";
+      flake = false;
+    };
+    cmsdata-RecoMET-METPUSubtraction = {
+      url = "github:cms-data/RecoMET-METPUSubtraction/V01-03-00";
+      flake = false;
+    };
+    cmsdata-RecoMTD-TimingIDTools = {
+      url = "github:cms-data/RecoMTD-TimingIDTools/V00-02-00";
+      flake = false;
+    };
+    cmsdata-RecoMuon-MuonIdentification = {
+      url = "github:cms-data/RecoMuon-MuonIdentification/V01-16-00";
+      flake = false;
+    };
+    cmsdata-RecoParticleFlow-PFBlockProducer = {
+      url = "github:cms-data/RecoParticleFlow-PFBlockProducer/V02-04-02";
+      flake = false;
+    };
+    cmsdata-RecoParticleFlow-PFProducer = {
+      url = "github:cms-data/RecoParticleFlow-PFProducer/V16-03-00";
+      flake = false;
+    };
+    cmsdata-RecoParticleFlow-PFTracking = {
+      url = "github:cms-data/RecoParticleFlow-PFTracking/V13-01-00";
+      flake = false;
+    };
+    cmsdata-RecoTauTag-TrainingFiles = {
+      url = "github:cms-data/RecoTauTag-TrainingFiles/V00-11-00";
+      flake = false;
+    };
+    cmsdata-RecoTracker-DisplacedRegionalTracking = {
+      url = "github:cms-data/RecoTracker-DisplacedRegionalTracking/V00-01-00";
+      flake = false;
+    };
+    cmsdata-RecoTracker-FinalTrackSelectors = {
+      url = "github:cms-data/RecoTracker-FinalTrackSelectors/V01-06-01";
+      flake = false;
+    };
+    cmsdata-RecoTracker-MkFit = {
+      url = "github:cms-data/RecoTracker-MkFit/V00-20-00";
+      flake = false;
+    };
+    cmsdata-RecoTracker-TkSeedGenerator = {
+      url = "github:cms-data/RecoTracker-TkSeedGenerator/V00-03-00";
+      flake = false;
+    };
+    cmsdata-SimPPS-PPSPixelDigiProducer = {
+      url = "github:cms-data/SimPPS-PPSPixelDigiProducer/V00-00-02";
+      flake = false;
+    };
+    cmsdata-SimTracker-SiStripDigitizer = {
+      url = "github:cms-data/SimTracker-SiStripDigitizer/V01-01-00";
+      flake = false;
+    };
+
     # externals for the reco chain: HepPDT (particle data table) and lwtnn
     # (lightweight NN inference, DeepFlavour + track classifier)
     heppdt-src = {
@@ -160,7 +295,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, l1tmuon-data, l1tglobal-data, fastsim-rechit-data, sipixel-templates-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src }:
+  outputs = { self, nixpkgs, nixpkgs-2205, cmssw-src, cmssw-10_6-src, alpaka-src, cms-md5-src, cms-md5-2-src, classlib-src, utm-src, hls4ml-emulator-extras-src, cicada-src, axol1tl-src, emtf-nn-src, coral-src, ecal-deadchannel-data, ecal-trivialcond-data, magfield-data, magfield-data-10_6, l1tmuon-data, l1tglobal-data, fastsim-rechit-data, sipixel-templates-data, heppdt-src, pythia8-src, lwtnn-src, dd4hep-src, hls-src, frontier-src, geant4-10_4-src, g4hepem-src, ... }@inputs:
     let
       systems = [ "x86_64-linux" "aarch64-darwin" ];
 
@@ -356,6 +491,53 @@
             '';
           });
 
+          # The cms-data of the standard Run 3 sequences, outside the release
+          # (pkgs/cms-data.nix), for examples/CmsDriverChain. L1TGlobal is the
+          # release's input (the same commit as cmsdist's V00-04-00); the
+          # release installs only the 2022 menu of it.
+          cms-data-reco_201 = pkgs.callPackage ./pkgs/cms-data.nix {
+            name = "cms-data-reco-20_1";
+            repos = [
+              { path = "CalibPPS/ESProducers"; src = inputs."cmsdata-CalibPPS-ESProducers"; }
+              { path = "DataFormats/PatCandidates"; src = inputs."cmsdata-DataFormats-PatCandidates"; }
+              { path = "L1Trigger/CSCTriggerPrimitives"; src = inputs."cmsdata-L1Trigger-CSCTriggerPrimitives"; }
+              { path = "L1Trigger/DTTriggerPhase2"; src = inputs."cmsdata-L1Trigger-DTTriggerPhase2"; }
+              { path = "L1Trigger/L1THGCal"; src = inputs."cmsdata-L1Trigger-L1THGCal"; }
+              { path = "L1Trigger/L1TTrackMatch"; src = inputs."cmsdata-L1Trigger-L1TTrackMatch"; }
+              { path = "L1Trigger/Phase2L1ParticleFlow"; src = inputs."cmsdata-L1Trigger-Phase2L1ParticleFlow"; }
+              { path = "PhysicsTools/NanoAOD"; src = inputs."cmsdata-PhysicsTools-NanoAOD"; }
+              { path = "RecoBTag/CTagging"; src = inputs."cmsdata-RecoBTag-CTagging"; }
+              { path = "RecoBTag/Combined"; src = inputs."cmsdata-RecoBTag-Combined"; }
+              { path = "RecoBTag/SecondaryVertex"; src = inputs."cmsdata-RecoBTag-SecondaryVertex"; }
+              { path = "RecoBTag/SoftLepton"; src = inputs."cmsdata-RecoBTag-SoftLepton"; }
+              { path = "RecoEgamma/ElectronIdentification"; src = inputs."cmsdata-RecoEgamma-ElectronIdentification"; }
+              { path = "RecoEgamma/PhotonIdentification"; src = inputs."cmsdata-RecoEgamma-PhotonIdentification"; }
+              { path = "RecoHGCal/TICL"; src = inputs."cmsdata-RecoHGCal-TICL"; }
+              { path = "RecoJets/JetProducers"; src = inputs."cmsdata-RecoJets-JetProducers"; }
+              { path = "RecoMET/METPUSubtraction"; src = inputs."cmsdata-RecoMET-METPUSubtraction"; }
+              { path = "RecoMTD/TimingIDTools"; src = inputs."cmsdata-RecoMTD-TimingIDTools"; }
+              { path = "RecoMuon/MuonIdentification"; src = inputs."cmsdata-RecoMuon-MuonIdentification"; }
+              { path = "RecoParticleFlow/PFBlockProducer"; src = inputs."cmsdata-RecoParticleFlow-PFBlockProducer"; }
+              { path = "RecoParticleFlow/PFProducer"; src = inputs."cmsdata-RecoParticleFlow-PFProducer"; }
+              { path = "RecoParticleFlow/PFTracking"; src = inputs."cmsdata-RecoParticleFlow-PFTracking"; }
+              { path = "RecoTauTag/TrainingFiles"; src = inputs."cmsdata-RecoTauTag-TrainingFiles"; }
+              { path = "RecoTracker/DisplacedRegionalTracking"; src = inputs."cmsdata-RecoTracker-DisplacedRegionalTracking"; }
+              { path = "RecoTracker/FinalTrackSelectors"; src = inputs."cmsdata-RecoTracker-FinalTrackSelectors"; }
+              { path = "RecoTracker/MkFit"; src = inputs."cmsdata-RecoTracker-MkFit"; }
+              { path = "RecoTracker/TkSeedGenerator"; src = inputs."cmsdata-RecoTracker-TkSeedGenerator"; }
+              { path = "SimPPS/PPSPixelDigiProducer"; src = inputs."cmsdata-SimPPS-PPSPixelDigiProducer"; }
+              { path = "SimTracker/SiStripDigitizer"; src = inputs."cmsdata-SimTracker-SiStripDigitizer"; }
+              { path = "L1Trigger/L1TGlobal"; src = l1tglobal-data; }
+            ];
+          };
+
+          # Tauola++ with TauSpinner (cmsdist's tauolapp 1.1.8), for
+          # GeneratorInterface/TauolaInterface and NanoAOD's TauSpinner table
+          tauolapp = pkgs.callPackage ./pkgs/tauolapp.nix {
+            pythia8 = pythia8_201;
+            hepmc2 = pkgs.hepmc2;
+          };
+
           # Of the L1 menus, the one the 20_1 Global Trigger emulator's
           # defaults name (simGtStage2Digis, PrescalesVetosFract_cff), with
           # its prescale and mask tables: 11 MB of the repository's 80.
@@ -468,9 +650,44 @@
             src = hls4ml-emulator-extras-src;
           };
 
+          hls4ml-model = pname: version: src: pkgs.callPackage ./pkgs/hls4ml-models.nix {
+            inherit hls4ml-emulator-extras hls pname version src;
+          };
+          cicada = hls4ml-model "CICADA" "1.4.0" cicada-src;
+          axol1tl = hls4ml-model "AXOL1TL" "6.0.4" axol1tl-src;
+          emtf-nn = hls4ml-model "EMTF_NN" "1.0.2" emtf-nn-src;
+
           hls = pkgs.callPackage ./pkgs/hls.nix {
             src = hls-src;
           };
+
+          # nixpkgs' TensorFlow is the binary wheel (pinned to a python it
+          # has one for: the C++ libraries inside do not depend on it)
+          tensorflow-cc = pkgs.callPackage ./pkgs/tensorflow-cc.nix {
+            wheel = pkgs.python313Packages.tensorflow-bin;
+          };
+
+          # One protobuf in the process, TensorFlow's: its libraries carry
+          # protobuf 6.31.1 (the release's version too) on abseil 20250814,
+          # and export protobuf's inline code as weak definitions, which
+          # dyld coalesces with those of any other protobuf loaded - with
+          # nixpkgs' 6.36 next to it, loading both crashes in the static
+          # initializers. Same version and abseil, and the coalescing is
+          # harmless. onnxruntime links protobuf too (its protoc is a build
+          # tool of its own, and it builds its own abseil from the source).
+          abseil-cpp-tf = pkgs.abseil-cpp_202508;
+          protobuf-tf = pkgs.protobuf_31.override { abseil-cpp = abseil-cpp-tf; };
+          onnxruntime-tf = (pkgs.onnxruntime.override {
+            protobuf = protobuf-tf;
+            abseil-cpp = abseil-cpp-tf;
+            # the C++ library is all CMSSW uses
+            pythonSupport = false;
+          }).overrideAttrs (old: {
+            cmakeFlags = map (f:
+              if pkgs.lib.hasPrefix "-DONNX_CUSTOM_PROTOC_EXECUTABLE" f
+              then "-DONNX_CUSTOM_PROTOC_EXECUTABLE:STRING=${pkgs.lib.getExe protobuf-tf}"
+              else f) old.cmakeFlags;
+          });
 
           dd4hep = pkgs.callPackage ./pkgs/dd4hep.nix {
             src = dd4hep-src;
@@ -520,7 +737,7 @@
             inherit dd4hep hls hls4ml-emulator-extras;
             # DQMServices/Core
             inherit classlib utm;
-            protobuf = pkgs.protobuf;
+            protobuf = protobuf-tf;
             # the streamer format and the Geners archives
             zstd = pkgs.zstd;
             bzip2 = pkgs.bzip2;
@@ -529,8 +746,13 @@
             hdf5 = pkgs.hdf5-cpp;
             hepmc = pkgs.hepmc2;
             hepmc3 = pkgs.hepmc3;
-            onnxruntime = pkgs.onnxruntime;
+            onnxruntime = onnxruntime-tf;
             xgboost = pkgs.xgboost;
+            inherit tensorflow-cc;
+            inherit tauolapp;
+            rivet = pkgs.rivet;
+            yoda = pkgs.yoda;
+            tinyxml2 = pkgs.tinyxml-2;
             # event generation
             pythia8 = pythia8_201;
             lhapdf = pkgs.lhapdf;
@@ -600,6 +822,11 @@
             protobuf = null;
             onnxruntime = null;
             xgboost = null;
+            tensorflow-cc = null;
+            tauolapp = null;
+            rivet = null;
+            yoda = null;
+            tinyxml2 = null;
             nlohmann_json = null;
             clangTools = if isDarwin then null else pkgs2205.llvmPackages_14.clang;
             libclangPython = libclang-python_2205;
@@ -633,12 +860,15 @@
           # hls, whose ap_int.h DataFormats/HLTReco's trigger object collections
           # include (through the Phase-2 GT candidate), so any module reading
           # HLT filter results does.
-          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral classlib hls pythia8_201 geant4_201 geant4-data_201 ];
+          extraPackages_201 = [ pkgs.onetbb pkgs.fmt coral classlib hls pythia8_201 geant4_201 geant4-data_201 cicada axol1tl emtf-nn pkgs.lhapdf.pdf_sets.NNPDF31_nnlo_hessian_pdfas ];
           # geant4-data is here for its setup hook alone: the ten G4*DATA
           # variables have to be in the environment of anything that runs the
           # simulation. It deliberately does not go in gen/setup-hook.sh, which
           # both releases share - putting it there would invalidate the 20_1
-          # build for a variable only 10_6 uses.
+          # build for a variable only 10_6 uses. cicada, axol1tl and emtf-nn
+          # likewise: the L1 emulation finds its hls4ml models on
+          # LD_LIBRARY_PATH. And the NNPDF3.1 set on LHAPDF_DATA_PATH, which
+          # NanoAOD's TauSpinner table initialises LHAPDF with.
           extraPackages_10_6 = [ pkgs2205.tbb coral_2205 pythia8_2205 geant4_10_4 geant4-data ];
 
           # Environment for using a CMSSW package: build analyzers against it with
@@ -652,6 +882,9 @@
             # from there. The example checks list it the same way.
             buildInputs = userPackages ps cmsswPkg rootPkg extraPackages;
           };
+
+          # The data packages example jobs can ask for ("data" in jobs.json).
+          exampleData = { cms-data-reco = cms-data-reco_201; };
 
           # The example jobs, read from the same file examples/run_all.sh reads.
           exampleJobs = builtins.fromJSON (builtins.readFile ./examples/jobs.json);
@@ -681,7 +914,10 @@
               };
 
               nativeBuildInputs = [ ps.cmake ps.ninja ];
-              buildInputs = userPackages ps cmsswPkg rootPkg extraPackages;
+              # (the data packages a job names in jobs.json, after the release,
+              # whose setup hook sets the CMSSW_SEARCH_PATH they extend)
+              buildInputs = userPackages ps cmsswPkg rootPkg extraPackages
+                ++ map (d: exampleData.${d}) (job.data or [ ]);
 
               # The examples drive cmake themselves (they need CMSSW_BASE from the
               # setup hook, which is only set once buildInputs have been sourced).
@@ -755,6 +991,7 @@
             inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205 pythia8_2205;
             inherit geant4_10_4 geant4-data geant4-data_201 g4hepem;
             inherit frontier-client frontier-client_2205;
+            inherit cms-data-reco_201;
             default = cmssw;
           };
 
@@ -778,6 +1015,10 @@
 
           devShells = {
             default = makeUserShell pkgs cmssw root extraPackages_201;
+
+            # with the cms-data of the standard Run 3 sequences (some 2 GB):
+            # what cmsDriver.py's RECO, PAT and NANO steps read
+            with-reco-data = makeUserShell pkgs cmssw root (extraPackages_201 ++ [ cms-data-reco_201 ]);
 
             cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root extraPackages_10_6;
 
