@@ -10,7 +10,7 @@
 #                        `configure --fresh`)
 #   fresh                unpack, patch (incl. the serialization code
 #                        generation) and configure a new tree from scratch
-#   sync                 apply edits to gen/ (prepare_sources.py, config.yml,
+#   sync                 apply edits to gen/ (gen/prepare, config.yml,
 #                        CMakeLists.txt, the generator) to the existing tree:
 #                        re-prepares a fresh copy and copies over only the
 #                        files whose content changed, then re-runs configure
@@ -88,7 +88,7 @@ prepare_into() {
 }
 
 # The phases in the printed environment refer to gen/ by store path, as of
-# when it was printed: an edit to prepare_sources.py reaches the tree only
+# when it was printed: an edit to gen/prepare reaches the tree only
 # through a new environment. Cheap when the dependencies are unchanged.
 make_env() {
   echo "==> build environment of .#packages.$system.$attr"
@@ -120,7 +120,7 @@ case "$cmd" in
   sync)
     [ -d "$src" ] || { echo "no tree yet: run '$0 $era fresh'" >&2; exit 1; }
     make_env
-    # prepare_sources.py edits the sources in place and is not idempotent,
+    # gen/prepare edits the sources in place and is not idempotent,
     # so it must never run on the tree itself. Prepare a fresh copy and copy
     # over what differs by content: unchanged files keep their mtimes, so
     # ninja rebuilds only what the edit touched.

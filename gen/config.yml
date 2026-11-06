@@ -76,7 +76,7 @@ subsystems:
           # SiStripCommon builds WITH its plugins here, as in the 10_6
           # configuration: the SiStripDetInfoFileReader service lives there
           # and the strip digitiser needs it. What made the package awkward
-          # is pruned for both eras in gen/prepare_sources.py - the Shallow*
+          # is pruned for both eras in gen/prepare - the Shallow*
           # calibration-ntuple producers, which would drag in the whole
           # SimTracker truth-matching and track-fitting chain.
           - Records
@@ -638,7 +638,7 @@ subsystems:
         # packaged, and ExternalDecayDriver creates them through plugin
         # factories, so a configuration that does not ask for external
         # decays never notices. Tauola's are built (pkgs/tauolapp.nix). Pythia's own EvtGen adapter is stubbed, and the
-        # fortran Madgraph/Alpgen matchers pruned (gen/prepare_sources.py).
+        # fortran Madgraph/Alpgen matchers pruned (gen/prepare).
         no_plugins:
           - EvtGenInterface
           - PhotosInterface

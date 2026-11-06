@@ -94,7 +94,7 @@ if(CMSSW_WITH_HEPMC)
   # The fortran-io half of HepMC 2 (the HEPEVT_Wrapper statics the Pythia8
   # interface uses) is a separate tool: libHepMCfio references the hepevt_
   # fortran common, which only the Pythia8Interface plugin library defines
-  # (see prepare_sources.py) - linking fio from every hepmc user would make
+  # (see gen/prepare) - linking fio from every hepmc user would make
   # every one of them fail to dlopen.
   find_library(hepmcfio_LIBRARIES NAMES HepMCfio REQUIRED)
   set(hepmcfio_INCLUDE_DIRECTORIES ${hepmc_INCLUDE_DIRECTORIES})

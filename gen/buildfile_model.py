@@ -1,8 +1,8 @@
-"""What gen/prepare_sources.py does to the BuildFile dependency graph, for
+"""What gen/prepare does to the BuildFile dependency graph, for
 the scripts that reason about it (plan_packages.py, rank_blockers.py).
 
 deps_of() reads a package's BuildFile.xml files and returns the package and
-external-tool ("scram tool") dependencies, minus the edges prepare_sources.py
+external-tool ("scram tool") dependencies, minus the edges gen/prepare
 prunes (PRUNED_EDGES), the library stanzas it deletes (STANZA) and, like
 gen/cmssw_cmake.py, the <iftool> blocks.
 """
@@ -13,7 +13,7 @@ use_re = re.compile(r'<\s*use\s+name\s*=\s*"([^"]+)"')
 STANZA = [r'<library[^>]*>(?:(?!</library>).)*DD4HEP_PLUGIN(?:(?!</library>).)*</library>\n?',
  r'<library[^>]*>(?:(?!</library>).)*name="(?:Fireworks/Core)"(?:(?!</library>).)*</library>\n?',
  r'<library[^>]*name="(?:DD4hep_|alpaka_)[^"]*"[^>]*>(?:(?!</library>).)*</library>\n?']
-# dependencies that gen/prepare_sources.py removes before the build
+# dependencies that gen/prepare removes before the build
 PRUNED_EDGES = {
  ("FWCore/Services", "Utilities/XrdAdaptor"), ("FWCore/Services", "FWStorage/XrdAdaptor"),
  ("FWStorage/Services", "FWStorage/XrdAdaptor"),

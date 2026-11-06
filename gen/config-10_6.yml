@@ -36,7 +36,7 @@
 # Ecal/Hcal/HGCal XML data) and the standalone conditions providers
 # (EcalTrivialConditionRetriever, HcalHardcodeCalibrations). Several stale
 # or optional dependencies are pruned at prepare time, see
-# prepare_sources.py.
+# gen/prepare.
 #
 # Full high-level reconstruction chain: tracking + vertexing
 # (TrackingTools, RecoTracker, RecoPixelVertexing, RecoVertex), muons
@@ -45,7 +45,7 @@
 # fastjet), b/tau tagging (RecoBTag with lwtnn, RecoBTau, RecoTauTag) and
 # the supporting PhysicsTools/CommonTools/Sim* layers. The DNN producers
 # that need TensorFlow/ONNXRuntime and the HLT/L1 tooling (utm external)
-# are excluded; see prepare_sources.py for the related prunes.
+# are excluded; see gen/prepare for the related prunes.
 #
 # Simulation: Geant4 detector simulation (SimG4Core, SimG4CMS - see
 # examples/MuonGunSim) and, on top of it, digitisation. The DIGI step

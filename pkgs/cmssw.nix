@@ -78,7 +78,7 @@
 , onnxruntime ? null
 , xgboost ? null
 # TensorFlow (pkgs/tensorflow-cc.nix): the 20_1 reconstruction's DNNs. Without
-# it, gen/prepare_sources.py prunes the TensorFlow users.
+# it, gen/prepare prunes the TensorFlow users.
 , tensorflow-cc ? null
 # Tauola++ (pkgs/tauolapp.nix): the tau decays of GeneratorInterface/
 # TauolaInterface and NanoAOD's TauSpinner table. Without it both are pruned.
@@ -218,7 +218,7 @@ stdenv.mkDerivation {
 
     # Trim to the plain cmsRun binary, drop the XrdAdaptor dependency and
     # apply version-specific fixups.
-    python3 ${../gen/prepare_sources.py} ${version}${lib.optionalString (tensorflow-cc != null) " --with-tensorflow"}${lib.optionalString (tauolapp != null) " --with-tauolapp"}
+    python3 ${../gen/prepare} ${version}${lib.optionalString (tensorflow-cc != null) " --with-tensorflow"}${lib.optionalString (tauolapp != null) " --with-tauolapp"}
 
     ${lib.optionalString (libclangPython != null) ''
       # Generate the conditions serialization code (src/Serialization.cc per

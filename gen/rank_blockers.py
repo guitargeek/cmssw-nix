@@ -157,7 +157,7 @@ print(f"missing tools: {' '.join(sorted(missing))}\n")
 odd = sorted(p for p in in_config & exists if blockers[p])
 if odd:
     print("in the configuration although the model says blocked (pruned by")
-    print("prepare_sources.py beyond what buildfile_model.py knows?):")
+    print("gen/prepare beyond what buildfile_model.py knows?):")
     for p in odd: print(f"   {p}: {' '.join(sorted(blockers[p]))}")
     print()
 

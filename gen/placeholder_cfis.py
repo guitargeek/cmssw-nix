@@ -4,7 +4,7 @@ The release's configuration code imports some cfis at module level only to
 swap their modules in under a process modifier: the Triton (SONIC) variants
 of the b-tagging, DeepMET and DeepTau producers, the TensorFlow-based tau
 identification, NanoAOD's TauSpinner table. Those producers need externals
-this build does not have and gen/prepare_sources.py prunes them, so their
+this build does not have and gen/prepare prunes them, so their
 cfis - generated from the plugins - never exist, and the configuration that
 imports them does not load at all, whether the modifier is on or not.
 

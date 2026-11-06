@@ -192,7 +192,7 @@ process.tracks = cms.EDAnalyzer(
     "TrackResolution",
     tracks=cms.InputTag("fastTracks"),
     # the SimTracks of the generator's muons: FastSim's own, which carry the
-    # generator index the same way Geant4's do (see gen/prepare_sources.py)
+    # generator index the same way Geant4's do (see gen/prepare)
     simTracks=cms.InputTag("fastSimProducer"),
     minPt=cms.double(1.0),
     maxDeltaR=cms.double(0.1),

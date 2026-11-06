@@ -119,7 +119,7 @@ members and omits this one, and `~CastorSD` runs `delete showerLibrary`
 unconditionally. With the library on the pointer is always valid, which is why
 production never sees it. With it off, `cmsRun` segfaults on the way out —
 after every event has been simulated and written, so the output file is
-complete and only the exit code is wrong. `gen/prepare_sources.py` adds
+complete and only the exit code is wrong. `gen/prepare` adds
 `showerLibrary(nullptr)` to the initialiser list.
 
 ## Two things the standard sequences would have done for us
