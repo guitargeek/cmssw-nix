@@ -122,6 +122,10 @@ endif()
 if(CMSSW_WITH_VDT)
   # inline fast-math headers only (scram tool vdt_headers)
   find_path(vdt_headers_INCLUDE_DIRECTORIES NAMES vdt/vdtMath.h REQUIRED)
+  # (scram tool vdt: the same headers and the library with the vectorised
+  # array functions)
+  set(vdt_INCLUDE_DIRECTORIES ${vdt_headers_INCLUDE_DIRECTORIES})
+  find_library(vdt_LIBRARIES NAMES vdt REQUIRED)
 endif()
 if(CMSSW_WITH_GSL)
   find_library(gsl_LIBRARIES NAMES gsl REQUIRED)
@@ -220,6 +224,7 @@ if(CMSSW_WITH_HLS4ML_EMULATOR_EXTRAS)
   # L1Trigger/L1TGlobal loads through the emulator interface at run time,
   # only for menus with those conditions: nothing to compile or link against.
   set(AXOL1TL_LIBRARIES "")
+  set(CICADA_LIBRARIES "")
 endif()
 if(CMSSW_WITH_UTM)
   foreach(_l tmeventsetup tmtable tmxsd tmgrammar tmutil)
@@ -339,6 +344,8 @@ if(CMSSW_WITH_DD4HEP)
   # needs it: DDG4 installs its headers under the same prefix as DDCore, and
   # dd4hep_INCLUDE_DIRECTORIES is on the global include path already.
   find_library(dd4hep-geant4_LIBRARIES NAMES DDG4 REQUIRED)
+  # ... and some packages ask for the core library alone
+  find_library(dd4hep-core_LIBRARIES NAMES DDCore REQUIRED)
 endif()
 if(CMSSW_WITH_CURL)
   find_library(curl_LIBRARIES NAMES curl REQUIRED)
@@ -453,6 +460,27 @@ set(boost_regex_LIBRARIES Boost::regex)
 set(boost_serialization_LIBRARIES Boost::serialization)
 set(boost_iostreams_LIBRARIES Boost::iostreams)
 set(boost_chrono_LIBRARIES Boost::chrono)
+set(boost_filesystem_LIBRARIES Boost::filesystem)
+# header-only since boost 1.69
+set(boost_system_LIBRARIES "")
+set(boost_system_INCLUDE_DIRECTORIES ${Boost_INCLUDE_DIRS})
+
+# nlohmann/json, header-only (20_1)
+find_path(json_INCLUDE_DIRECTORIES NAMES nlohmann/json.hpp)
+
+# The Fortran runtime, for packages with Fortran sources: this build
+# compiles none (the Fortran generator interfaces are pruned, gen/prepare).
+set(f77compiler_LIBRARIES "")
+
+# scram's flag tools: compile options for the targets that <use> them, and
+# not for their dependents (NO_RECURSIVE_EXPORT), as cmsdist defines them in
+# scram-tools.file/tools/gcc/*-flag.xml. The generator adds <tool>_FLAGS to
+# the private compile options of such a target.
+set(ofast-flag_FLAGS -Ofast -fno-reciprocal-math)
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|ppc64le")
+  list(APPEND ofast-flag_FLAGS -mrecip=none)
+endif()
+set(no-array-bounds-flag_FLAGS -Wno-error=array-bounds -Wno-array-bounds)
 
 if(TBB_FOUND)
   set(tbb_LIBRARIES TBB::tbb)
@@ -664,4 +692,24 @@ macro(MAKE_GENREFLEX_COMMAND MY_TARGET MY_SOURCE MY_HEADER MY_XML)
 endmacro()
 
 # go into the cmssw source directory
+# Every scram tool a BuildFile <use>s must be defined above. The generated
+# cmssw/CMakeLists.txt lists them, each with a package that uses it, and
+# calls this first: an undefined tool would otherwise expand to nothing and
+# silently drop the dependency from every target that names it.
+function(cmssw_check_tools)
+  set(missing "")
+  foreach(entry IN LISTS ARGN)
+    string(REPLACE ":" ";" parts "${entry}")
+    list(GET parts 0 tool)
+    list(GET parts 1 pkg)
+    if(NOT DEFINED ${tool}_LIBRARIES AND NOT DEFINED ${tool}_INCLUDE_DIRECTORIES
+       AND NOT DEFINED ${tool}_FLAGS)
+      string(APPEND missing "\n  ${tool} (used by ${pkg})")
+    endif()
+  endforeach()
+  if(missing)
+    message(FATAL_ERROR "BuildFiles use tools that gen/CMakeLists.txt does not define:${missing}")
+  endif()
+endfunction()
+
 add_subdirectory(cmssw)

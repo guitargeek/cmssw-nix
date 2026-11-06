@@ -931,3 +931,25 @@ if os.path.exists(ppst + "/src/HectorTransport.cc"):
 path = "cmssw/FastSimulation/ParticleDecay"
 if os.path.exists(path + "/src/PythiaDecays.cc") and "pydata" not in open(path + "/src/PythiaDecays.cc").read():
     drop_tool_deps(path + "/BuildFile.xml", ["pydata", "f77compiler"])
+
+# --- externals declared but not used (all versions) -------------------------
+# BuildFiles that declare externals none of the code built here uses, and
+# that this build does not provide: expat (declared across SimG4Core since
+# Geant4's GDML reader needed it), ktjet, and cppunit for a plugin library
+# without tests. In 10_6 also boost_python, which only CondCore/Utilities'
+# payload inspector headers include (no library built here includes them),
+# and classlib in RecoBTag/Combined, which nothing there includes.
+# gen/CMakeLists.txt refuses tools it does not define, so each of these has
+# to be either packaged or dropped.
+for root, dirs, files in os.walk("cmssw"):
+    if "BuildFile.xml" in files:
+        path = os.path.join(root, "BuildFile.xml")
+        with open(path, encoding="latin-1") as f:
+            if '"expat"' in f.read():
+                drop_tool_deps(path, ["expat"])
+drop_tool_deps("cmssw/RecoJets/JetAlgorithms/BuildFile.xml", ["ktjet"])
+drop_tool_deps("cmssw/CondFormats/Common/plugins/BuildFile.xml", ["cppunit"])
+if release_cycle < (11, 0):
+    for path in ("cmssw/CondCore/Utilities/BuildFile.xml", "cmssw/CondCore/Utilities/plugins/BuildFile.xml"):
+        drop_tool_deps(path, ["boost_python"])
+    drop_tool_deps("cmssw/RecoBTag/Combined/plugins/BuildFile.xml", ["classlib"])

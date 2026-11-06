@@ -124,10 +124,21 @@ def load_config(config_file):
     return config
 
 
-def cmake_dependency_lines(dependency, config):
+# The scram tools the BuildFiles <use>, each with a package that uses it:
+# gen/CMakeLists.txt has to define <tool>_LIBRARIES or
+# <tool>_INCLUDE_DIRECTORIES for every one of them. An undefined one expands
+# to nothing, and the dependency would silently vanish from the build.
+used_tools = {}
+
+
+def cmake_dependency_lines(dependency):
     # deal with local cmssw deps
     if "/" in dependency:
         return ["", "target_link_libraries(<target> " + dependency.replace("/", "") + ")"]
+
+    if dependency.endswith("-flag"):
+        # scram's flag tools: compile options for this target only
+        return ["target_compile_options(<target> PRIVATE ${" + dependency + "_FLAGS})"]
 
     cmake = ["target_include_directories(<target> PUBLIC ${" + dependency + "_INCLUDE_DIRECTORIES})"]
     cmake += ["target_link_libraries(<target> ${" + dependency + "_LIBRARIES})"]
@@ -232,7 +243,13 @@ def complete_build_file(build_file, default_lib_name=None, in_plugin_dir=False):
     return xml
 
 
-def parse_elements(root_node, config, backend=None):
+def note_tool(dependency, root):
+    if "/" not in dependency:
+        parts = os.path.normpath(root).split(os.sep)
+        used_tools.setdefault(dependency, "/".join(parts[:2]))
+
+
+def parse_elements(root_node, root, backend=None):
     cmake = []
     flags = {"LCG_DICT_HEADER": [], "LCG_DICT_XML": []}
 
@@ -255,7 +272,9 @@ def parse_elements(root_node, config, backend=None):
         if elem.tag == "use" or elem.tag == "lib" and name(elem) != "1":
             if elem.get("source_only") == "1" or not for_this_target(elem, backend):
                 continue
-            cmake += cmake_dependency_lines(name(elem), config)
+            if elem.tag == "use":
+                note_tool(name(elem), root)
+            cmake += cmake_dependency_lines(name(elem))
             if backend is not None and elem.tag == "use":
                 cmake += alpaka_dependency_lines(name(elem))
         if elem.tag == "lib":
@@ -345,7 +364,7 @@ library_manifest = []
 library_dd4hep_plugins = []
 
 
-def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_libs, config, alpaka_stanzas=False):
+def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_libs, alpaka_stanzas=False):
     target = name(elem)
 
     files = interpret_files(root, elem.get("file"))
@@ -353,7 +372,7 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_lib
     if target is None:
         target = files[0].split(".")[0]
 
-    cmake_from_build_file, flags = parse_elements(elem, config)
+    cmake_from_build_file, flags = parse_elements(elem, root)
 
     # A plugins/ stanza flagged ALPAKA_BACKENDS is built for the backends
     # only, not as a host library: here as <name>SerialSync, from the same
@@ -364,7 +383,7 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_lib
             return
         backend = ALPAKA_BACKEND
         target += ALPAKA_SUFFIX
-        cmake_from_build_file, flags = parse_elements(elem, config, backend)
+        cmake_from_build_file, flags = parse_elements(elem, root, backend)
     global_dependencies = get_global_dependencies(root_node, backend)
 
     # If no dictionary headers were declared explicitly, but the conventional
@@ -396,7 +415,8 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_lib
         cmake.add_executable(files)
 
     for dependency in global_dependencies:
-        cmake += cmake_dependency_lines(dependency, config)
+        note_tool(dependency, root)
+        cmake += cmake_dependency_lines(dependency)
         if backend is not None:
             cmake += alpaka_dependency_lines(dependency)
     if backend is not None:
@@ -408,7 +428,7 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_lib
         cmake += ["target_compile_definitions(<target> PRIVATE " + ALPAKA_DEFINE + ")"]
     # some BuildFiles name their own library here (Geometry/DTGeometryBuilder)
     for lib in (l for l in global_libs if l != target):
-        cmake += cmake_dependency_lines(lib, config)
+        cmake += cmake_dependency_lines(lib)
         cmake += ["target_link_libraries(<target> " + lib + ")"]
 
     cmake += cmake_from_build_file
@@ -419,7 +439,8 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_lib
         cmake._txt = [l.replace("(<target> PUBLIC", "(<target>") for l in cmake._txt]
         # and there is no file to name: a package with nothing but python/
         # can still declare EDM_PLUGIN (DQMOffline/HLTScouting)
-        cmake._txt = [l for l in cmake._txt if not l.startswith("set_target_properties(<target>")]
+        cmake._txt = [l for l in cmake._txt if not l.startswith("set_target_properties(<target>")
+                      and not l.startswith("target_compile_options(<target> PRIVATE")]
 
     cmake.fill_target(target + " INTERFACE" * (0 + is_interface))
 
@@ -428,7 +449,7 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_lib
     cmake.fill_target(target)
 
 
-def build_xml_to_cmake(root, root_node, config):
+def build_xml_to_cmake(root, root_node):
     cmake = CMakeLists()
 
     # scram's default source glob also picks up .cxx and .cpp (e.g. the
@@ -460,7 +481,7 @@ def build_xml_to_cmake(root, root_node, config):
                 if key in seen:
                     continue
                 seen.add(key)
-            write_cmake_for_target(cmake, root, elem, n_globbed_files, root_node, global_libs, config,
+            write_cmake_for_target(cmake, root, elem, n_globbed_files, root_node, global_libs,
                                    alpaka_stanzas=in_plugins)
 
     # A package flagged ALPAKA_BACKENDS builds its src/alpaka/ sources once
@@ -481,7 +502,8 @@ def build_xml_to_cmake(root, root_node, config):
         library_manifest.append((target, "/".join(parts)))
         for node in (root_node, host[0]):
             for dependency in get_global_dependencies(node, ALPAKA_BACKEND):
-                cmake += cmake_dependency_lines(dependency, config)
+                note_tool(dependency, root)
+                cmake += cmake_dependency_lines(dependency)
                 cmake += alpaka_dependency_lines(dependency)
         for lib in global_libs + [name(e) for e in host[0] if e.tag == "lib" and name(e) != "1"]:
             cmake += ["target_link_libraries(<target> " + lib + ")"]
@@ -550,11 +572,15 @@ def cmssw_to_cmake(cmssw_src_dir, config_path):
                 continue
             # don't write cmake files immediately, we might want to change them later
             cmake_in_subsystem[subsystem]["/".join(root.split("/")[2:])] = build_xml_to_cmake(
-                root, ET.fromstring("<root>" + xml + "</root>"), config
+                root, ET.fromstring("<root>" + xml + "</root>")
             )
 
-    # Finally, include all subdirs into which we have written CMakeList files
+    # Finally, include all subdirs into which we have written CMakeList files,
+    # once every tool they use is known to be defined
     cmake = CMakeLists()
+    cmake += ["# <tool>:<a package that uses it>", "set(CMSSW_USED_TOOLS"]
+    cmake += [f"  {tool}:{pkg}" for tool, pkg in sorted(used_tools.items())]
+    cmake += [")", "cmssw_check_tools(${CMSSW_USED_TOOLS})", ""]
     cmake += ["include_directories(.)", ""]
     for subsystem, cmakes in cmake_in_subsystem.items():
         cmake.add_subdirs([subsystem])
