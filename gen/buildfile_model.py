@@ -1,5 +1,5 @@
 """What gen/prepare does to the BuildFile dependency graph, for
-the scripts that reason about it (plan_packages.py, rank_blockers.py).
+the script that reasons about it (rank_blockers.py).
 
 deps_of() reads a package's BuildFile.xml files and returns the package and
 external-tool ("scram tool") dependencies, minus the edges gen/prepare

@@ -15,13 +15,13 @@ examples/MuonGunDigi/muon_gun_raw.dat
 examples/MuonGunDigi/sim_conditions.db
 *.pyc
 __pycache__/
-build-*.log
 examples/ConditionsSqlite/beamspot.db
 examples/ConditionsFrontier/frontier_port.txt
-rebuild-status.log
 # written by write_pixel_la_20_1_cfg.py, which the 20_1 job list runs first
 examples/*/pixel_la.db
 # incremental build trees of scripts/worktree.sh
 /worktree/
 examples/MuonGunDigi/DQM_V0001_R000000001__MuonGun__Validation__RECO.root
 examples/MuonGunDigi/DQM_V0001_R000000001__MuonGun__DQM__RECO.root
+# written by CmsDriverChain's jobs (cmsDriver.py)
+examples/CmsDriverChain/step*_cfg.py

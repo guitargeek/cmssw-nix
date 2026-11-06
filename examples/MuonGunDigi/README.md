@@ -118,7 +118,7 @@ Reading those payloads back also needs `CondCore/SiStripPlugins`, whose
 `plugins/plugin.cc` holds the `REGISTER_PLUGIN` list that gives
 `PoolDBESSource` its record proxies. Without it the job fails with *"Unable to
 find plugin 'SiStripLorentzAngleSimRcd@NewProxy'"*. Only that one library is
-built: `gen/prepare_sources.py` drops the eleven payload inspectors beside it,
+built: `gen/prepare` drops the eleven payload inspectors beside it,
 which need `boost_python` and are a web display tool.
 
 ## Closing the loop: local reconstruction
@@ -471,9 +471,13 @@ would, with no CMSSW involved at all, matches every `GenPart` muon to the
 nearest `Muon` and compares their momenta:
 
 ```
-muon_gun_nano.root: 5 events, 20 generated muons
-  reconstructed 19 (95%), 17 of them global
-  median |dpt|/pt = 0.704%, correct charge 19/19
+muon_gun_nano.root: 5 events, 20 generated muons            (10_6)
+  reconstructed 19 (95%), 18 of them global
+  median |dpt|/pt = 0.467%, correct charge 19/19
+
+muon_gun_nano.root: 5 events, 20 generated muons            (20_1)
+  reconstructed 18 (90%), 17 of them global
+  median |dpt|/pt = 0.428%, correct charge 18/18
 ```
 
 Which closes the loop these examples opened: a muon is generated, transported
@@ -597,7 +601,7 @@ whether the chamber configuration is valid, which the emulator checks before
 it does anything. The database producer sets it; the from-python one never
 does, and the constructor leaves the `bool` uninitialised - so whether the
 emulator runs depended on whatever was in that heap memory. Here, it did
-not. The flake sets the flag (`gen/prepare_sources.py`).
+not. The flake sets the flag (`gen/prepare`).
 
 ## The High-Level Trigger: what CMS records
 
@@ -688,7 +692,7 @@ flagged as primary, a flag the Geant4 simulation sets and FastSim's
 `ParticleManager` does not, so every FastSim SimTrack read as having no
 generator particle, and the TrackingParticles built from them lost their
 link to it.
-`gen/prepare_sources.py` sets the flag where the index is set; CMSSW master
+`gen/prepare` sets the flag where the index is set; CMSSW master
 is unchanged.
 
 ## The release validation: the same tracks, judged the standard way

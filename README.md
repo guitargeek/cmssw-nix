@@ -1,9 +1,8 @@
 # CMSSW on nix
 
-A nix flake that packages about **half of CMSSW** — 523 of the ~1,100
-packages of the current pre-release `CMSSW_20_1_0_pre4`, and 494 of the
-Run-2 ultra-legacy release `CMSSW_10_6_30` — built with CMake instead of
-scram, so that people outside the CMS collaboration can run the CMS
+A nix flake that packages most of CMSSW — 1,067 of the 1,371 packages of
+the pre-release `CMSSW_20_1_0_pre4`, and 494 of the 1,255 of the Run-2
+ultra-legacy release `CMSSW_10_6_30` — built with CMake instead of scram, so that people outside the CMS collaboration can run the CMS
 **event-processing workflow end to end** on their own machine: event
 generation with Pythia 8, detector simulation with Geant4 through the real
 CMS geometry, digitisation into readout, the standard reconstruction chains
@@ -29,7 +28,7 @@ within a percent of what the generator fired".
 
 Both are built to the same scope and run the same example jobs from the
 same configuration files, with the (documented) differences behind an
-`_is_10_6` switch — see *Porting notes* below.
+`_is_10_6` switch — see [docs/porting-10_6.md](docs/porting-10_6.md).
 
 ## What runs end to end
 
@@ -160,8 +159,8 @@ HLS headers, the hls4ml emulator interface and the L1 trigger's hls4ml
 models, DD4hep, classlib, the L1 menu library utm, vdt, Tauola++, the
 TensorFlow C++ API out of its wheel, and a standalone Minuit2 for the
 10_6-era ROOT. The cms-data the standard Run 3 sequences read (some 2 GB)
-is a package of its own, outside the release
-([pkgs/cms-data.nix](pkgs/cms-data.nix)).
+is not part of the default release: `cmssw_20_1-with-reco-data` is the same
+build with it merged in ([pkgs/cmssw-release.nix](pkgs/cmssw-release.nix)).
 
 It is the successor of an earlier Arch Linux PKGBUILD experiment: the
 `BuildFile.xml` → `CMakeLists.txt` conversion script from there lives on
@@ -171,18 +170,18 @@ derivation.
 ## Usage
 
 ```bash
-nix build          # builds the cmssw package (takes a while!)
-nix develop        # shell with cmsRun, CMSSW libs and headers, cmake, ROOT
+nix build .#cmssw_20_1     # the release (also the default package); hours
+nix develop                # shell with cmsRun, the release, cmake and ROOT
 
 # inside the shell, CMSSW_BASE etc. are set up:
 echo $CMSSW_BASE   # -> /nix/store/...-cmssw-CMSSW_20_1_0_pre4
 
 # the same for the 10_6 era:
-nix build .#cmssw_10_6_30
-nix develop .#cmssw_10_6_30
+nix build .#cmssw_10_6
+nix develop .#cmssw_10_6
 
-# 20_1 with the cms-data the standard Run 3 sequences read, for jobs that
-# cmsDriver.py writes (see examples/CmsDriverChain)
+# 20_1 with the cms-data the standard Run 3 sequences read (some 2 GB),
+# for jobs that cmsDriver.py writes (see examples/CmsDriverChain)
 nix develop .#with-reco-data
 ```
 
@@ -192,54 +191,13 @@ with both releases).
 
 ## Platforms
 
-Both releases build and pass the example suite on `x86_64-linux` and on
-`aarch64-darwin` (Apple silicon). On macOS the 20_1 package targets macOS
-26 or later: `FWCore/ParameterSet` parses numbers with the floating-point
-`std::from_chars`, which the system C++ library only has from that
-version on.
-
-CMSSW has only ever been developed against gcc and libstdc++ on Linux, so
-the macOS port is mostly about what clang and libc++ do differently. The
-fixes live in `gen/prepare_sources.py` (each with a comment saying why),
-and nearly all of them are plain portability fixes that compile to the
-same thing on Linux. The ones worth knowing about:
-
-* **Undefined behaviour that libstdc++ forgives.** A map iterator
-  stepped back past `begin()` in the HCAL reconstruction, a vector indexed
-  out of bounds in the strip conditions: harmless with libstdc++, a crash
-  with libc++. nixpkgs also builds against libc++ in its "fast" hardening
-  mode, which turns such precondition violations into traps; the 20_1
-  release and everything compiled against it turn that off, as Linux
-  builds never check them either.
-* **`std::stringbuf::pubsetbuf`**, which libc++ ignores: the conditions
-  database read every payload as empty until it read from a copy.
-* **The SIMD vector types.** Apple's arm64 ABI reports 8 for
-  `__BIGGEST_ALIGNMENT__`, which made CMSSW fall back to a scalar
-  implementation nothing else uses any more. The vector-extension one is
-  used instead, as on every Linux build, with 10_6's gcc-only spellings
-  fixed for clang.
-* **Static destruction order.** Geant4 11 destroys the particle table's
-  mutex before the table that locks it; glibc tolerates locking a
-  destroyed mutex, macOS does not. The 20_1 Geant4 is patched.
-* **One vtable per class is not a given.** A class whose virtual functions
-  are all inline gets its vtable emitted, with hidden visibility, into every
-  library that uses it. clang 17 and later compile a `dynamic_cast` to a
-  `final` class into a single comparison against the class's vtable, which
-  then fails whenever the object was built in another library: `typeid`
-  says `SiPixelRecHit`, the cast returns null. The track associator found
-  it by crashing; code that checks the cast would just have skipped the
-  object. `gen/CMakeLists.txt` builds with `-fno-assume-unique-vtables` on
-  macOS.
-* **Case-insensitive filesystems**, the nix store included: the generated
-  `*_cfi.py` files go into a `cfipython/` tree of their own (as with
-  scram), because a generated `siStrip..._cfi.py` and a handwritten
-  `SiStrip..._cfi.py` cannot share a directory.
-
-The 10_6 build on macOS uses nixos-22.05, which predates most Apple
-silicon work; `flake.nix` carries a small overlay for it (TBB 2020 for
-arm64, ROOT 6.24 built as C++17 and able to target macOS 11). The plugin
-manager reads `LD_LIBRARY_PATH` on macOS as well, so everything below works
-unchanged on both platforms.
+Both releases build and pass the example suite on `aarch64-darwin` (Apple
+silicon); the 20_1 package there needs macOS 26 or later, for the
+floating-point `std::from_chars` of the system C++ library. `x86_64-linux`,
+where the build started, evaluates and is what CMSSW itself is developed
+on, but the releases have not been built there since the macOS port: treat
+it as untested until they have. What the port changed, and the clang and
+libc++ issues it found in CMSSW, are in [docs/macos.md](docs/macos.md).
 
 ## Testing
 
@@ -248,15 +206,15 @@ nix flake check          # builds and runs every example, both releases
 ```
 
 (If the releases themselves are not built yet this builds them first, which
-is hours — see *Keeping rebuilds cheap* below.)
+is hours — see [docs/development.md](docs/development.md).)
 
 Each example directory is a check of its own, so they build in parallel
-and a failure names the example that broke. Two further checks
-(`libsweep-10_6`, `libsweep-20_1`) `dlopen` every library in a release:
-the cmake build links each one, but a library that links cleanly can still
-be unusable at runtime — a pruned source file, a missing external or an
-unallocated Fortran common block only shows up when something tries to
-load the plugin.
+and a failure names the example that broke. Per release, two more:
+`libsweep-<era>` `dlopen`s every library (a library that links cleanly can
+still be unusable at run time: a pruned source file, a missing external, an
+unallocated Fortran common block), and `prepare-<era>` runs only the source
+edits and the CMake generator, in minutes, which is what breaks first when
+the sources move.
 
 The jobs the checks run are listed in
 [examples/jobs.json](examples/jobs.json), which
@@ -264,167 +222,44 @@ The jobs the checks run are listed in
 the interactive runner cannot drift apart:
 
 ```bash
-nix develop .#cmssw_10_6_30 -c ./examples/run_all.sh 10_6
+nix develop .#cmssw_10_6 -c ./examples/run_all.sh 10_6
 ```
 
 `run_all.sh` builds in the working tree, so an edit to an example is one
 `cmake --build` away from being tested; `nix flake check` builds from the
 store and is what to trust.
 
-## Keeping rebuilds cheap
-
-A full CMSSW build is hours, and anything that changes a file under `gen/`
-changes the derivation, so it is worth not losing the result:
-
-```bash
-./scripts/build.sh              # build both releases and pin them
-./scripts/build.sh 10_6         # just one
-```
-
-The `result-*` out-links this creates are indirect gcroots. It also roots
-the CMSSW checkouts (~500 MB each), which are *not* part of any output's
-runtime closure and are therefore the first thing a `nix-collect-garbage`
-takes and among the slowest to fetch again.
-
-To move the binaries to another machine, push them to a
-[cachix](https://cachix.org) cache:
-
-```bash
-export CACHIX_CACHE=my-cmssw-cache
-./scripts/push-cache.sh         # runtime *and* build-time closures
-```
-
-The cache is deliberately not declared in `flake.nix`'s `nixConfig`: a
-substituter baked into a flake is a trust decision for whoever clones it,
-and an unreachable one makes every build print warnings. Consumers opt in
-with `cachix use $CACHIX_CACHE`.
-
-## Iterating on the build
-
-Every change under `gen/` or `pkgs/` changes the derivation, and `nix
-build` then compiles the release from scratch: hours per attempt, which is
-no way to work through a list of compile errors. `scripts/worktree.sh`
-keeps a persistent build tree instead and runs the derivation's own phases
-in it, in the environment `nix print-dev-env` gives for the package, so a
-fix costs an incremental ninja run:
-
-```bash
-scripts/worktree.sh 20_1 env        # build environment from the flake
-scripts/worktree.sh 20_1 fresh      # unpack, patch, configure
-scripts/worktree.sh 20_1 build      # all of it (-k 0), or: build lib/libX.so
-scripts/worktree.sh 20_1 install    # into worktree/20_1/out; loads every plugin
-scripts/worktree.sh 20_1 run        # the example jobs against that install
-scripts/worktree.sh 20_1 run MuonGunSim   # ... or some of them
-scripts/worktree.sh 20_1 shell      # a shell with the tree as the release
-```
-
-The loop after editing:
-
-* **anything under `gen/`** (a source fix in `prepare_sources.py`,
-  `config.yml`, `CMakeLists.txt`, the generator): `sync`, then `build`.
-  `prepare_sources.py` edits sources in place and is not idempotent, so it
-  never runs on the tree itself: `sync` prepares a fresh copy and copies
-  over only what differs by content. Unchanged files keep their
-  timestamps, and ninja rebuilds only what the edit reaches. (`sync` also
-  regenerates the environment: the phases it prints name `gen/` by store
-  path, so a stale one would apply the old script. A new file under `gen/`
-  has to be `git add`ed before the flake sees it.)
-* **a change to the dependencies** (`flake.nix`, `flake.lock`, `pkgs/`):
-  `env`, then `configure --fresh` and `build`. The CMake cache records
-  store paths, so it has to go; most of the release recompiles.
-
-The tree lives in `worktree/<era>` (gitignored; `CMSSW_WORKTREE` moves
-it) and takes a few GB per release. Compiling the same phases makes it
-faithful to the sandbox build, not identical to it: once the tree is green,
-`nix build` and `nix flake check` are what count.
-
-## Porting notes: what changed between the releases
-
-All twelve examples run on both releases from the same configuration
-file. What actually differs, in one list:
-
-* **Geometry.** The muon geometry builders want `MuonGeometryConstants` in
-  the `IdealGeometryRecord` on top of the old `MuonNumberingRecord`; the
-  tracker digi geometry gained `PTrackerAdditionalParametersPerDetRcd`.
-* **Conditions consolidation.** The strip clusteriser and the HBHE
-  reconstructor each read one bundled record
-  (`SiStripClusterizerConditionsRcd`, `HcalChannelPropertiesRecord`)
-  instead of the individual payloads; the hardcoded HCAL calibrations
-  additionally want the ZDC topology.
-* **Parameter renames.** `siPixelQualityLabel` →
-  `siPixelQualityFromDbLabel`, the clusteriser's `QualityLabel` →
-  `ConditionsLabel`, `MaxNumberOfCosmicClusters` →
-  `MaxNumberOfStripClusters`; the generic pixel CPE dropped
-  `PixelErrorParametrization` and `useLAAlignmentOffsets`, and
-  `SiPixelRecHitConverter` dropped `VerboseLevel`.
-* **NanoAOD.** The `GenPart` table gained a lepton isolation column,
-  computed from miniAOD's packed gen particles; a job that starts from
-  the generator drops it, as the shipped `customizeNanoGEN` does.
-* **API.** The legacy `setup.get<Record>().get(handle)` is gone; the token
-  `esConsumes` form works in both releases. Only `BeamSpotObjects`' renamed
-  accessors and `PoolDBOutputService::writeOne` → `writeOneIOV` need
-  `#ifdef CMSSW_10_6_ERA`; `PixelGeomDetUnit.h`'s moved package is handled
-  by `__has_include`.
-
 ## Layout
 
-* `flake.nix` — inputs (nixpkgs, cmssw, alpaka, cms-md5 sources) and
-  outputs
-* `pkgs/cmssw.nix` — the main derivation: generates CMakeLists, builds,
-  installs a release-area-like tree (`lib/`, `bin/`, `src/`, `python/`)
-  and registers the EDM plugins
-* `pkgs/cms-md5.nix` — the small md5 library CMS uses (`cms-externals/md5`)
-* `gen/` — the BuildFile→CMake generator, the build configuration
-  (`config.yml`, `config-10_6.yml`), the top-level `CMakeLists.txt`, and
-  the environment setup hook
-* `gen/plan_packages.py` — works out *which* packages a release can build:
-  it walks the `BuildFile.xml` dependency graph to a fixpoint (a package
-  is buildable when none of its externals are missing and all its
-  dependencies are buildable) and writes the configuration:
-
-  ```bash
-  python3 gen/plan_packages.py --src <cmssw source> --base gen/config.yml \
-      --wanted gen/config-10_6.yml --output gen/config.yml
-  ```
-* `gen/rank_blockers.py` — what holds the rest of the release back: for
-  every package in the source tree, the missing externals in its dependency
-  closure; lists the packages that could build already, the blocker sets by
-  how many packages each holds back, and with `--why <package>` the
-  dependency chain to each blocker:
-
-  ```bash
-  python3 gen/rank_blockers.py --src <cmssw source> --config gen/config.yml \
-      --with $(nix eval --raw .#packages.<system>.cmssw.configurePhase \
-               | grep -o 'CMSSW_WITH_[A-Z0-9_]*' | sort -u) \
-      --why PhysicsTools/PatAlgos
-  ```
-* `gen/sweep_libs.py` — `dlopen`s every library in a build and reports the
-  ones that fail; run by the `libsweep-*` flake checks
-* `scripts/` — build and pin the releases, push them to a binary cache,
-  and `worktree.sh`, the incremental build tree (see *Iterating on the
-  build*)
-* `examples/jobs.json` — the example jobs, shared by `nix flake check` and
-  `examples/run_all.sh`
-* `examples/cmake/ExampleSetup.cmake`, `examples/common/`,
-  `examples/data/` — boilerplate, plugin sources and data files shared by
-  the examples
-
-## Notes
-
-* `devShells.build` (and `devShells.build_10_6_30`) is for hacking on the
-  CMSSW build itself (all deps, no cmssw): run the generator + cmake by
-  hand against a local checkout. `scripts/worktree.sh` does the same with
-  the derivation's own phases, and is usually the better place to start.
-* On Linux, the setup hook raises glibc's static-TLS surplus
-  (`GLIBC_TUNABLES=glibc.rtld.optional_static_tls`). nixpkgs builds Geant4
-  multi-threaded, which compiles the toolkit with
-  `-ftls-model=initial-exec` and leaves `libG4processes_hadronic.so` with
-  a 1.2 MB `PT_TLS` segment that has to come out of a surplus whose
-  default is 512 bytes. Without the bump, the libraries of the 20_1 build
-  that pull in Geant4 link fine but fail to `dlopen`. Rebuilding Geant4
-  with `-DGEANT4_BUILD_TLS_MODEL=global-dynamic` would fix it at the
-  source, at the price of never substituting the stock Geant4 — or
-  anything built on it — from a binary cache again.
-* Extending the scope (the conditions tools, the event display, …) means editing
-  `gen/config.yml` and the dependency list in `pkgs/cmssw.nix` +
-  `gen/CMakeLists.txt`.
+* `flake.nix` — the inputs, the externals and the releases; the outputs
+  (`cmssw_<era>`, `cmssw-build_<era>`, the dev shells, the checks) are
+  generated from its `releases` table
+* `pkgs/cmssw.nix` — the build of a release: prepares the sources,
+  generates the CMakeLists, builds, installs a release-area-like tree
+  (`lib/`, `bin/`, `src/`, `python/`) and registers the EDM plugins. Its
+  optional externals are one table, `optionalExternals`.
+* `pkgs/cmssw-release.nix` — the release users get: the build with the
+  cms-data it reads merged into its release area
+  ([gen/release-with-data.sh](gen/release-with-data.sh)), links only, so a
+  data change does not rebuild the release
+* `pkgs/cms-data.nix`, `pkgs/cms-data.json` — cms-data repositories; the
+  JSON pins those of the standard sequences, and
+  [scripts/update-cms-data.py](scripts/update-cms-data.py) moves them to
+  another release
+* `pkgs/` — the CMS-specific externals
+* `gen/prepare/` — the edits to the CMSSW sources, by kind: what this build
+  leaves out (`scope.py`), newer externals and compilers (`toolchain.py`),
+  clang/libc++/macOS (`portability.py`) and bugs in CMSSW (`fixes.py`). An
+  edit that no longer applies is an error.
+* `gen/cmssw_cmake.py`, `gen/CMakeLists.txt` — the BuildFile → CMake
+  generator and the top-level CMakeLists that defines the scram tools; a
+  tool a BuildFile uses but the CMakeLists does not define stops the
+  configuration
+* `gen/config.yml`, `gen/config-10_6.yml` — the packages each release builds
+* `nix/` — the 22.05 darwin overlay, the dev shell and check builders
+* `examples/` — the example jobs (`jobs.json`) and what they share
+  (`cmake/`, `common/`, `data/`)
+* `scripts/` — `build.sh` (build and pin the releases), `push-cache.sh`,
+  `worktree.sh` (incremental builds while working on the build)
+* `docs/` — [macOS](docs/macos.md), [working on the build](docs/development.md),
+  [10_6 vs 20_1](docs/porting-10_6.md)

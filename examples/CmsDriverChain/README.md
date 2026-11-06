@@ -83,11 +83,14 @@ Two things to know about it:
 The standard sequences read some 2 GB of trained models and weight files
 from cms-data — b-tagging, e/gamma identification, DeepTau, DeepMET, the
 NanoAOD MVAs, the Phase-2 L1 trigger's models that the configuration names
-even in a Run 3 job. They are not in the release: `cms-data-reco_201`
-([pkgs/cms-data.nix](../../pkgs/cms-data.nix)) is a data area of its own,
-the 30 repositories at the versions cmsdist builds 20_1_0_pre4 with, which
-this job's check (`"data"` in [jobs.json](../jobs.json)) and the
-`with-reco-data` dev shell add to `CMSSW_SEARCH_PATH`.
+even in a Run 3 job. They are not in the default release:
+`cms-data-reco_20_1` holds the 30 repositories at the versions cmsdist
+builds 20_1_0_pre4 with ([pkgs/cms-data.json](../../pkgs/cms-data.json)),
+and this job's check (`"data"` in [jobs.json](../jobs.json)) and the
+`with-reco-data` dev shell use the release with it merged into the release
+area (`cmssw_20_1-with-reco-data`,
+[pkgs/cmssw-release.nix](../../pkgs/cmssw-release.nix)): the same build,
+plus links.
 
-The release only needs them for these sequences, so nothing else pays for
-them: building the release, or any other example, does not fetch them.
+So nothing else pays for the data: building the release, or any other
+example, does not fetch it.
