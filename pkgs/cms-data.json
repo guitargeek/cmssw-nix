@@ -1,0 +1,118 @@
+{
+  "CalibPPS/ESProducers": {
+    "tag": "V01-05-00",
+    "hash": "sha256-TSCqW1soHdJ9/91WXepObmFGTzs/+/GYnyZrscWb1Ck="
+  },
+  "DataFormats/PatCandidates": {
+    "tag": "V01-01-00",
+    "hash": "sha256-p7AatUgJh8vsF1P0rZS7zuYPAXR05YaNLn2hAxQmmj8="
+  },
+  "L1Trigger/CSCTriggerPrimitives": {
+    "tag": "V00-13-00",
+    "hash": "sha256-LflHtGfU3y7p/kjFPJ1Jka1JzFEbtLpMxSSIB0tw1lw="
+  },
+  "L1Trigger/DTTriggerPhase2": {
+    "tag": "V00-04-00",
+    "hash": "sha256-WZc4BkTGex2enySZQSg9lfdKqzQdUJ6///LODW/VA6k="
+  },
+  "L1Trigger/L1THGCal": {
+    "tag": "V01-08-00",
+    "hash": "sha256-cCs0wunlfAhDzliOFaFZLqpQ66i5bIfny4MJbDjeS9k="
+  },
+  "L1Trigger/L1TTrackMatch": {
+    "tag": "V00-03-00",
+    "hash": "sha256-Y3bHM1SqO6vxkvcl5RQN+r+aGbzMQoVnEnIFcv9MI0s="
+  },
+  "L1Trigger/Phase2L1ParticleFlow": {
+    "tag": "V00-10-01",
+    "hash": "sha256-BydTj8ZVreX+mro74cTZpPSKWAB2B2UbsVG2Dzp94BY="
+  },
+  "PhysicsTools/NanoAOD": {
+    "tag": "V01-07-01",
+    "hash": "sha256-poQ0iZ8zcSyvuvdUw7zevz8FGCiIkeCIQgMmrerN7co="
+  },
+  "RecoBTag/CTagging": {
+    "tag": "V01-00-03",
+    "hash": "sha256-i5EmW4lCvUSuqf28GrIRjUGmq+SBylOzFool5sFGiIc="
+  },
+  "RecoBTag/Combined": {
+    "tag": "V01-33-01",
+    "hash": "sha256-cX+tTPvidukInmD09FDejk2XAx/q3rMhXI8HJ3GnLAE="
+  },
+  "RecoBTag/SecondaryVertex": {
+    "tag": "V02-00-04",
+    "hash": "sha256-Lce3GAdiZD2gwuGxroqUlt/tp4mTEJUTbiAaaMN5e3Y="
+  },
+  "RecoBTag/SoftLepton": {
+    "tag": "V01-00-01",
+    "hash": "sha256-rfTy2r48PGUdke84x+GE3mH9Yc/fDPl5nCdQvf7182s="
+  },
+  "RecoEgamma/ElectronIdentification": {
+    "tag": "V01-15-00",
+    "hash": "sha256-LVXERFuxkmUmux9JuS2vWyUrCSh+SNrYrU4ro3O5kbQ="
+  },
+  "RecoEgamma/PhotonIdentification": {
+    "tag": "V01-09-00",
+    "hash": "sha256-jRVJXUdR/Vtw4mYabM5e6zaM/6C0SvEH7e6glysu0q8="
+  },
+  "RecoHGCal/TICL": {
+    "tag": "V00-10-00",
+    "hash": "sha256-gJaXdEpvky2LbO0lDktI/JCd9LhDPp5POZqIuTKJwU0="
+  },
+  "RecoJets/JetProducers": {
+    "tag": "V05-15-00",
+    "hash": "sha256-GX0vLXfA3WuYmst1saW2bvRHFZjls22Bzfgj5F640D0="
+  },
+  "RecoMET/METPUSubtraction": {
+    "tag": "V01-03-00",
+    "hash": "sha256-hXxUI9Ty1TIcK8xvPTaDI8mOQHklkABIU1D2WgcdBU4="
+  },
+  "RecoMTD/TimingIDTools": {
+    "tag": "V00-02-00",
+    "hash": "sha256-CBDkXo/p6Aizol5qG6xsdHRyM03fxtwvHsgCe2Ih03M="
+  },
+  "RecoMuon/MuonIdentification": {
+    "tag": "V01-16-00",
+    "hash": "sha256-q5r2xWvGSQYdzPwQu6tO3GWTXY1ZrI42Q+zd4l+ZUpM="
+  },
+  "RecoParticleFlow/PFBlockProducer": {
+    "tag": "V02-04-02",
+    "hash": "sha256-Z9iql8lBiXvnPtw3TcNCAKfHRdO0z78lIAy0z2nUtzo="
+  },
+  "RecoParticleFlow/PFProducer": {
+    "tag": "V16-03-00",
+    "hash": "sha256-j6mWGI/DDVNukDe3X4iVWqBNSC8I1VGrovr66oWCkAI="
+  },
+  "RecoParticleFlow/PFTracking": {
+    "tag": "V13-01-00",
+    "hash": "sha256-F+R8TEgf53Dnu0fhANrn1Jw0RSZcxvUe/u/dXYVeoCM="
+  },
+  "RecoTauTag/TrainingFiles": {
+    "tag": "V00-11-00",
+    "hash": "sha256-QyHC9UYmkd64nXaTT9eZGIOIQGrTsHuK1bmpZYv3TNc="
+  },
+  "RecoTracker/DisplacedRegionalTracking": {
+    "tag": "V00-01-00",
+    "hash": "sha256-hOiNVIA/YE2yXW8V72xKrAHU9WXefo3i5TfkurR+wX0="
+  },
+  "RecoTracker/FinalTrackSelectors": {
+    "tag": "V01-06-01",
+    "hash": "sha256-8nSBNSB4czmwhALJ64XknSYX3i9+E2xmfjjaBvS8Fgk="
+  },
+  "RecoTracker/MkFit": {
+    "tag": "V00-20-00",
+    "hash": "sha256-mefQfpl/nOLEpDDylrzbJzYdAawFYd2xtNW5dwQV65M="
+  },
+  "RecoTracker/TkSeedGenerator": {
+    "tag": "V00-03-00",
+    "hash": "sha256-9bVWKnIMlvTjE3AK4j2mI5FkjjJi5nFbDsqUyiCy/S0="
+  },
+  "SimPPS/PPSPixelDigiProducer": {
+    "tag": "V00-00-02",
+    "hash": "sha256-ACVPsRYjAwPmqvf5uFD3z6frJq25FjWWGHpkgU5Z0lk="
+  },
+  "SimTracker/SiStripDigitizer": {
+    "tag": "V01-01-00",
+    "hash": "sha256-Uks255P7PqmTNnSKGqEARVu9MOWuBmjJnfSpQix7u+Q="
+  }
+}

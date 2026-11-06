@@ -126,127 +126,6 @@
       flake = false;
     };
 
-    # The cms-data the standard Run 3 sequences read (examples/CmsDriverChain),
-    # at the versions cmsdist's data/cmsswdata.txt gives for
-    # CMSSW_20_1_0_pre4: the models and weight files of the reconstruction,
-    # PAT and NanoAOD. They are not part of the release (pkgs/cms-data.nix).
-    cmsdata-CalibPPS-ESProducers = {
-      url = "github:cms-data/CalibPPS-ESProducers/V01-05-00";
-      flake = false;
-    };
-    cmsdata-DataFormats-PatCandidates = {
-      url = "github:cms-data/DataFormats-PatCandidates/V01-01-00";
-      flake = false;
-    };
-    cmsdata-L1Trigger-CSCTriggerPrimitives = {
-      url = "github:cms-data/L1Trigger-CSCTriggerPrimitives/V00-13-00";
-      flake = false;
-    };
-    cmsdata-L1Trigger-DTTriggerPhase2 = {
-      url = "github:cms-data/L1Trigger-DTTriggerPhase2/V00-04-00";
-      flake = false;
-    };
-    cmsdata-L1Trigger-L1THGCal = {
-      url = "github:cms-data/L1Trigger-L1THGCal/V01-08-00";
-      flake = false;
-    };
-    cmsdata-L1Trigger-L1TTrackMatch = {
-      url = "github:cms-data/L1Trigger-L1TTrackMatch/V00-03-00";
-      flake = false;
-    };
-    cmsdata-L1Trigger-Phase2L1ParticleFlow = {
-      url = "github:cms-data/L1Trigger-Phase2L1ParticleFlow/V00-10-01";
-      flake = false;
-    };
-    cmsdata-PhysicsTools-NanoAOD = {
-      url = "github:cms-data/PhysicsTools-NanoAOD/V01-07-01";
-      flake = false;
-    };
-    cmsdata-RecoBTag-CTagging = {
-      url = "github:cms-data/RecoBTag-CTagging/V01-00-03";
-      flake = false;
-    };
-    cmsdata-RecoBTag-Combined = {
-      url = "github:cms-data/RecoBTag-Combined/V01-33-01";
-      flake = false;
-    };
-    cmsdata-RecoBTag-SecondaryVertex = {
-      url = "github:cms-data/RecoBTag-SecondaryVertex/V02-00-04";
-      flake = false;
-    };
-    cmsdata-RecoBTag-SoftLepton = {
-      url = "github:cms-data/RecoBTag-SoftLepton/V01-00-01";
-      flake = false;
-    };
-    cmsdata-RecoEgamma-ElectronIdentification = {
-      url = "github:cms-data/RecoEgamma-ElectronIdentification/V01-15-00";
-      flake = false;
-    };
-    cmsdata-RecoEgamma-PhotonIdentification = {
-      url = "github:cms-data/RecoEgamma-PhotonIdentification/V01-09-00";
-      flake = false;
-    };
-    cmsdata-RecoHGCal-TICL = {
-      url = "github:cms-data/RecoHGCal-TICL/V00-10-00";
-      flake = false;
-    };
-    cmsdata-RecoJets-JetProducers = {
-      url = "github:cms-data/RecoJets-JetProducers/V05-15-00";
-      flake = false;
-    };
-    cmsdata-RecoMET-METPUSubtraction = {
-      url = "github:cms-data/RecoMET-METPUSubtraction/V01-03-00";
-      flake = false;
-    };
-    cmsdata-RecoMTD-TimingIDTools = {
-      url = "github:cms-data/RecoMTD-TimingIDTools/V00-02-00";
-      flake = false;
-    };
-    cmsdata-RecoMuon-MuonIdentification = {
-      url = "github:cms-data/RecoMuon-MuonIdentification/V01-16-00";
-      flake = false;
-    };
-    cmsdata-RecoParticleFlow-PFBlockProducer = {
-      url = "github:cms-data/RecoParticleFlow-PFBlockProducer/V02-04-02";
-      flake = false;
-    };
-    cmsdata-RecoParticleFlow-PFProducer = {
-      url = "github:cms-data/RecoParticleFlow-PFProducer/V16-03-00";
-      flake = false;
-    };
-    cmsdata-RecoParticleFlow-PFTracking = {
-      url = "github:cms-data/RecoParticleFlow-PFTracking/V13-01-00";
-      flake = false;
-    };
-    cmsdata-RecoTauTag-TrainingFiles = {
-      url = "github:cms-data/RecoTauTag-TrainingFiles/V00-11-00";
-      flake = false;
-    };
-    cmsdata-RecoTracker-DisplacedRegionalTracking = {
-      url = "github:cms-data/RecoTracker-DisplacedRegionalTracking/V00-01-00";
-      flake = false;
-    };
-    cmsdata-RecoTracker-FinalTrackSelectors = {
-      url = "github:cms-data/RecoTracker-FinalTrackSelectors/V01-06-01";
-      flake = false;
-    };
-    cmsdata-RecoTracker-MkFit = {
-      url = "github:cms-data/RecoTracker-MkFit/V00-20-00";
-      flake = false;
-    };
-    cmsdata-RecoTracker-TkSeedGenerator = {
-      url = "github:cms-data/RecoTracker-TkSeedGenerator/V00-03-00";
-      flake = false;
-    };
-    cmsdata-SimPPS-PPSPixelDigiProducer = {
-      url = "github:cms-data/SimPPS-PPSPixelDigiProducer/V00-00-02";
-      flake = false;
-    };
-    cmsdata-SimTracker-SiStripDigitizer = {
-      url = "github:cms-data/SimTracker-SiStripDigitizer/V01-01-00";
-      flake = false;
-    };
-
     # externals for the reco chain: HepPDT (particle data table) and lwtnn
     # (lightweight NN inference, DeepFlavour + track classifier)
     heppdt-src = {
@@ -306,97 +185,13 @@
           pkgs = nixpkgs.legacyPackages.${system};
           inherit (pkgs.stdenv.hostPlatform) isDarwin;
 
-          # nixos-22.05 predates most of the Apple silicon work, and a few of
-          # the packages the 10_6 release needs do not build there as shipped.
-          # The fixes go in as an overlay, so that everything else in the set
-          # (ROOT 6.24 on the patched TBB, above all) is built against them.
-          # Linux gets the stock package set, unchanged.
+          # The 10_6 era's package set: on darwin with the fixes of
+          # nix/darwin-2205-overlay.nix, on Linux the stock one.
           pkgs2205 =
             if isDarwin then
               import nixpkgs-2205 {
                 inherit system;
-                overlays = [
-                  (final: prev: {
-                    # built with LLVM 10 on clang platforms (its test suite
-                    # fails with 11+), whose compiler-rt is marked broken
-                    # here. The library itself is fine with the default
-                    # stdenv; only the tests are not.
-                    jemalloc = (prev.jemalloc.override { stdenv = final.stdenv; }).overrideAttrs (_: {
-                      doCheck = false;
-                    });
-
-                    # declared Linux-only, and links -framework System, which
-                    # the SDK this nixpkgs ships does not have (libSystem is
-                    # linked by default anyway). Later nixpkgs build the same
-                    # sources on darwin.
-                    pacparser = prev.pacparser.overrideAttrs (old: {
-                      postPatch = (old.postPatch or "") + ''
-                        substituteInPlace src/Makefile --replace "-framework System" ""
-                      '';
-                      meta = old.meta // { platforms = final.lib.platforms.unix; };
-                    });
-
-                    # ROOT 6.24's interpreter carries the LLVM 9 clang driver,
-                    # which accepts only 10.x macOS deployment targets - it
-                    # predates Big Sur - and fails every rootcling run with
-                    # "invalid version number in MACOSX_DEPLOYMENT_TARGET=11.0",
-                    # the lowest target arm64 has. The relaxed check is the
-                    # one later LLVMs have. (At run time too: cling parses the
-                    # same variable, and every nix shell exports it.)
-                    #
-                    # And the C++ standard: nothing in the expression sets one,
-                    # so ROOT takes the compiler's default - C++17 for the gcc
-                    # 11 of Linux, which is what the 10_6 release and its
-                    # dictionaries are written for, but C++14 for the clang 11
-                    # of darwin, under which genreflex cannot parse them.
-                    root = prev.root.overrideAttrs (old: {
-                      cmakeFlags = (old.cmakeFlags or [ ]) ++ [ "-DCMAKE_CXX_STANDARD=17" ];
-                      postPatch = (old.postPatch or "") + ''
-                        f=interpreter/llvm/src/tools/clang/lib/Driver/ToolChains/Darwin.cpp
-                        grep -q 'HadExtra || Major != 10 || Minor >= 100' $f \
-                          || { echo "root: macOS version check not where expected" >&2; exit 1; }
-                        sed -i 's/HadExtra || Major != 10 || Minor >= 100/HadExtra || Major < 10 || Major >= 100 || Minor >= 100/' $f
-
-                        # cling parses the release's headers at run time with
-                        # libc++ in C++17 mode, which drops std::auto_ptr and
-                        # the other features C++17 removed - and the 10_6
-                        # headers still use them (LHEEventProduct,
-                        # GenEventInfoProduct). The compiler and genreflex get
-                        # libc++'s switch to keep them (gen/CMakeLists.txt);
-                        # cling needs it from the start, since a dictionary
-                        # payload's own defines come after <memory> has been
-                        # parsed once already.
-                        f=interpreter/cling/lib/Interpreter/CIFactory.cpp
-                        grep -q 'argvCompile.push_back("--target=arm64-apple-darwin20.3.0");' $f \
-                          || { echo "root: cling target setup not where expected" >&2; exit 1; }
-                        sed -i 's|argvCompile.push_back("--target=arm64-apple-darwin20.3.0");|&\n    argvCompile.push_back("-D_LIBCPP_ENABLE_CXX17_REMOVED_FEATURES");|' $f
-
-                        # PyROOT loads its C++ backend by bare file name
-                        # whenever LD_LIBRARY_PATH or DYLD_LIBRARY_PATH is
-                        # set, leaving the search to dyld - which reads only
-                        # DYLD_LIBRARY_PATH, and SIP strips that from the
-                        # environment of anything started through a protected
-                        # binary, /usr/bin/env included. So `import ROOT`
-                        # works in the shell and fails in every
-                        # "#!/usr/bin/env" script run from it. Load the
-                        # backend from ROOT's own lib/ on darwin, which is
-                        # what PyROOT already does when neither variable is
-                        # set.
-                        f=bindings/pyroot/cppyy/cppyy/python/cppyy/__init__.py
-                        grep -q "if not any(var in os.environ for var in ('LD_LIBRARY_PATH','DYLD_LIBRARY_PATH')):" $f \
-                          || { echo "root: cppyy backend lookup not where expected" >&2; exit 1; }
-                        sed -i "s|if not any(var in os.environ for var in ('LD_LIBRARY_PATH','DYLD_LIBRARY_PATH')):|if sys.platform == 'darwin' or not any(var in os.environ for var in ('LD_LIBRARY_PATH','DYLD_LIBRARY_PATH')):|" $f
-                      '';
-                    });
-
-                    # the classic TBB the 10_6 framework is written against
-                    # has no arm64 Mac port; see the patch
-                    tbb = prev.tbb.overrideAttrs (old: {
-                      patches = (old.patches or [ ]) ++ [ ./pkgs/tbb-2020-darwin-arm64.patch ];
-                      makeFlags = (old.makeFlags or [ ]) ++ final.lib.optional final.stdenv.hostPlatform.isAarch64 "arch=arm64";
-                    });
-                  })
-                ];
+                overlays = [ (import ./nix/darwin-2205-overlay.nix) ];
               }
             else
               nixpkgs-2205.legacyPackages.${system};
@@ -492,43 +287,25 @@
           });
 
           # The cms-data of the standard Run 3 sequences, outside the release
-          # (pkgs/cms-data.nix), for examples/CmsDriverChain. L1TGlobal is the
-          # release's input (the same commit as cmsdist's V00-04-00); the
-          # release installs only the 2022 menu of it.
+          # (pkgs/cms-data.nix), for examples/CmsDriverChain: the models and
+          # weight files of the reconstruction, PAT and NanoAOD, at the
+          # versions cmsdist's data/cmsswdata.txt gives for CMSSW_20_1_0_pre4
+          # (pkgs/cms-data.json; scripts/update-cms-data.py moves them to
+          # another release). L1TGlobal is the release's input (the same
+          # commit as cmsdist's V00-04-00); the release installs only the
+          # 2022 menu of it.
           cms-data-reco_201 = pkgs.callPackage ./pkgs/cms-data.nix {
             name = "cms-data-reco-20_1";
-            repos = [
-              { path = "CalibPPS/ESProducers"; src = inputs."cmsdata-CalibPPS-ESProducers"; }
-              { path = "DataFormats/PatCandidates"; src = inputs."cmsdata-DataFormats-PatCandidates"; }
-              { path = "L1Trigger/CSCTriggerPrimitives"; src = inputs."cmsdata-L1Trigger-CSCTriggerPrimitives"; }
-              { path = "L1Trigger/DTTriggerPhase2"; src = inputs."cmsdata-L1Trigger-DTTriggerPhase2"; }
-              { path = "L1Trigger/L1THGCal"; src = inputs."cmsdata-L1Trigger-L1THGCal"; }
-              { path = "L1Trigger/L1TTrackMatch"; src = inputs."cmsdata-L1Trigger-L1TTrackMatch"; }
-              { path = "L1Trigger/Phase2L1ParticleFlow"; src = inputs."cmsdata-L1Trigger-Phase2L1ParticleFlow"; }
-              { path = "PhysicsTools/NanoAOD"; src = inputs."cmsdata-PhysicsTools-NanoAOD"; }
-              { path = "RecoBTag/CTagging"; src = inputs."cmsdata-RecoBTag-CTagging"; }
-              { path = "RecoBTag/Combined"; src = inputs."cmsdata-RecoBTag-Combined"; }
-              { path = "RecoBTag/SecondaryVertex"; src = inputs."cmsdata-RecoBTag-SecondaryVertex"; }
-              { path = "RecoBTag/SoftLepton"; src = inputs."cmsdata-RecoBTag-SoftLepton"; }
-              { path = "RecoEgamma/ElectronIdentification"; src = inputs."cmsdata-RecoEgamma-ElectronIdentification"; }
-              { path = "RecoEgamma/PhotonIdentification"; src = inputs."cmsdata-RecoEgamma-PhotonIdentification"; }
-              { path = "RecoHGCal/TICL"; src = inputs."cmsdata-RecoHGCal-TICL"; }
-              { path = "RecoJets/JetProducers"; src = inputs."cmsdata-RecoJets-JetProducers"; }
-              { path = "RecoMET/METPUSubtraction"; src = inputs."cmsdata-RecoMET-METPUSubtraction"; }
-              { path = "RecoMTD/TimingIDTools"; src = inputs."cmsdata-RecoMTD-TimingIDTools"; }
-              { path = "RecoMuon/MuonIdentification"; src = inputs."cmsdata-RecoMuon-MuonIdentification"; }
-              { path = "RecoParticleFlow/PFBlockProducer"; src = inputs."cmsdata-RecoParticleFlow-PFBlockProducer"; }
-              { path = "RecoParticleFlow/PFProducer"; src = inputs."cmsdata-RecoParticleFlow-PFProducer"; }
-              { path = "RecoParticleFlow/PFTracking"; src = inputs."cmsdata-RecoParticleFlow-PFTracking"; }
-              { path = "RecoTauTag/TrainingFiles"; src = inputs."cmsdata-RecoTauTag-TrainingFiles"; }
-              { path = "RecoTracker/DisplacedRegionalTracking"; src = inputs."cmsdata-RecoTracker-DisplacedRegionalTracking"; }
-              { path = "RecoTracker/FinalTrackSelectors"; src = inputs."cmsdata-RecoTracker-FinalTrackSelectors"; }
-              { path = "RecoTracker/MkFit"; src = inputs."cmsdata-RecoTracker-MkFit"; }
-              { path = "RecoTracker/TkSeedGenerator"; src = inputs."cmsdata-RecoTracker-TkSeedGenerator"; }
-              { path = "SimPPS/PPSPixelDigiProducer"; src = inputs."cmsdata-SimPPS-PPSPixelDigiProducer"; }
-              { path = "SimTracker/SiStripDigitizer"; src = inputs."cmsdata-SimTracker-SiStripDigitizer"; }
-              { path = "L1Trigger/L1TGlobal"; src = l1tglobal-data; }
-            ];
+            repos = pkgs.lib.mapAttrsToList (path: r: {
+              inherit path;
+              src = pkgs.fetchFromGitHub {
+                owner = "cms-data";
+                repo = builtins.replaceStrings [ "/" ] [ "-" ] path;
+                rev = r.tag;
+                inherit (r) hash;
+              };
+            }) (builtins.fromJSON (builtins.readFile ./pkgs/cms-data.json))
+            ++ [ { path = "L1Trigger/L1TGlobal"; src = l1tglobal-data; } ];
           };
 
           # Tauola++ with TauSpinner (cmsdist's tauolapp 1.1.8), for
@@ -699,16 +476,12 @@
             geant4 = geant4_201;
           };
 
-          cmssw = pkgs.callPackage ./pkgs/cmssw.nix {
+          cmssw-build_201 = pkgs.callPackage ./pkgs/cmssw.nix {
             src = cmssw-src;
             version = "CMSSW_20_1_0_pre4";
             inherit alpaka-src cms-md5 root;
             tbb = pkgs.onetbb;
-            cpu_features = pkgs.cpu_features;
             pybind11 = pkgs.python3Packages.pybind11;
-            xercesc = pkgs.xercesc;
-            curl = pkgs.curl;
-            nlohmann_json = pkgs.nlohmann_json;
             # FWCore/ParameterSet parses doubles with std::from_chars, whose
             # floating-point overloads the system libc++ only has as of
             # macOS 26 - the SDK marks them unavailable below that.
@@ -722,52 +495,67 @@
             # undefined, but inert with libstdc++ and a SIGTRAP with libc++.
             # Build it the way it is validated.
             hardeningDisable = pkgs.lib.optional isDarwin "libcxxhardeningfast";
-            inherit coral;
             # (on darwin the stdenv compiler is clang already, and a second
             # clang wrapper on the PATH could shadow it)
             clangTools = if isDarwin then null else pkgs.clang;
             libclangPython = libclang-python;
-            gsl = pkgs.gsl;
-            inherit vdt;
-            fastjet = pkgs.fastjet;
-            fastjet-contrib = pkgs.fastjet-contrib;
-            heppdt = heppdt_201;
-            lwtnn = lwtnn_201;
-            openblas = pkgs.openblas;
-            inherit dd4hep hls hls4ml-emulator-extras;
-            # DQMServices/Core
-            inherit classlib utm;
-            protobuf = protobuf-tf;
-            # the streamer format and the Geners archives
-            zstd = pkgs.zstd;
-            bzip2 = pkgs.bzip2;
-            geant4 = geant4_201;
-            inherit g4hepem;
-            hdf5 = pkgs.hdf5-cpp;
-            hepmc = pkgs.hepmc2;
-            hepmc3 = pkgs.hepmc3;
-            onnxruntime = onnxruntime-tf;
-            xgboost = pkgs.xgboost;
-            inherit tensorflow-cc;
-            inherit tauolapp;
-            rivet = pkgs.rivet;
-            yoda = pkgs.yoda;
-            tinyxml2 = pkgs.tinyxml-2;
-            # event generation
-            pythia8 = pythia8_201;
-            lhapdf = pkgs.lhapdf;
-            highfive = pkgs.highfive;
-            # 10_6-only (callPackage would auto-fill it from the unstable
-            # package set just because the name exists)
-            libsigcxx = null;
-            # The cms-data externals the 10_6 build carries, the L1 muon
-            # trigger tables and menu (20_1 builds the emulators), and the
-            # fast simulation's pixel resolutions and templates. These are data
-            # files distributed separately from the release - the magnetic field
-            # interpolation tables are the ones with teeth, since without them
-            # the volume-based field engine cannot be built at all and every
-            # example that reconstructs a momentum is stuck with a uniform field.
-            extraData = [
+            externals = {
+              inherit (pkgs) cpu_features xercesc curl nlohmann_json gsl fastjet fastjet-contrib
+                openblas zstd bzip2 hepmc3 xgboost rivet yoda lhapdf highfive;
+              inherit coral vdt dd4hep hls hls4ml-emulator-extras classlib utm g4hepem tensorflow-cc tauolapp;
+              heppdt = heppdt_201;
+              lwtnn = lwtnn_201;
+              protobuf = protobuf-tf;
+              geant4 = geant4_201;
+              hdf5 = pkgs.hdf5-cpp;
+              hepmc = pkgs.hepmc2;
+              onnxruntime = onnxruntime-tf;
+              tinyxml2 = pkgs.tinyxml-2;
+              pythia8 = pythia8_201;
+            };
+          };
+
+          # ROOT 6.24 from nixos-22.05 is already built with C++17 (the gcc 11
+          # default standard), which matches the 10_6 release era; no override
+          # needed.
+          cmssw-build_10_6 = pkgs2205.callPackage ./pkgs/cmssw.nix {
+            src = cmssw-10_6-src;
+            version = "CMSSW_10_6_30";
+            cms-md5 = cms-md5_10_6;
+            tbb = pkgs2205.tbb;
+            pybind11 = pkgs2205.python3Packages.pybind11;
+            configFile = ./gen/config-10_6.yml;
+            cxxStandard = "17";
+            externals = {
+              inherit (pkgs2205) xercesc gsl fastjet fastjet-contrib openblas lhapdf libsigcxx
+                zstd bzip2 curl;
+              inherit vdt;
+              hepmc = pkgs2205.hepmc2;
+              minuit2 = minuit2_2205;
+              heppdt = heppdt_2205;
+              lwtnn = lwtnn_2205;
+              coral = coral_2205;
+              pythia8 = pythia8_2205;
+              geant4 = geant4_10_4;
+            };
+            clangTools = if isDarwin then null else pkgs2205.llvmPackages_14.clang;
+            libclangPython = libclang-python_2205;
+            legacySiteConf = true;
+            # the 10_6-era python config code still imports six and past (future)
+            extraPythonPackages = ps: [ ps.six ps.future ];
+          };
+
+          # The cms-data every release carries (pkgs/cms-data.nix), merged
+          # into its release area (pkgs/cmssw-release.nix). The magnetic field
+          # interpolation tables are the ones with teeth: without them the
+          # volume-based field engine cannot be built at all, and every
+          # example that reconstructs a momentum is stuck with a uniform
+          # field. 20_1 also carries the L1 muon trigger tables and menu (it
+          # builds the emulators) and the fast simulation's pixel resolutions
+          # and templates.
+          cms-data_201 = pkgs.callPackage ./pkgs/cms-data.nix {
+            name = "cms-data-20_1";
+            repos = [
               { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
               { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
               { path = "MagneticField/Interpolation"; src = magfield-data; }
@@ -777,78 +565,19 @@
               { path = "CalibTracker/SiPixelESProducers"; src = sipixel-templates_201; }
             ];
           };
-
-          # ROOT 6.24 from nixos-22.05 is already built with C++17 (the gcc 11
-          # default standard), which matches the 10_6 release era; no override
-          # needed.
-          cmssw_10_6_30 = pkgs2205.callPackage ./pkgs/cmssw.nix {
-            src = cmssw-10_6-src;
-            version = "CMSSW_10_6_30";
-            cms-md5 = cms-md5_10_6;
-            tbb = pkgs2205.tbb;
-            pybind11 = pkgs2205.python3Packages.pybind11;
-            configFile = ./gen/config-10_6.yml;
-            cxxStandard = "17";
-            xercesc = pkgs2205.xercesc;
-            hepmc = pkgs2205.hepmc2;
-            inherit vdt;
-            gsl = pkgs2205.gsl;
-            minuit2 = minuit2_2205;
-            fastjet = pkgs2205.fastjet;
-            fastjet-contrib = pkgs2205.fastjet-contrib;
-            heppdt = heppdt_2205;
-            lwtnn = lwtnn_2205;
-            openblas = pkgs2205.openblas;
-            coral = coral_2205;
-            pythia8 = pythia8_2205;
-            lhapdf = pkgs2205.lhapdf;
-            libsigcxx = pkgs2205.libsigcxx;
-            extraData = [
+          cms-data_10_6 = pkgs.callPackage ./pkgs/cms-data.nix {
+            name = "cms-data-10_6";
+            repos = [
               { path = "RecoLocalCalo/EcalDeadChannelRecoveryAlgos"; src = ecal-deadchannel-data; }
               { path = "CalibCalorimetry/EcalTrivialCondModules"; src = ecal-trivialcond-data; }
               { path = "MagneticField/Interpolation"; src = magfield-data-10_6; }
             ];
-            geant4 = geant4_10_4;
-            # 20_1-only externals: callPackage would otherwise auto-fill these
-            # from the 22.05 package set just because the names exist there
-            hdf5 = null;
-            hepmc3 = null;
-            highfive = null;
-            dd4hep = null;
-            hls = null;
-            hls4ml-emulator-extras = null;
-            classlib = null;
-            utm = null;
-            protobuf = null;
-            onnxruntime = null;
-            xgboost = null;
-            tensorflow-cc = null;
-            tauolapp = null;
-            rivet = null;
-            yoda = null;
-            tinyxml2 = null;
-            nlohmann_json = null;
-            clangTools = if isDarwin then null else pkgs2205.llvmPackages_14.clang;
-            libclangPython = libclang-python_2205;
-            legacySiteConf = true;
-            # the 10_6-era python config code still imports six and past (future)
-            extraPythonPackages = ps: [ ps.six ps.future ];
           };
 
-          # What a user of a release needs on top of the release itself, to build
-          # an analyzer against it and run it. Shared by the dev shells and the
-          # example checks so the two environments cannot drift apart.
-          userPackages = ps: cmsswPkg: rootPkg: extraPackages: [
-            cmsswPkg
-            ps.cmake
-            ps.ninja
-            rootPkg
-            cmsswPkg.pythonEnv
-            # headers reachable from CMSSW headers when compiling user code
-            ps.boost
-            ps.clhep
-            ps.eigen
-          ] ++ extraPackages;
+          # A release: a build with cms-data merged in.
+          mkRelease = build: data: pkgs.callPackage ./pkgs/cmssw-release.nix { inherit build data; };
+          cmssw = mkRelease cmssw-build_201 [ cms-data_201 ];
+          cmssw_10_6_30 = mkRelease cmssw-build_10_6 [ cms-data_10_6 ];
 
           # 20_1 wants fmt and the oneAPI TBB; 10_6 the classic TBB; both pythia8
           # for its setup hook (PYTHIA8DATA must point at the xmldoc directory for
@@ -871,162 +600,74 @@
           # NanoAOD's TauSpinner table initialises LHAPDF with.
           extraPackages_10_6 = [ pkgs2205.tbb coral_2205 pythia8_2205 geant4_10_4 geant4-data ];
 
-          # Environment for using a CMSSW package: build analyzers against it with
-          # cmake and run them with cmsRun (see examples/MyAnalyzer).
-          makeUserShell = ps: cmsswPkg: rootPkg: extraPackages: ps.mkShell {
-            # analyzers compile the release's headers: same flags as the release
-            hardeningDisable = cmsswPkg.hardeningDisable or [ ];
-            # buildInputs rather than packages (= nativeBuildInputs): the
-            # release is something analyzers link against, and on darwin it
-            # propagates nixpkgs' deployment-target hook, which only works
-            # from there. The example checks list it the same way.
-            buildInputs = userPackages ps cmsswPkg rootPkg extraPackages;
-          };
-
-          # The data packages example jobs can ask for ("data" in jobs.json).
+          # The cms-data example jobs can ask for on top of their release's
+          # ("data" in jobs.json): they run against a release with it merged in.
           exampleData = { cms-data-reco = cms-data-reco_201; };
+
+          inherit (import ./nix/release-tools.nix { inherit (pkgs) lib; })
+            makeUserShell makeExampleCheck makeSweepCheck makePrepareCheck makeExtrasHook;
 
           # The example jobs, read from the same file examples/run_all.sh reads.
           exampleJobs = builtins.fromJSON (builtins.readFile ./examples/jobs.json);
 
-          # Build one example directory against a release and run its configs.
-          # This is examples/run_all.sh done hermetically: the sources come from
-          # the store, the environment is exactly the dev shell's, and a failure
-          # is a failed derivation rather than a line in a log.
-          makeExampleCheck = ps: cmsswPkg: rootPkg: extraPackages: era: job:
-            ps.stdenv.mkDerivation {
-              name = "cmssw-example-${era}-${job.dir}";
-              hardeningDisable = cmsswPkg.hardeningDisable or [ ];
-              # The example directory plus the helpers all examples share:
-              # data/ (calorimeter pulse shapes — each consumer symlinks
-              # data/ to ../data), cmake/ (the common CMakeLists preamble) and
-              # common/ (sources compiled by more than one example).
-              # (fileset comes from the modern package set; nixos-22.05's lib
-              # does not have it, and path filtering is era-independent)
-              src = pkgs.lib.fileset.toSource {
-                root = ./examples;
-                fileset = pkgs.lib.fileset.unions [
-                  (./examples + "/${job.dir}")
-                  ./examples/data
-                  ./examples/cmake
-                  ./examples/common
-                ];
-              };
 
-              nativeBuildInputs = [ ps.cmake ps.ninja ];
-              # (the data packages a job names in jobs.json, after the release,
-              # whose setup hook sets the CMSSW_SEARCH_PATH they extend)
-              buildInputs = userPackages ps cmsswPkg rootPkg extraPackages
-                ++ map (d: exampleData.${d}) (job.data or [ ]);
-
-              # The examples drive cmake themselves (they need CMSSW_BASE from the
-              # setup hook, which is only set once buildInputs have been sourced).
-              dontUseCmakeConfigure = true;
-
-              buildPhase = ''
-                runHook preBuild
-                # ROOT writes into $HOME on startup
-                export HOME=$TMPDIR
-                cd ${job.dir}
-                cmake -B build -S . -G Ninja
-                cmake --build build
-                runHook postBuild
-              '';
-
-              doCheck = true;
-              checkPhase = ''
-                runHook preCheck
-                # without this a failing cmsRun is hidden by the tee that follows
-                set -o pipefail
-                export LD_LIBRARY_PATH=$PWD/build''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-                edmPluginRefresh $PWD/build
-                for cfg in ${ps.lib.escapeShellArgs job.cfgs}; do
-                  echo "=== $cfg"
-                  log=$(basename "''${cfg%.py}").log
-                  cmsRun "$cfg" 2>&1 | tee "$log"
-                  # an optional <cfg>_check.py validates the job output from
-                  # outside CMSSW (e.g. reading a produced nanoAOD file with
-                  # plain ROOT)
-                  if [ -f "''${cfg%.py}_check.py" ]; then
-                    python3 "''${cfg%.py}_check.py" 2>&1 | tee -a "$log"
-                  fi
-                done
-                runHook postCheck
-              '';
-
-              installPhase = ''
-                runHook preInstall
-                mkdir -p $out
-                cp -- *.log $out/
-                runHook postInstall
-              '';
-            };
-
-          # dlopen every library in a release. Catches the unresolved symbols that
-          # linking does not: a pruned source file, a missing external, a Fortran
-          # common block nobody allocates.
-          # (runCommandCC, not runCommand: on darwin the 20_1 release
-          # propagates nixpkgs' deployment-target hook, which expects the
-          # compiler wrapper's setup to be there)
-          makeSweepCheck = ps: cmsswPkg: era:
-            ps.runCommandCC "cmssw-libsweep-${era}"
-              { buildInputs = [ cmsswPkg cmsswPkg.pythonEnv ]; }
-              ''
-                # ROOT's rootmap autoloading complains on stderr about every
-                # header it cannot find while loading the dictionaries - hundreds
-                # of kilobytes of noise that has nothing to do with whether the
-                # library loaded. Keep it, but only show it if something failed.
-                python3 ${./gen/sweep_libs.py} ${cmsswPkg}/lib > sweep.log 2> sweep.err || {
-                  cat sweep.log
-                  echo "--- stderr ---"
-                  tail -50 sweep.err
-                  exit 1
-                }
-                cat sweep.log
-                cp sweep.log $out
-              '';
+          # The releases, by era: everything the outputs below are generated
+          # from. Each era gets a package, a dev shell (both also under
+          # cmssw_<era>), a check per example directory of jobs.json and a
+          # dlopen sweep.
+          releases = {
+            "20_1" = { ps = pkgs; build = cmssw-build_201; data = [ cms-data_201 ]; package = cmssw; root = root; extraPackages = extraPackages_201; };
+            "10_6" = { ps = pkgs2205; build = cmssw-build_10_6; data = [ cms-data_10_6 ]; package = cmssw_10_6_30; root = pkgs2205.root; extraPackages = extraPackages_10_6; };
+          };
+          forEras = f: builtins.listToAttrs (map (era: f era releases.${era}) (builtins.attrNames releases));
+          shellOf = r: makeUserShell r.ps r.package r.root r.extraPackages;
+          # the release an example job runs against: its era's, with the
+          # cms-data the job asks for merged in
+          releaseFor = r: job:
+            if job ? data then mkRelease r.build (r.data ++ map (d: exampleData.${d}) job.data) else r.package;
+          cmssw-with-reco-data = mkRelease cmssw-build_201 [ cms-data_201 cms-data-reco_201 ];
         in
         {
           packages = {
             inherit cms-md5 cmssw root cmssw_10_6_30 coral coral_2205 pythia8_2205;
             inherit geant4_10_4 geant4-data geant4-data_201 g4hepem;
             inherit frontier-client frontier-client_2205;
-            inherit cms-data-reco_201;
+            cms-data_20_1 = cms-data_201;
+            cms-data-reco_20_1 = cms-data-reco_201;
+            inherit cms-data_10_6;
+            "cmssw_20_1-with-reco-data" = cmssw-with-reco-data;
             default = cmssw;
-          };
+          } // forEras (era: r: { name = "cmssw_${era}"; value = r.package; })
+            // forEras (era: r: { name = "cmssw-build_${era}"; value = r.build; })
+            // forEras (era: r: { name = "cmssw-extras_${era}"; value = makeExtrasHook r.ps era r.extraPackages; });
 
           # `nix flake check` builds and runs the whole example suite for both
           # releases, plus a dlopen sweep over every library. Each example
           # directory is a check of its own, so they build in parallel and a
           # failure names the example that broke.
-          checks =
-            let
-              check_10_6 = makeExampleCheck pkgs2205 cmssw_10_6_30 pkgs2205.root extraPackages_10_6 "10_6";
-              check_201 = makeExampleCheck pkgs cmssw root extraPackages_201 "20_1";
-              named = era: mk: map (job: {
-                name = "example-${era}-${job.dir}";
-                value = mk job;
-              }) exampleJobs.${era};
-            in
-            builtins.listToAttrs (named "10_6" check_10_6 ++ named "20_1" check_201) // {
-              libsweep-10_6 = makeSweepCheck pkgs2205 cmssw_10_6_30 "10_6";
-              libsweep-20_1 = makeSweepCheck pkgs cmssw "20_1";
-            };
+          checks = builtins.foldl' (a: b: a // b) { } (map (era:
+            let r = releases.${era}; in
+            builtins.listToAttrs (map (job: {
+              name = "example-${era}-${job.dir}";
+              value = makeExampleCheck r.ps (releaseFor r job) r.root r.extraPackages era job;
+            }) exampleJobs.${era}) // {
+              "libsweep-${era}" = makeSweepCheck r.ps r.package era;
+              "prepare-${era}" = makePrepareCheck r.ps r.build era;
+            }) (builtins.attrNames releases));
 
           devShells = {
-            default = makeUserShell pkgs cmssw root extraPackages_201;
+            default = shellOf releases."20_1";
+            cmssw_10_6_30 = shellOf releases."10_6";
 
             # with the cms-data of the standard Run 3 sequences (some 2 GB):
             # what cmsDriver.py's RECO, PAT and NANO steps read
-            with-reco-data = makeUserShell pkgs cmssw root (extraPackages_201 ++ [ cms-data-reco_201 ]);
-
-            cmssw_10_6_30 = makeUserShell pkgs2205 cmssw_10_6_30 pkgs2205.root extraPackages_10_6;
+            with-reco-data = makeUserShell pkgs cmssw-with-reco-data root extraPackages_201;
 
             # Environments for hacking on the CMSSW build itself: all the
             # dependencies, so the generator + cmake can be run by hand against a
             # local cmssw checkout.
             build = pkgs.mkShell {
-              inputsFrom = [ cmssw ];
+              inputsFrom = [ cmssw-build_201 ];
               packages = [ pkgs.git ];
               shellHook = ''
                 export ALPAKA_INCLUDE=${alpaka-src}/include
@@ -1034,10 +675,10 @@
             };
 
             build_10_6_30 = pkgs2205.mkShell {
-              inputsFrom = [ cmssw_10_6_30 ];
+              inputsFrom = [ cmssw-build_10_6 ];
               packages = [ pkgs2205.git ];
             };
-          };
+          } // forEras (era: r: { name = "cmssw_${era}"; value = shellOf r; });
         };
     in
     {

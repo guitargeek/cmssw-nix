@@ -1,0 +1,23 @@
+# What can be checked without building a release (hours, and more disk than
+# a hosted runner has): the flake evaluates on both systems, the Python
+# compiles, and gen/prepare and the generator apply to both releases'
+# sources. The releases themselves and the example jobs are `nix flake
+# check` on a machine with the time for them.
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - name: Python compiles
+        run: python3 -m py_compile gen/*.py gen/prepare/*.py scripts/*.py examples/*/python/*.py
+      - name: The flake evaluates, both systems
+        run: nix flake check --no-build --all-systems
+      - name: gen/prepare and the generator apply to both releases
+        run: nix build -L .#checks.x86_64-linux.prepare-20_1 .#checks.x86_64-linux.prepare-10_6

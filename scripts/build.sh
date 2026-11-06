@@ -13,12 +13,8 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-# release : flake attribute
-declare -A attrs=( [10_6]=cmssw_10_6_30 [20_1]=cmssw )
-
-# release : dev shell attribute (the shells are named after the release for
-# 10_6 and "default" for 20_1, which is not guessable from the release name)
-declare -A shells=( [10_6]=cmssw_10_6_30 [20_1]=default )
+# the releases the flake has (packages and dev shells cmssw_<release>)
+declare -A attrs=( [10_6]=cmssw_10_6 [20_1]=cmssw_20_1 )
 
 releases=("$@")
 if [ ${#releases[@]} -eq 0 ]; then
@@ -48,7 +44,7 @@ done
 # explicitly.
 echo "==> pinning sources"
 for rel in "${releases[@]}"; do
-  src=$(nix eval --raw ".#${attrs[$rel]}.src" 2>/dev/null) || continue
+  src=$(nix eval --raw ".#cmssw-build_$rel.src" 2>/dev/null) || continue
   nix-store --add-root "result-src-$rel" --indirect --realise "$src" > /dev/null
 done
 
@@ -62,7 +58,7 @@ done
 echo "==> pinning dev shells"
 system=$(nix eval --impure --raw --expr builtins.currentSystem)
 for rel in "${releases[@]}"; do
-  nix build ".#devShells.$system.${shells[$rel]}.inputDerivation" \
+  nix build ".#devShells.$system.${attrs[$rel]}.inputDerivation" \
     --out-link "result-shell-$rel" || echo "  could not pin the $rel dev shell" >&2
 done
 

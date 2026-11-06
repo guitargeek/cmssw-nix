@@ -18,91 +18,19 @@
 , jemalloc
 , pybind11
 , cms-md5
-# version-dependent bits: 20_1-era releases use alpaka and cpu_features,
-# 10_6-era ones parse the site config with xerces-c and use the pre-2021
-# CMS_PATH/SITECONF site config layout.
+# liblzma, for HepMC 2 (externals.hepmc)
+, xz
+# version-dependent bits
 , configFile ? ../gen/config.yml
 , cxxStandard ? "20"
+# alpaka headers (20_1-era): CMSSW_WITH_ALPAKA, the serial backend
 , alpaka-src ? null
-, cpu_features ? null
-, xercesc ? null
-# HepMC 2 + liblzma, needed by SimDataFormats/GeneratorProducts (part of the
-# miniAOD-reading closure of the 10_6 config)
-, hepmc ? null
-, xz
-# vdt fast-math headers (scram tool vdt_headers), used by TrackingTools and
-# DataFormats/ParticleFlowReco
-, vdt ? null
-# GSL, used by CalibCalorimetry/HcalAlgos (part of the calo local reco)
-, gsl ? null
-# standalone Minuit2 (pkgs/minuit2.nix) for ROOT builds without the Minuit2
-# component (nixpkgs 22.05); newer ROOTs provide ROOT::Minuit2 themselves
-, minuit2 ? null
-# reco-chain externals: fastjet (+contrib) for jet clustering, HepPDT for
-# the particle data table, lwtnn for the DeepFlavour tagger and the lwtnn
-# track classifier, openblas for the MVA trainer
-, fastjet ? null
-, fastjet-contrib ? null
-, heppdt ? null
-, lwtnn ? null
-, openblas ? null
-# DD4hep: the 20_1-era geometry packages build on it
-, dd4hep ? null
-# Xilinx ap_int/ap_fixed headers (20_1 L1 trigger data formats) and Geant4
-# (the HGCal geometry constants use G4 units)
-, hls ? null
-, geant4 ? null
-# the hls4ml model-loading interface: L1Trigger/L1TGlobal's AXOL1TL and
-# CICADA conditions (the models are loaded at run time)
-, hls4ml-emulator-extras ? null
-# utm: the L1 trigger menu library behind the L1TUtm* payloads, which
-# L1Trigger/L1TGlobal and HLTrigger/HLTcore need (without it, the payloads
-# are pruned)
-, utm ? null
-# zstd for the streamer file format (IOPool/Streamer, EventFilter/Utilities),
-# bzip2 for the Geners archives (Alignment/Geners, JetMETCorrections)
-, zstd ? null
-, bzip2 ? null
-# classlib (DQMNet's sockets) and protobuf (the DQM histogram file format,
-# regenerated with the protoc at hand): DQMServices/Core
-, classlib ? null
-, protobuf ? null
-# G4HepEm: SimG4Core/PhysicsLists includes its headers unconditionally
-, g4hepem ? null
-# HDF5: the 20_1 EcalTrivialConditionRetriever reads its pulse shapes from it
-, hdf5 ? null
-# HepMC 3: the 20_1 generator products carry both the HepMC 2 and 3 formats
-, hepmc3 ? null
-# ML inference externals used by the 20_1 reconstruction: ONNXRuntime (e/gamma
-# identification, particle flow) and XGBoost (photon identification)
-, onnxruntime ? null
-, xgboost ? null
-# TensorFlow (pkgs/tensorflow-cc.nix): the 20_1 reconstruction's DNNs. Without
-# it, gen/prepare prunes the TensorFlow users.
-, tensorflow-cc ? null
-# Tauola++ (pkgs/tauolapp.nix): the tau decays of GeneratorInterface/
-# TauolaInterface and NanoAOD's TauSpinner table. Without it both are pruned.
-, tauolapp ? null
-# Rivet (with YODA) and tinyxml2: GeneratorInterface/RivetInterface's
-# particle-level producers, which NanoAOD's MC sequence schedules
-, rivet ? null
-, yoda ? null
-, tinyxml2 ? null
-# event generation: Pythia 8 (pkgs/pythia8.nix for 10_6, nixpkgs' for 20_1),
-# LHAPDF and libsigc++ (GeneratorInterface/LHEInterface signals) from
-# nixpkgs, and HighFive (header-only HDF5 C++ interface, the LHE HDF5 reader
-# of 20_1)
-, pythia8 ? null
-, lhapdf ? null
-, libsigcxx ? null
-, highfive ? null
-# CORAL (pkgs/coral.nix), needed by CondCore
-, coral ? null
-# libcurl, used by the 20_1-era CondCore/CondDB (WebUtils)
-, curl ? null
-# nlohmann/json (header-only, scram tool "json"): FWCore/Services'
-# DumpDependencyGraph writes the module graph with it, as of 20_1_0_pre4
-, nlohmann_json ? null
+# The optional externals, by the name in optionalExternals below: whatever
+# a release passes here goes into buildInputs and switches on its tool block
+# in gen/CMakeLists.txt (CMSSW_WITH_<flag>). Only what is passed is used:
+# these are not callPackage arguments, which would be filled in from the
+# package set just because a package of that name exists there.
+, externals ? { }
 # clang binaries + libclang python bindings: the CondFormats serialization
 # code (boost-serialization methods for the conditions payload classes) is
 # generated at build time by a libclang-based script, like scram does it.
@@ -121,18 +49,108 @@
 # extra python packages for the runtime environment (e.g. six for 10_6-era
 # python config code)
 , extraPythonPackages ? (ps: [ ])
-# cms-data externals: data files distributed outside the cmssw repository
-# (github.com/cms-data/<Subsystem>-<Package>), installed as the package's
-# data/ directory like scram does. List of { path = "Subsystem/Package";
-# src = <flake input>; }.
-, extraData ? [ ]
 }:
 
 let
   pythonEnv = python3.withPackages (ps: [ ps.pyyaml ] ++ extraPythonPackages ps);
+
+  # The optional externals, in the order they go into buildInputs: the name
+  # in `externals`, the CMSSW_WITH_<flag> switch of its tool block in
+  # gen/CMakeLists.txt (null: none, the package is found through another
+  # one's block or by the compiler wrapper alone), and what it contributes
+  # to buildInputs.
+  optionalExternals = [
+    { name = "cpu_features"; flag = "CPU_FEATURES"; }
+    # the 10_6-era site config parser
+    { name = "xercesc"; flag = "XERCESC"; }
+    # HepMC 2, with liblzma: SimDataFormats/GeneratorProducts
+    { name = "hepmc"; flag = "HEPMC"; inputs = p: [ p xz ]; }
+    # the vdt fast-math functions (TrackingTools, ParticleFlowReco)
+    { name = "vdt"; flag = "VDT"; }
+    # CalibCalorimetry/HcalAlgos
+    { name = "gsl"; flag = "GSL"; }
+    # a standalone Minuit2 (pkgs/minuit2.nix), for ROOT builds without it
+    { name = "minuit2"; flag = null; }
+    # jet clustering
+    { name = "fastjet"; flag = "FASTJET"; }
+    { name = "fastjet-contrib"; flag = null; }
+    # the particle data table
+    { name = "heppdt"; flag = "HEPPDT"; }
+    # the DeepFlavour tagger and the lwtnn track classifier
+    { name = "lwtnn"; flag = "LWTNN"; }
+    # the MVA trainer
+    { name = "openblas"; flag = "OPENBLAS"; }
+    # the 20_1-era geometry
+    { name = "dd4hep"; flag = "DD4HEP"; }
+    # Xilinx ap_int/ap_fixed: the 20_1 L1 trigger data formats
+    { name = "hls"; flag = "HLS"; }
+    # the hls4ml model interface: the L1 emulation's trained models
+    { name = "hls4ml-emulator-extras"; flag = "HLS4ML_EMULATOR_EXTRAS"; }
+    # DQMServices/Core (DQMNet's sockets)
+    { name = "classlib"; flag = "CLASSLIB"; }
+    # the L1 menu library: the L1TUtm* payloads, L1TGlobal, HLTcore
+    { name = "utm"; flag = "UTM"; }
+    # the streamer file format, and the Geners archives
+    { name = "zstd"; flag = "ZSTD"; }
+    { name = "bzip2"; flag = "BZ2LIB"; }
+    # the DQM histogram file format, regenerated with this protoc (also in
+    # nativeBuildInputs)
+    { name = "protobuf"; flag = "PROTOBUF"; }
+    { name = "geant4"; flag = "GEANT4"; }
+    # SimG4Core/PhysicsLists includes its headers unconditionally (20_1)
+    { name = "g4hepem"; flag = "G4HEPEM"; }
+    # the 20_1 EcalTrivialConditionRetriever reads its pulse shapes from it
+    { name = "hdf5"; flag = "HDF5"; }
+    # the 20_1 generator products carry both HepMC formats
+    { name = "hepmc3"; flag = "HEPMC3"; }
+    # the reconstruction's networks (20_1)
+    { name = "onnxruntime"; flag = "ONNXRUNTIME"; inputs = p: [ p p.dev ]; }
+    { name = "xgboost"; flag = "XGBOOST"; }
+    # without it, gen/prepare prunes the TensorFlow users
+    { name = "tensorflow-cc"; flag = "TENSORFLOW"; }
+    # the tau decays and NanoAOD's TauSpinner table; pruned without it
+    { name = "tauolapp"; flag = "TAUOLAPP"; }
+    # GeneratorInterface/RivetInterface (with YODA and tinyxml2)
+    { name = "rivet"; flag = "RIVET"; }
+    { name = "yoda"; flag = null; }
+    { name = "tinyxml2"; flag = null; }
+    # CondCore
+    { name = "coral"; flag = "CORAL"; }
+    # CondCore/CondDB's WebUtils
+    { name = "curl"; flag = "CURL"; }
+    # header-only, scram tool "json": FWCore/Services' DumpDependencyGraph
+    { name = "nlohmann_json"; flag = null; }
+    # event generation; libsigc++ for 10_6's LHEInterface signals, HighFive
+    # for the 20_1 LHE HDF5 reader
+    { name = "pythia8"; flag = "PYTHIA8"; }
+    { name = "lhapdf"; flag = "LHAPDF"; }
+    { name = "libsigcxx"; flag = "SIGCPP"; }
+    { name = "highfive"; flag = "HIGHFIVE"; }
+  ];
+
+  presentExternals = map (e: {
+    inherit (e) flag;
+    inputs = (e.inputs or (p: [ p ])) externals.${e.name};
+  }) (lib.filter (e: externals ? ${e.name}) optionalExternals);
+
+  # an external by name, or null when the release has none
+  external = name: externals.${name} or null;
+
+  # what gen/prepare is run with (also by the flake's prepare checks)
+  prepareArgs = version
+    + lib.optionalString (externals ? tensorflow-cc) " --with-tensorflow"
+    + lib.optionalString (externals ? tauolapp) " --with-tauolapp";
+  tensorflow-cc = external "tensorflow-cc";
+  tauolapp = external "tauolapp";
+  protobuf = external "protobuf";
+  dd4hep = external "dd4hep";
+  utm = external "utm";
 in
+assert lib.all (n: lib.any (e: e.name == n) optionalExternals) (lib.attrNames externals);
+# The build of a release, without the cms-data it reads: pkgs/cmssw-release.nix
+# adds that, and is what users get.
 stdenv.mkDerivation {
-  pname = "cmssw";
+  pname = "cmssw-build";
   inherit version src;
 
   # Note: root must not appear both here and in buildInputs, its setup hook
@@ -157,41 +175,7 @@ stdenv.mkDerivation {
     pybind11
     python3
     cms-md5
-  ] ++ lib.optional (cpu_features != null) cpu_features
-    ++ lib.optional (xercesc != null) xercesc
-    ++ lib.optionals (hepmc != null) [ hepmc xz ]
-    ++ lib.optional (vdt != null) vdt
-    ++ lib.optional (gsl != null) gsl
-    ++ lib.optional (minuit2 != null) minuit2
-    ++ lib.optional (fastjet != null) fastjet
-    ++ lib.optional (fastjet-contrib != null) fastjet-contrib
-    ++ lib.optional (heppdt != null) heppdt
-    ++ lib.optional (lwtnn != null) lwtnn
-    ++ lib.optional (openblas != null) openblas
-    ++ lib.optional (dd4hep != null) dd4hep
-    ++ lib.optional (hls != null) hls
-    ++ lib.optional (hls4ml-emulator-extras != null) hls4ml-emulator-extras
-    ++ lib.optional (classlib != null) classlib
-    ++ lib.optional (utm != null) utm
-    ++ lib.optional (zstd != null) zstd
-    ++ lib.optional (bzip2 != null) bzip2
-    ++ lib.optional (protobuf != null) protobuf
-    ++ lib.optional (geant4 != null) geant4
-    ++ lib.optional (g4hepem != null) g4hepem
-    ++ lib.optional (hdf5 != null) hdf5
-    ++ lib.optional (hepmc3 != null) hepmc3
-    ++ lib.optionals (onnxruntime != null) [ onnxruntime onnxruntime.dev ]
-    ++ lib.optional (xgboost != null) xgboost
-    ++ lib.optional (tensorflow-cc != null) tensorflow-cc
-    ++ lib.optional (tauolapp != null) tauolapp
-    ++ lib.optionals (rivet != null) [ rivet yoda tinyxml2 ]
-    ++ lib.optional (coral != null) coral
-    ++ lib.optional (curl != null) curl
-    ++ lib.optional (nlohmann_json != null) nlohmann_json
-    ++ lib.optional (pythia8 != null) pythia8
-    ++ lib.optional (lhapdf != null) lhapdf
-    ++ lib.optional (libsigcxx != null) libsigcxx
-    ++ lib.optional (highfive != null) highfive;
+  ] ++ lib.concatMap (e: e.inputs) presentExternals;
 
   propagatedBuildInputs = lib.optional (deploymentTargetHook != null) deploymentTargetHook;
 
@@ -218,7 +202,7 @@ stdenv.mkDerivation {
 
     # Trim to the plain cmsRun binary, drop the XrdAdaptor dependency and
     # apply version-specific fixups.
-    python3 ${../gen/prepare} ${version}${lib.optionalString (tensorflow-cc != null) " --with-tensorflow"}${lib.optionalString (tauolapp != null) " --with-tauolapp"}
+    python3 ${../gen/prepare} ${prepareArgs}
 
     ${lib.optionalString (libclangPython != null) ''
       # Generate the conditions serialization code (src/Serialization.cc per
@@ -257,38 +241,7 @@ stdenv.mkDerivation {
       -DCMSSW_CXX_STANDARD=${cxxStandard} \
       ${lib.optionalString (alpaka-src != null)
         "-DCMSSW_WITH_ALPAKA=ON -Dalpaka_INCLUDE_DIRECTORIES=${alpaka-src}/include"} \
-      ${lib.optionalString (cpu_features != null) "-DCMSSW_WITH_CPU_FEATURES=ON"} \
-      ${lib.optionalString (xercesc != null) "-DCMSSW_WITH_XERCESC=ON"} \
-      ${lib.optionalString (hepmc != null) "-DCMSSW_WITH_HEPMC=ON"} \
-      ${lib.optionalString (vdt != null) "-DCMSSW_WITH_VDT=ON"} \
-      ${lib.optionalString (gsl != null) "-DCMSSW_WITH_GSL=ON"} \
-      ${lib.optionalString (fastjet != null) "-DCMSSW_WITH_FASTJET=ON"} \
-      ${lib.optionalString (heppdt != null) "-DCMSSW_WITH_HEPPDT=ON"} \
-      ${lib.optionalString (lwtnn != null) "-DCMSSW_WITH_LWTNN=ON"} \
-      ${lib.optionalString (openblas != null) "-DCMSSW_WITH_OPENBLAS=ON"} \
-      ${lib.optionalString (dd4hep != null) "-DCMSSW_WITH_DD4HEP=ON"} \
-      ${lib.optionalString (hls != null) "-DCMSSW_WITH_HLS=ON"} \
-      ${lib.optionalString (hls4ml-emulator-extras != null) "-DCMSSW_WITH_HLS4ML_EMULATOR_EXTRAS=ON"} \
-      ${lib.optionalString (classlib != null) "-DCMSSW_WITH_CLASSLIB=ON"} \
-      ${lib.optionalString (utm != null) "-DCMSSW_WITH_UTM=ON"} \
-      ${lib.optionalString (zstd != null) "-DCMSSW_WITH_ZSTD=ON"} \
-      ${lib.optionalString (bzip2 != null) "-DCMSSW_WITH_BZ2LIB=ON"} \
-      ${lib.optionalString (protobuf != null) "-DCMSSW_WITH_PROTOBUF=ON"} \
-      ${lib.optionalString (geant4 != null) "-DCMSSW_WITH_GEANT4=ON"} \
-      ${lib.optionalString (g4hepem != null) "-DCMSSW_WITH_G4HEPEM=ON"} \
-      ${lib.optionalString (hdf5 != null) "-DCMSSW_WITH_HDF5=ON"} \
-      ${lib.optionalString (hepmc3 != null) "-DCMSSW_WITH_HEPMC3=ON"} \
-      ${lib.optionalString (onnxruntime != null) "-DCMSSW_WITH_ONNXRUNTIME=ON"} \
-      ${lib.optionalString (xgboost != null) "-DCMSSW_WITH_XGBOOST=ON"} \
-      ${lib.optionalString (tensorflow-cc != null) "-DCMSSW_WITH_TENSORFLOW=ON"} \
-      ${lib.optionalString (tauolapp != null) "-DCMSSW_WITH_TAUOLAPP=ON"} \
-      ${lib.optionalString (rivet != null) "-DCMSSW_WITH_RIVET=ON"} \
-      ${lib.optionalString (coral != null) "-DCMSSW_WITH_CORAL=ON"} \
-      ${lib.optionalString (curl != null) "-DCMSSW_WITH_CURL=ON"} \
-      ${lib.optionalString (pythia8 != null) "-DCMSSW_WITH_PYTHIA8=ON"} \
-      ${lib.optionalString (lhapdf != null) "-DCMSSW_WITH_LHAPDF=ON"} \
-      ${lib.optionalString (libsigcxx != null) "-DCMSSW_WITH_SIGCPP=ON"} \
-      ${lib.optionalString (highfive != null) "-DCMSSW_WITH_HIGHFIVE=ON"} \
+      ${lib.concatMapStrings (e: "-DCMSSW_WITH_${e.flag}=ON ") (lib.filter (e: e.flag != null) presentExternals)} \
       -DCMSSW_VERSION=${version} \
       -DCMSSW_BUILD_BIN=ON \
       -DCMSSW_BUILD_PLUGINS=ON \
@@ -329,12 +282,6 @@ stdenv.mkDerivation {
         find $out/src/$pkg -name CMakeLists.txt -delete
       fi
     done
-
-    # cms-data externals: install as the data/ directory of their package
-    ${lib.concatMapStrings (d: ''
-      mkdir -p $out/src/${d.path}/data
-      cp -r ${d.src}/. $out/src/${d.path}/data/
-    '') extraData}
 
     # Generate the fillDescriptions-based *_cfi.py files (scram's
     # "cfipython"), so the standard configuration files can import them. The
@@ -511,10 +458,10 @@ stdenv.mkDerivation {
     done
   '';
 
-  passthru = { inherit pythonEnv; };
+  passthru = { inherit pythonEnv prepareArgs configFile; };
 
   meta = {
-    description = "CMS software framework (FWCore + DataFormats subset, cmake-based build)";
+    description = "The CMS offline software, built with CMake instead of scram";
     homepage = "https://github.com/cms-sw/cmssw";
     license = lib.licenses.asl20;
     platforms = [ "x86_64-linux" "aarch64-darwin" ];

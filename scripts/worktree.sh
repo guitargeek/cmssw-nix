@@ -20,10 +20,13 @@
 #                        with targets, build only those (e.g.
 #                        lib/libFWCoreFramework.so)
 #   install              run the install phase into <tree>/out: install, plugin
-#                        cache (every plugin is loaded), cfi generation
+#                        cache (every plugin is loaded), cfi generation; and
+#                        merge the release's cms-data into <tree>/release, as
+#                        pkgs/cmssw-release.nix does (for 20_1 also the
+#                        standard sequences', which CmsDriverChain reads)
 #   run [example...]     build the examples against <tree>/out and run their
 #                        jobs (examples/run_all.sh; default: all of them)
-#   shell                interactive shell with <tree>/out as the release
+#   shell                interactive shell with <tree>/release as the release
 #
 # The tree lives in ${CMSSW_WORKTREE:-<repo>/worktree}/<era> (gitignored).
 # Every command runs the derivation's own phases from pkgs/cmssw.nix in the
@@ -43,10 +46,12 @@ usage() { sed -n '2,/^set -euo/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 2; }
 [ $# -ge 2 ] || usage
 era=$1; cmd=$2; shift 2
 case "$era" in
-  20_1) attr=cmssw;         data=geant4-data_201 ;;
-  10_6) attr=cmssw_10_6_30; data=geant4-data ;;
+  20_1) cmsdata="cms-data_20_1 cms-data-reco_20_1" ;;
+  10_6) cmsdata="cms-data_10_6" ;;
   *) usage ;;
 esac
+attr=cmssw-build_$era
+data=cmssw-extras_$era
 
 repo=$(cd "$(dirname "$0")/.." && pwd)
 T=${CMSSW_WORKTREE:-$repo/worktree}/$era
@@ -94,9 +99,13 @@ make_env() {
   echo "==> build environment of .#packages.$system.$attr"
   nix print-dev-env "$repo#packages.$system.$attr" > "$T/env.sh.new"
   mv "$T/env.sh.new" "$T/env.sh"
-  # the examples need the Geant4 datasets on top (see extraPackages_* in
-  # flake.nix; everything else there is part of the build environment)
+  # the examples need the dev shell's extra packages on top (extraPackages_*
+  # in flake.nix: the Geant4 datasets, the hls4ml models, the PDF sets)
   nix build --no-link --print-out-paths "$repo#packages.$system.$data" > "$T/data.path"
+  # ... and the cms-data merged into the release area after install
+  for d in $cmsdata; do
+    nix build --no-link --print-out-paths "$repo#packages.$system.$d"
+  done > "$T/cmsdata.paths"
 }
 
 case "$cmd" in
@@ -189,18 +198,19 @@ EOF
     ;;
 
   install)
-    remove "$T/out"
+    remove "$T/out"; remove "$T/release"
     phase installPhase > "$T/install.log" 2>&1 \
       || { echo "install failed, see $T/install.log" >&2; tail -20 "$T/install.log"; exit 1; }
+    in_env "bash '$repo/gen/release-with-data.sh' '$T/out' '$T/release' $(tr '\n' ' ' < "$T/cmsdata.paths")"
     echo "installed into $T/out ($(grep -c 'unable to load' "$src/plugin-refresh.log" || true) unloadable plugins)"
     ;;
 
   run|shell)
-    [ -f "$T/out/nix-support/setup-hook" ] || { echo "nothing installed: run '$0 $era install'" >&2; exit 1; }
+    [ -f "$T/release/nix-support/setup-hook" ] || { echo "nothing installed: run '$0 $era install'" >&2; exit 1; }
     rc=$T/shellrc
     cat > "$rc" <<EOF
 source '$T/env.sh' > /dev/null
-source '$T/out/nix-support/setup-hook'
+source '$T/release/nix-support/setup-hook'
 source '$(cat "$T/data.path")/nix-support/setup-hook'
 PS1='[worktree $era] \w \$ '
 EOF

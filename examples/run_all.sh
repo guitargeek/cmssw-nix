@@ -5,6 +5,9 @@
 #   ./examples/run_all.sh 20_1     # the CMSSW_20_1_0_pre4 package
 #   ./examples/run_all.sh 20_1 MuonGunSim MuonGunDigi   # just these
 #
+# Jobs that need cms-data beyond the release's ("data" in jobs.json) only
+# run when named, from a shell whose release has that data.
+#
 # Run this from inside the matching dev shell. The job list lives in
 # examples/jobs.json, which `nix flake check` reads too - see the checks in
 # flake.nix, which run the same jobs hermetically. This script is the
@@ -16,8 +19,7 @@ era=${1:-20_1}
 shift || true
 only=" $* "   # example directories to run; all of them if none given
 case "$era" in
-  10_6) attr=cmssw_10_6_30 ;;
-  20_1) attr=cmssw ;;
+  10_6 | 20_1) attr=cmssw_$era ;;
   *) echo "usage: $0 [10_6|20_1]" >&2; exit 2 ;;
 esac
 
@@ -32,6 +34,13 @@ with open(sys.argv[2]) as f:
 only = sys.argv[3].split()
 for job in spec[era]:
     if only and job["dir"] not in only:
+        continue
+    # a job that needs cms-data beyond what the release has runs in the shell of a
+    # release that has it (the flake checks give it one): only when asked for
+    if "data" in job and not only:
+        print("skipping " + job["dir"] + ": it needs " + ", ".join(job["data"])
+              + "; run it by name from a shell with that data (nix develop .#with-reco-data)",
+              file=sys.stderr)
         continue
     for cfg in job["cfgs"]:
         print(job["dir"] + ":" + cfg)
