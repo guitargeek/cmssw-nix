@@ -192,12 +192,12 @@ with both releases).
 ## Platforms
 
 Both releases build and pass the example suite on `aarch64-darwin` (Apple
-silicon); the 20_1 package there needs macOS 26 or later, for the
-floating-point `std::from_chars` of the system C++ library. `x86_64-linux`,
-where the build started, evaluates and is what CMSSW itself is developed
-on, but the releases have not been built there since the macOS port: treat
-it as untested until they have. What the port changed, and the clang and
-libc++ issues it found in CMSSW, are in [docs/macos.md](docs/macos.md).
+silicon) and `x86_64-linux`; the 20_1 package on macOS needs macOS 26 or
+later, for the floating-point `std::from_chars` of the system C++ library.
+On Linux, in the build sandbox, a 12-core machine with 29 GB of memory
+compiles 20_1 in a little over four hours. What the macOS port changed, and
+the clang and libc++ issues it found in CMSSW, are in
+[docs/macos.md](docs/macos.md).
 
 ## Testing
 
