@@ -26,8 +26,10 @@ its Rivet particle-level and TauSpinner tables.
 `python/step<N>_offline_cfg.py` jobs. Each one runs `cmsDriver.py` for its
 step, loads the configuration it wrote, and runs it **without events and
 without the conditions database** (`chain.offline`): the input is replaced
-by an `EmptySource`, `maxEvents` set to 0, and the `GlobalTag` ES source
-dropped, because the build sandbox has no network.
+by an `EmptySource`, `maxEvents` set to 0, and the ES sources that read
+the conditions database dropped (the `GlobalTag`, and step 2's `l1ugmtdb`,
+which the L1 muon trigger connects to Frontier on its own), because the
+build sandbox has no network.
 
 That is still most of what can go wrong. Constructing the job translates
 every parameter of the configuration into its C++ `ParameterSet` — every

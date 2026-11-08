@@ -57,10 +57,13 @@ target_link_libraries(MuonGunDigiTestPlugins
   DataFormatsTrackReco
   DataFormatsVertexReco
   SimDataFormatsVertex
-  # the nanoAOD flat table over reco::Muon (plugins/RecoMuonFlatTableProducer.cc)
+  # the nanoAOD flat table over reco::Muon (plugins/RecoMuonFlatTableProducer.cc;
+  # on 20_1 its SimpleFlatTableProducer.h names types through
+  # Utilities/General's Demangle)
   DataFormatsMuonReco
   DataFormatsNanoAOD
   CommonToolsUtils
+  UtilitiesGeneral
   # the empty CSC/RPC collections (plugins/EmptyMuonCollectionProducers.cc)
   DataFormatsCSCRecHit
   DataFormatsRPCRecHit

@@ -76,7 +76,10 @@ rec {
         # without this a failing cmsRun is hidden by the tee that follows
         set -o pipefail
         export LD_LIBRARY_PATH=$PWD/build''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-        edmPluginRefresh $PWD/build
+        # the refresh only skips a plugin library that does not load (see
+        # examples/run_all.sh): fail here, on the loader's message
+        edmPluginRefresh $PWD/build 2>&1 | tee refresh.log
+        if grep -q 'unable to load' refresh.log; then exit 1; fi
         for cfg in ${ps.lib.escapeShellArgs job.cfgs}; do
           echo "=== $cfg"
           log=$(basename "''${cfg%.py}").log

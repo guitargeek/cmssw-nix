@@ -63,12 +63,18 @@ def offline(process):
     C++ ParameterSet (and resolves every FileInPath), constructs every
     scheduled module and every ES module, and runs beginJob: the missing
     plugins, data files and wrong parameters of the whole configuration.
-    The global tag is the one thing left out (no network in the build
-    sandbox); with no event, no run begins and nothing asks for conditions.
+    The conditions database is the one thing left out (no network in the
+    build sandbox): the global tag, and the ES sources that read it on their
+    own (the L1 muon trigger's l1ugmtdb connects to Frontier directly, and
+    does so as it is constructed). With no event, no run begins and nothing
+    asks for conditions.
     """
     process.source = cms.Source("EmptySource")
     process.maxEvents.input = 0
     del process.GlobalTag
+    for label, source in list(process.es_sources_().items()):
+        if source.type_() in ("PoolDBESSource", "CondDBESSource"):
+            delattr(process, label)
     return process
 
 

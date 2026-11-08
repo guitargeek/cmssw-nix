@@ -59,7 +59,14 @@ run_one() {
     cmake -B "$bld" -S . -G Ninja > build.log 2>&1 || { echo "   CMAKE FAILED"; tail -5 build.log; exit 1; }
     cmake --build "$bld" >> build.log 2>&1 || { echo "   BUILD FAILED"; grep -m5 "error:" build.log; exit 1; }
     export LD_LIBRARY_PATH=$PWD/$bld:${LD_LIBRARY_PATH:-}
-    edmPluginRefresh "$PWD/$bld" > /dev/null 2>&1
+    # A plugin library that does not load (a library missing from the
+    # example's link: the macOS link defers the symbol to run time, the
+    # Linux loader binds it at dlopen) is only skipped by the refresh, and
+    # the job would then fail on a "plugin not found".
+    edmPluginRefresh "$PWD/$bld" > refresh.log 2>&1
+    if grep -q 'unable to load' refresh.log; then
+      echo "   PLUGIN LOAD FAILED"; grep 'unable to load' refresh.log; exit 1
+    fi
     cmsRun "$cfg" > run.log 2>&1 || { echo "   RUN FAILED"; tail -25 run.log; exit 1; }
     # an optional <cfg>_check.py validates the job output from outside
     # CMSSW (e.g. reading a produced nanoAOD file with plain ROOT)
