@@ -614,6 +614,18 @@ if(CMSSW_WITH_ALPAKA)
   )
   # alpaka headers are needed nearly everywhere the SoA data formats appear
   include_directories(${alpaka_INCLUDE_DIRECTORIES})
+  # The alpaka sources are the heaviest compilations of the build: up to
+  # 3.2 GB each with gcc 16, against well under 1 GB for the rest, and they
+  # come in bursts (RecoTracker/PixelSeeding has a dozen). With Ninja, they
+  # share a pool given half the memory available at configure time, so the
+  # -j of the build does not run more of them than the machine holds.
+  cmake_host_system_information(RESULT available_mib QUERY AVAILABLE_PHYSICAL_MEMORY)
+  math(EXPR alpaka_jobs "${available_mib} / 2 / 3584")
+  if(alpaka_jobs LESS 1)
+    set(alpaka_jobs 1)
+  endif()
+  set_property(GLOBAL APPEND PROPERTY JOB_POOLS alpaka=${alpaka_jobs})
+  message(STATUS "alpaka sources: at most ${alpaka_jobs} compiled at once (${available_mib} MiB available)")
 endif()
 
 # ---------------------------------------------------------------------------

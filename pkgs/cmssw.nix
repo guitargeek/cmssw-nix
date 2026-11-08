@@ -253,7 +253,9 @@ stdenv.mkDerivation {
   buildPhase = ''
     runHook preBuild
     # cap parallelism: a dozen concurrent CMSSW/dictionary compilations can
-    # exhaust the memory of smaller machines
+    # exhaust the memory of smaller machines (and the alpaka sources, several
+    # times heavier, have a pool of their own sized by memory: see
+    # gen/CMakeLists.txt)
     jobs=$NIX_BUILD_CORES
     if [ "$jobs" -gt 10 ]; then jobs=10; fi
     # -k 0: keep going on errors, so one failed build reports every broken

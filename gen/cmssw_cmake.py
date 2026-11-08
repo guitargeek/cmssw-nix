@@ -176,6 +176,13 @@ def for_this_target(elem, backend):
     return backend is not None and f == "alpaka/" + backend
 
 
+def alpaka_backend_lines():
+    """The backend define of an alpaka target, and its place in the pool of
+    heavy compilations (JOB_POOLS in gen/CMakeLists.txt)."""
+    return ["target_compile_definitions(<target> PRIVATE " + ALPAKA_DEFINE + ")",
+            "set_property(TARGET <target> PROPERTY JOB_POOL_COMPILE alpaka)"]
+
+
 def alpaka_dependency_lines(dependency):
     if "/" not in dependency:
         return []
@@ -425,7 +432,7 @@ def write_cmake_for_target(cmake, root, elem, n_src_files, root_node, global_lib
         parts = os.path.normpath(root).split(os.sep)
         cmake += alpaka_dependency_lines("/".join(parts[:2]))
         cmake += ["target_link_libraries(<target> $<TARGET_NAME_IF_EXISTS:" + "".join(parts[:2]) + ">)"]
-        cmake += ["target_compile_definitions(<target> PRIVATE " + ALPAKA_DEFINE + ")"]
+        cmake += alpaka_backend_lines()
     # some BuildFiles name their own library here (Geometry/DTGeometryBuilder)
     for lib in (l for l in global_libs if l != target):
         cmake += cmake_dependency_lines(lib)
@@ -508,7 +515,7 @@ def build_xml_to_cmake(root, root_node):
         for lib in global_libs + [name(e) for e in host[0] if e.tag == "lib" and name(e) != "1"]:
             cmake += ["target_link_libraries(<target> " + lib + ")"]
         cmake += ["target_link_libraries(<target> $<TARGET_NAME_IF_EXISTS:" + package + ">)"]
-        cmake += ["target_compile_definitions(<target> PRIVATE " + ALPAKA_DEFINE + ")"]
+        cmake += alpaka_backend_lines()
         cmake.fill_target(target)
 
     return cmake
