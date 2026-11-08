@@ -19,6 +19,10 @@ stdenv.mkDerivation {
     # Boost.System has been header-only for years, and recent boost no
     # longer ships the stub library
     sed -i 's/-lboost_system//' */Makefile.default
+    # (a #!/bin/bash script, and the makefiles' shell is /bin/bash too,
+    # which the Linux sandbox does not have)
+    patchShebangs --build configure
+    substituteInPlace config/mfCommonDefs.mk --replace-fail 'SHELL = /bin/bash' 'SHELL = ${stdenv.shell}'
     ./configure
     runHook postConfigure
   '';

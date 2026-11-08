@@ -7,8 +7,10 @@
 # libtensorflow_cc and libtensorflow_framework, and the headers - with the
 # Eigen, absl and protobuf versions the libraries were built against.
 #
-# Verified on aarch64-darwin only (the wheel links the system libc++, as
-# everything else built here does). The Linux wheel has the same layout.
+# Verified on aarch64-darwin (the wheel links the system libc++, as
+# everything else built here does) and x86_64-linux (where it links gcc's
+# libstdc++ and libgcc_s, which autoPatchelfHook finds in the compiler's lib
+# output).
 { lib, stdenv, unzip, fixDarwinDylibNames, autoPatchelfHook, wheel }:
 
 let
@@ -24,6 +26,8 @@ stdenv.mkDerivation {
   nativeBuildInputs = [ unzip ]
     ++ lib.optional stdenv.hostPlatform.isDarwin fixDarwinDylibNames
     ++ lib.optional stdenv.hostPlatform.isLinux autoPatchelfHook;
+  # the libstdc++ and libgcc_s the Linux libraries link, for autoPatchelfHook
+  buildInputs = lib.optional stdenv.hostPlatform.isLinux stdenv.cc.cc.lib;
 
   # only the C++ libraries and the headers, not the 220 MB python package
   unpackPhase = ''
